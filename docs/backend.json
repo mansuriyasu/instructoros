@@ -1,0 +1,383 @@
+
+{
+  "entities": {
+    "Student": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Student",
+      "type": "object",
+      "description": "Represents a student in the SparkOn Driving Academy.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Student entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The student's full name."
+        },
+        "address": {
+          "type": "string",
+          "description": "The student's full address."
+        },
+        "birthdate": {
+          "type": "string",
+          "description": "The student's date of birth (YYYYMMDD).",
+          "format": "date"
+        },
+        "licenseNumber": {
+          "type": "string",
+          "description": "The student's driver's license number."
+        },
+        "licenseExpiryDate": {
+          "type": "string",
+          "description": "The expiry date of the student's driver's license (YYYYMMDD).",
+          "format": "date-time"
+        },
+        "licenseType": {
+          "type": "string",
+          "description": "The type of driver's license (e.g., G, G2)."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the student (e.g., active, booked, on-hold, deactivated)."
+        },
+        "comments": {
+          "type": "string",
+          "description": "Any comments or notes about the student."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "address",
+        "birthdate",
+        "licenseNumber",
+        "licenseExpiryDate",
+        "licenseType",
+        "status"
+      ]
+    },
+    "Service": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Service",
+      "type": "object",
+      "description": "Represents a service offered by the driving instructor.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Service entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the service (e.g., 'In-car Lesson', 'Road Test')."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the service."
+        },
+        "cost": {
+          "type": "number",
+          "description": "The cost or purchase price of the service if it is being resold."
+        },
+        "discount": {
+          "type": "number",
+          "description": "An optional discount for the service."
+        },
+        "order": {
+          "type": "number",
+          "description": "The order/sequence in which the services should be displayed."
+        },
+        "category": {
+          "type": "string",
+          "description": "An optional category to group services (e.g., 'Lessons', 'Packages', 'Tests')."
+        },
+        "duration": {
+            "type": "number",
+            "description": "The duration of the service in minutes."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "price"
+      ]
+    },
+    "ServiceCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Service Category",
+      "type": "object",
+      "description": "Represents a category for grouping services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ServiceCategory entity, typically the category name in lowercase."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the category."
+        },
+        "order": {
+          "type": "number",
+          "description": "The display order of the category."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "order"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment transaction. Can handle full and partial payments.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Payment entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to Student. (Relationship: Student 1:N Payment).  If null, the payment is for a 'Walk-in Customer'."
+        },
+        "items": {
+          "type": "array",
+          "description": "An array of bill items included in this payment.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "billItemId": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "price": {
+                "type": "number"
+              },
+              "date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "quantity": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "billItemId",
+              "id",
+              "name",
+              "price",
+              "date",
+              "quantity"
+            ]
+          }
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "The method of payment (e.g., Cash, E-Transfer, Other, Unpaid)."
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "The date the payment was made.",
+          "format": "date-time"
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "The total amount before discounts and taxes."
+        },
+        "discount": {
+          "type": "number",
+          "description": "The total discount applied to the bill."
+        },
+        "tax": {
+          "type": "number",
+          "description": "The total tax applied to the bill."
+        },
+        "total": {
+          "type": "number",
+          "description": "The final amount of the bill after discounts and taxes."
+        },
+        "paidAmount": {
+          "type": "number",
+          "description": "The total amount that has been paid towards the bill."
+        },
+        "amountDue": {
+          "type": "number",
+          "description": "The remaining amount due for the bill."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the payment (e.g., paid, unpaid).",
+          "enum": ["paid", "unpaid"]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes for the payment."
+        }
+      },
+      "required": [
+        "id",
+        "paymentMethod",
+        "paymentDate",
+        "subtotal",
+        "tax",
+        "total",
+        "paidAmount",
+        "amountDue",
+        "status"
+      ]
+    },
+    "CalendarEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Calendar Event",
+      "type": "object",
+      "description": "Represents a schedulable event on the calendar, like a lesson or road test.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CalendarEvent entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the event."
+        },
+        "start": {
+          "type": "string",
+          "description": "The start time of the event in ISO 8601 format.",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "description": "The end time of the event in ISO 8601 format.",
+          "format": "date-time"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Optional reference to the student associated with the event."
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Denormalized student name for easy display."
+        },
+        "services": {
+            "type": "array",
+            "description": "A list of services associated with this event.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" }
+              },
+              "required": ["id", "name"]
+            }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes for the event."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "start",
+        "end"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/students/{studentId}",
+        "definition": {
+          "entityName": "Student",
+          "schema": {
+            "$ref": "#/backend/entities/Student"
+          },
+          "description": "Stores individual student records. Includes standard student information. Rules: Only authenticated users can read/write student data.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "Unique identifier for the student."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/services/{serviceId}",
+        "definition": {
+          "entityName": "Service",
+          "schema": {
+            "$ref": "#/backend/entities/Service"
+          },
+          "description": "Stores the services offered by the driving academy. Rules: Only authenticated users can read/write service data.",
+          "params": [
+            {
+              "name": "serviceId",
+              "description": "Unique identifier for the service."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/serviceCategories/{categoryId}",
+        "definition": {
+          "entityName": "ServiceCategory",
+          "schema": {
+            "$ref": "#/backend/entities/ServiceCategory"
+          },
+          "description": "Stores the categories for services. Rules: Only authenticated users can read/write category data.",
+          "params": [
+            {
+              "name": "categoryId",
+              "description": "Unique identifier for the category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores payment records. Each payment is associated with a student (or a 'Walk-in Customer'). Rules: Only authenticated users can read/write payment data.",
+          "params": [
+            {
+              "name": "paymentId",
+              "description": "Unique identifier for the payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/events/{eventId}",
+        "definition": {
+          "entityName": "CalendarEvent",
+          "schema": {
+            "$ref": "#/backend/entities/CalendarEvent"
+          },
+          "description": "Stores calendar events for student lessons and appointments. Rules: Only authenticated users can read/write event data.",
+          "params": [
+            {
+              "name": "eventId",
+              "description": "Unique identifier for the event."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support the SparkOn Driving Academy application, focusing on student management, service offerings, payments, and scheduling. The design emphasizes authorization independence, clear security rules, and efficient data retrieval.  \n\n**Authorization Independence (CRITICAL):** The structure avoids hierarchical authorization dependencies (`get()`).  All authorization checks rely on `request.auth.uid` and data within the document being accessed. There are no custom claims.\n\n**Structural Segregation (Homogeneous Security Posture):**  Each collection is designed to hold documents with similar security requirements.\n\n**Access Modeling (Standardization and Consistency):**  The design leverages path-based ownership for user-related data and membership maps where collaborative access is needed.  \n\nQAPs are supported by segregating data according to its security requirements and using membership models where necessary.\n\n1.  **/students/{studentId}:** Stores individual student records. This allows for efficient querying and management of student data. Since the application's requirements do not specify collaborative access between students, a simple path-based ownership model is sufficient.  Rules: Only authenticated users can read student data.\n2.  **/services/{serviceId}:** Stores the services offered by the driving academy. This allows for easy management of service details such as name, price, and discount.  Rules: Only authenticated users can read or write service data.\n3.  **/serviceCategories/{categoryId}:** Stores service categories for organizational purposes. Allows for reordering and management of categories displayed in the POS. Rules: Only authenticated users can read/write category data.\n4.  **/payments/{paymentId}:** Stores payment records. Each payment is associated with a student (or a 'Walk-in Customer').  Rules: Only authenticated users can read or write payment data.\n5.  **/events/{eventId}:** Stores calendar events for student lessons and appointments. This flat collection allows for easy querying of events by date range. Rules: Only authenticated users can read/write event data."
+  }
+}

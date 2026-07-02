@@ -1,0 +1,64 @@
+{
+  "placeholderImages": [
+    {
+      "id": "1",
+      "description": "A smiling person looking at the camera",
+      "imageUrl": "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwZXJzb24lMjBzbWlsaW5nfGVufDB8fHx8MTc2NjE3MzM1OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person smiling"
+    },
+    {
+      "id": "2",
+      "description": "A person with glasses",
+      "imageUrl": "https://images.unsplash.com/photo-1595533452504-27d7bf483389?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwZXJzb24lMjBnbGFzc2VzfGVufDB8fHx8MTc2NjE0OTIzMnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person glasses"
+    },
+    {
+      "id": "3",
+      "description": "A person in a car",
+      "imageUrl": "https://images.unsplash.com/photo-1687561114602-eb5701981823?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwZXJzb24lMjBjYXJ8ZW58MHx8fHwxNzY2MTc2NjQzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person car"
+    },
+    {
+      "id": "4",
+      "description": "A person driving a car",
+      "imageUrl": "https://images.unsplash.com/photo-1716828860225-45cad11f22de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBkcml2aW5nfGVufDB8fHx8MTc2NjE2MTA1Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person driving"
+    },
+    {
+      "id": "5",
+      "description": "A person holding a key",
+      "imageUrl": "https://images.unsplash.com/photo-1628630142627-bf03fedc55a5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxwZXJzb24lMjBrZXl8ZW58MHx8fHwxNzY2MjA0NDQxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person key"
+    },
+    {
+      "id": "6",
+      "description": "A person looking thoughtful",
+      "imageUrl": "https://images.unsplash.com/photo-1544243747-b8ca15da2450?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwZXJzb24lMjB0aGlua2luZ3xlbnwwfHx8fDE3NjYxMjk1Nzd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person thinking"
+    },
+    {
+      "id": "7",
+      "description": "A confident person",
+      "imageUrl": "https://images.unsplash.com/photo-1672072963431-04219afb5d47?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwZXJzb24lMjBjb25maWRlbnR8ZW58MHx8fHwxNzY2MjA0NDQxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person confident"
+    },
+    {
+      "id": "8",
+      "description": "A young driver",
+      "imageUrl": "https://images.unsplash.com/photo-1756673114502-75659fe72acb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx5b3VuZyUyMGRyaXZlcnxlbnwwfHx8fDE3NjYyMDQ0NDF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "young driver"
+    },
+    {
+      "id": "9",
+      "description": "A person with a new license",
+      "imageUrl": "https://images.unsplash.com/photo-1758444067021-d1a3b4c31381?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxuZXclMjBsaWNlbnNlfGVufDB8fHx8MTc2NjIwNDQ0MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "new license"
+    },
+    {
+      "id": "10",
+      "description": "A happy person",
+      "imageUrl": "https://images.unsplash.com/photo-1484863137850-59afcfe05386?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxoYXBweSUyMHBlcnNvbnxlbnwwfHx8fDE3NjYwOTg3OTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "happy person"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 96%;
+    --foreground: 210 10% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 10% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 10% 15%;
+    --primary: 47 100% 50%;
+    --primary-foreground: 210 20% 10%;
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 210 10% 15%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 210 10% 40%;
+    --accent: 47 100% 50%;
+    --accent-foreground: 210 20% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 47 100% 50%;
+    --chart-1: 210 70% 55%;
+    --chart-2: 145 60% 45%;
+    --chart-3: 265 60% 65%;
+    --chart-4: 340 80% 65%;
+    --chart-5: 45 90% 55%;
+    --radius: 1rem;
+  }
+  .dark {
+    --background: 40 10% 10%;
+    --foreground: 40 10% 95%;
+    --card: 40 10% 15%;
+    --card-foreground: 40 10% 95%;
+    --popover: 40 10% 15%;
+    --popover-foreground: 40 10% 95%;
+    --primary: 45 93% 47%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 40 10% 20%;
+    --secondary-foreground: 40 10% 95%;
+    --muted: 40 10% 20%;
+    --muted-foreground: 40 10% 65%;
+    --accent: 40 10% 20%;
+    --accent-foreground: 40 10% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 40 10% 25%;
+    --input: 40 10% 25%;
+    --ring: 45 93% 47%;
+    --chart-1: 210 70% 55%;
+    --chart-2: 145 60% 45%;
+    --chart-3: 265 60% 65%;
+    --chart-4: 340 80% 65%;
+    --chart-5: 45 90% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+}
