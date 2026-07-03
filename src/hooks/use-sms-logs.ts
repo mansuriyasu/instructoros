@@ -1,7 +1,7 @@
 "use client";
 
 import { SmsLog } from '@/lib/types';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useUser, useTenantCollectionPath } from '@/firebase';
 import { collection, orderBy, query } from 'firebase/firestore';
 
 type SendMessageResult = {
@@ -21,10 +21,11 @@ type WhatsAppTemplateOptions = {
 export function useSmsLogs() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const smsLogsPath = useTenantCollectionPath('smsLogs');
 
   const smsLogsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'smsLogs') : null),
-    [firestore, user]
+    () => (firestore && user && smsLogsPath ? collection(firestore, smsLogsPath) : null),
+    [firestore, user, smsLogsPath]
   );
 
   const smsLogsQuery = useMemoFirebase(

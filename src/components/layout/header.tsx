@@ -10,13 +10,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { useUser } from "@/firebase";
+import { useSession, useUser } from "@/firebase";
 import { Settings } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 
 export function Header() {
   const { user } = useUser();
+  const { role, tenant } = useSession();
   const today = new Date();
   const dateLabel = format(today, "EEEE, MMMM d · yyyy");
 
@@ -53,6 +54,9 @@ export function Header() {
                 {user?.displayName && <p className="font-medium">{user.displayName}</p>}
                 {user?.email && (
                   <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>
+                )}
+                {(tenant?.name || role) && (
+                  <p className="w-[200px] truncate text-xs text-muted-foreground">{tenant?.name || 'Main Admin'}</p>
                 )}
               </div>
             </div>

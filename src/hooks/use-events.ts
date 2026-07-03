@@ -6,6 +6,8 @@ import {
   useFirestore,
   useCollection,
   useMemoFirebase,
+  useSession,
+  useTenantCollectionPath,
   addDocumentNonBlocking,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
@@ -15,12 +17,14 @@ import { useStudents } from './use-students';
 
 export function useEvents(startDate?: Date, endDate?: Date) {
   const firestore = useFirestore();
+  const { user, role } = useSession();
+  const eventsPath = useTenantCollectionPath('events');
   const { students: allStudents } = useStudents();
 
   const eventsQuery = useMemoFirebase(
     () => {
-      if (!firestore) return null;
-      let q = query(collection(firestore, 'events'));
+      if (!firestore || !eventsPath) return null;
+      let q = query(collection(firestore, eventsPath));
       
       if (startDate && endDate) {
         // Query for events that *end* after the start of the range
@@ -29,6 +33,10 @@ export function useEvents(startDate?: Date, endDate?: Date) {
         q = query(q, 
             where('start', '<=', endDate.toISOString()),
         );
+      }
+
+      if (role === 'schoolInstructor' && user) {
+        q = query(q, where('instructorId', '==', user.uid));
       }
       
       // We are fetching a slightly wider range and filtering on the client
@@ -39,7 +47,7 @@ export function useEvents(startDate?: Date, endDate?: Date) {
 
       return q;
     },
-    [firestore, startDate?.toISOString(), endDate?.toISOString()]
+    [firestore, eventsPath, role, user, startDate?.toISOString(), endDate?.toISOString()]
   );
   
   const filterFn = useMemo(() => {
@@ -67,23 +75,26 @@ export function useEvents(startDate?: Date, endDate?: Date) {
   }, [events, allStudents]);
 
   const addEvent = async (event: Omit<CalendarEvent, 'id'>) => {
-    if (!firestore) return;
+    if (!firestore || !eventsPath) return;
     const { studentAddress, ...eventToSave } = event; // Don't save address to Firestore
-    const eventsRef = collection(firestore, 'events');
-    return addDocumentNonBlocking(eventsRef, eventToSave);
+    const eventsRef = collection(firestore, eventsPath);
+    return addDocumentNonBlocking(eventsRef, {
+      ...eventToSave,
+      instructorId: eventToSave.instructorId || user?.uid || null,
+    });
   };
 
   const updateEvent = async (event: Partial<CalendarEvent> & { id: string }) => {
-    if (!firestore) return;
-    const eventRef = doc(firestore, 'events', event.id);
+    if (!firestore || !eventsPath) return;
+    const eventRef = doc(firestore, eventsPath, event.id);
 
     const { studentAddress, ...eventToSave } = event; // Don't save address to Firestore
     return updateDocumentNonBlocking(eventRef, eventToSave);
   };
 
   const deleteEvent = async (eventId: string) => {
-    if (!firestore) return;
-    const eventRef = doc(firestore, 'events', eventId);
+    if (!firestore || !eventsPath) return;
+    const eventRef = doc(firestore, eventsPath, eventId);
     return deleteDocumentNonBlocking(eventRef);
   };
 

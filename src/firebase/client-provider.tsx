@@ -6,24 +6,31 @@ import { FirebaseProvider, useUser } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
 import { Auth } from 'firebase/auth';
 import { AccessDenied } from '@/components/auth/access-denied';
-import { isOwnerEmail } from '@/lib/auth-config';
+import { useSession } from '@/firebase/provider';
 
 interface FirebaseClientProviderProps {
   children: ReactNode;
 }
 
 function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode }) {
-  const { user, isUserLoading, userError } = useUser();
+  const { user, isUserLoading } = useUser();
+  const { role, tenant, activeTenantId, isMainAdmin, isSessionLoading, sessionError } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === '/login';
+  const isAdminPage = pathname?.startsWith('/admin');
 
   useEffect(() => {
     if (isUserLoading || isLoginPage || user) return;
     router.replace(`/login?next=${encodeURIComponent(pathname || '/')}`);
   }, [isLoginPage, isUserLoading, pathname, router, user]);
 
-  if (isUserLoading) {
+  useEffect(() => {
+    if (isLoginPage || isSessionLoading || !user || !isMainAdmin || activeTenantId || isAdminPage) return;
+    router.replace('/admin');
+  }, [activeTenantId, isAdminPage, isLoginPage, isMainAdmin, isSessionLoading, router, user]);
+
+  if (isSessionLoading) {
     return null;
   }
 
@@ -31,7 +38,7 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
     return <>{children}</>;
   }
 
-  if (userError || !auth) {
+  if (sessionError || !auth) {
     return <AccessDenied />;
   }
 
@@ -39,7 +46,19 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
     return null;
   }
 
-  if (!isOwnerEmail(user.email)) {
+  if (!role) {
+    return <AccessDenied message="Your account is signed in, but it has not been connected to an InstructorOS workspace yet." />;
+  }
+
+  if (!isMainAdmin && (!tenant || tenant.status !== 'active')) {
+    return <AccessDenied message="This workspace is not active. Please contact your school admin or InstructorOS support." />;
+  }
+
+  if (isMainAdmin && !activeTenantId && !isAdminPage) {
+    return null;
+  }
+
+  if (isAdminPage && !isMainAdmin) {
     return <AccessDenied />;
   }
 

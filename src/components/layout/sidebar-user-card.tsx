@@ -3,11 +3,13 @@
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { LogOut } from "lucide-react";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useSession, useUser } from "@/firebase";
+import { roleLabel } from "@/lib/auth-config";
 
 export function SidebarUserCard() {
   const auth = useAuth();
   const { user } = useUser();
+  const { role, tenant } = useSession();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -30,7 +32,7 @@ export function SidebarUserCard() {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13.5px] font-bold text-[#191B20]">{name}</p>
-        <p className="text-[11.5px] text-[#8A8E96]">Instructor</p>
+        <p className="truncate text-[11.5px] text-[#8A8E96]">{tenant?.name || roleLabel(role)}</p>
       </div>
       <button
         onClick={handleLogout}

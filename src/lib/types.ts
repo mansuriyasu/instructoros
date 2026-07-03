@@ -21,6 +21,7 @@ export interface Student {
   avatarUrl?: string; // Optional face image stored as base64 or URL
   licenseImageUrl?: string; // Optional full license image URL in Firebase Storage
   tags?: string[];
+  assignedInstructorIds?: string[];
 }
 
 export interface Service {
@@ -62,6 +63,7 @@ export interface Payment {
   paymentDate: string; // ISO 8601
   status: PaymentStatus;
   notes?: string;
+  instructorId?: string | null;
   creditApplied?: number;
   transactions?: PaymentTransaction[];
 }
@@ -89,6 +91,7 @@ export interface CalendarEvent {
   paymentId?: string;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod;
+  instructorId?: string | null;
   lessonStatus?: LessonStatus;
   examCenter?: string;
   examDateTime?: string;

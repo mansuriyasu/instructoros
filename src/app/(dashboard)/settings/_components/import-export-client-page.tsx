@@ -30,7 +30,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useStudents } from '@/hooks/use-students';
 import { useUtilityTracker, type UtilityTrackerData } from '@/hooks/use-utility-tracker';
-import { useFirestore } from '@/firebase';
+import { useActiveTenantId, useFirestore } from '@/firebase';
 import { Student } from '@/lib/types';
 import { downloadJson } from '@/lib/utils';
 
@@ -44,8 +44,8 @@ type CollectionBackup = {
 };
 
 type FullBackup = {
-  app: 'sparkon-instructor-pro';
-  version: 2;
+  app: 'sparkon-instructor-pro' | 'instructoros';
+  version: 3;
   exportedAt: string;
   collections: Record<string, CollectionBackup>;
   localStorage: {
@@ -151,8 +151,12 @@ function normalizeStudentCsvKey(key: string) {
   return map[normalized];
 }
 
-async function fetchCollectionBackup(firestore: Firestore, collectionName: string, label: string) {
-  const snapshot = await getDocs(collection(firestore, collectionName));
+function tenantCollectionPath(activeTenantId: string, collectionName: string) {
+  return `tenants/${activeTenantId}/${collectionName}`;
+}
+
+async function fetchCollectionBackup(firestore: Firestore, activeTenantId: string, collectionName: string, label: string) {
+  const snapshot = await getDocs(collection(firestore, tenantCollectionPath(activeTenantId, collectionName)));
   return {
     name: collectionName,
     label,
@@ -161,8 +165,8 @@ async function fetchCollectionBackup(firestore: Firestore, collectionName: strin
   } satisfies CollectionBackup;
 }
 
-async function deleteCollectionRecords(firestore: Firestore, collectionName: string) {
-  const snapshot = await getDocs(collection(firestore, collectionName));
+async function deleteCollectionRecords(firestore: Firestore, activeTenantId: string, collectionName: string) {
+  const snapshot = await getDocs(collection(firestore, tenantCollectionPath(activeTenantId, collectionName)));
   const docs = snapshot.docs;
 
   for (let i = 0; i < docs.length; i += 450) {
@@ -174,18 +178,19 @@ async function deleteCollectionRecords(firestore: Firestore, collectionName: str
 
 async function writeCollectionRecords(
   firestore: Firestore,
+  activeTenantId: string,
   collectionName: string,
   records: Array<{ id: string; data: Record<string, unknown> }>,
   mode: BackupMode
 ) {
   if (mode === 'replace') {
-    await deleteCollectionRecords(firestore, collectionName);
+    await deleteCollectionRecords(firestore, activeTenantId, collectionName);
   }
 
   for (let i = 0; i < records.length; i += 450) {
     const batch = writeBatch(firestore);
     records.slice(i, i + 450).forEach(record => {
-      batch.set(doc(firestore, collectionName, record.id), record.data, { merge: mode === 'merge' });
+      batch.set(doc(firestore, tenantCollectionPath(activeTenantId, collectionName), record.id), record.data, { merge: mode === 'merge' });
     });
     await batch.commit();
   }
@@ -193,6 +198,7 @@ async function writeCollectionRecords(
 
 export function ImportExportClientPage() {
   const firestore = useFirestore();
+  const activeTenantId = useActiveTenantId();
   const { students, addStudent } = useStudents();
   const { data: utilityData, saveData: saveUtilityData } = useUtilityTracker();
   const { toast } = useToast();
@@ -220,18 +226,18 @@ export function ImportExportClientPage() {
   }, []);
 
   const buildFullBackup = async (): Promise<FullBackup> => {
-    if (!firestore) throw new Error('Database is not ready yet.');
+    if (!firestore || !activeTenantId) throw new Error('Database is not ready yet.');
 
     const collectionEntries = await Promise.all(
       COLLECTIONS.map(async item => {
-        const backup = await fetchCollectionBackup(firestore, item.name, item.label);
+        const backup = await fetchCollectionBackup(firestore, activeTenantId, item.name, item.label);
         return [item.name, backup] as const;
       })
     );
 
     return {
-      app: 'sparkon-instructor-pro',
-      version: 2,
+      app: 'instructoros',
+      version: 3,
       exportedAt: new Date().toISOString(),
       collections: Object.fromEntries(collectionEntries),
       localStorage: {
@@ -258,14 +264,14 @@ export function ImportExportClientPage() {
   };
 
   const handleCollectionCsvExport = async (collectionName: string, label: string) => {
-    if (!firestore) {
+    if (!firestore || !activeTenantId) {
       toast({ variant: 'destructive', title: 'Database is not ready yet.' });
       return;
     }
 
     try {
       setIsBusy(true);
-      const backup = await fetchCollectionBackup(firestore, collectionName, label);
+      const backup = await fetchCollectionBackup(firestore, activeTenantId, collectionName, label);
       const records = backup.records.map(record => ({ id: record.id, ...record.data }));
       const csv = recordsToCsv(records);
       if (!csv) {
@@ -323,9 +329,9 @@ export function ImportExportClientPage() {
   };
 
   const importFullBackup = async (backup: FullBackup) => {
-    if (!firestore) throw new Error('Database is not ready yet.');
-    if (backup.app !== 'sparkon-instructor-pro' || !backup.collections) {
-      throw new Error('This does not look like a SparkOn full backup file.');
+    if (!firestore || !activeTenantId) throw new Error('Database is not ready yet.');
+    if (!['sparkon-instructor-pro', 'instructoros'].includes(backup.app) || !backup.collections) {
+      throw new Error('This does not look like an InstructorOS full backup file.');
     }
 
     if (mode === 'replace') {
@@ -338,7 +344,7 @@ export function ImportExportClientPage() {
     for (const item of COLLECTIONS) {
       const section = backup.collections[item.name];
       if (!section?.records) continue;
-      await writeCollectionRecords(firestore, item.name, section.records, mode);
+      await writeCollectionRecords(firestore, activeTenantId, item.name, section.records, mode);
     }
 
     const utilityBackup = backup.localStorage?.utilityTrackerData_v4;
@@ -436,7 +442,7 @@ export function ImportExportClientPage() {
       const text = await file.text();
       const parsed = file.name.endsWith('.json') ? JSON.parse(text) : null;
 
-      if (parsed?.app === 'sparkon-instructor-pro' && parsed?.collections) {
+      if ((parsed?.app === 'sparkon-instructor-pro' || parsed?.app === 'instructoros') && parsed?.collections) {
         await importFullBackup(parsed as FullBackup);
       } else {
         await importStudentFile(text, file);

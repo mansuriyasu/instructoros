@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useTenantCollectionPath } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
 export type ExpenseCategory = 
@@ -80,10 +80,11 @@ export type BusinessExpense = {
 export function useBusinessExpenses() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const expensesPath = useTenantCollectionPath('business_expenses');
 
   const expensesCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'business_expenses') : null),
-    [firestore, user]
+    () => (firestore && user && expensesPath ? collection(firestore, expensesPath) : null),
+    [firestore, user, expensesPath]
   );
 
   const { data: expensesUnsorted, isLoading } = useCollection<BusinessExpense>(expensesCollectionRef);
@@ -112,7 +113,10 @@ export function useBusinessExpenses() {
     if (!firestore) {
       throw new Error('The expenses database is not ready yet. Please try again.');
     }
-    const expenseRef = doc(firestore, 'business_expenses', id);
+    if (!expensesPath) {
+      throw new Error('The expenses database is not ready yet. Please try again.');
+    }
+    const expenseRef = doc(firestore, expensesPath, id);
     return updateDocumentNonBlocking(expenseRef, updates);
   };
 
@@ -123,7 +127,10 @@ export function useBusinessExpenses() {
     if (!firestore) {
       throw new Error('The expenses database is not ready yet. Please try again.');
     }
-    const expenseRef = doc(firestore, 'business_expenses', id);
+    if (!expensesPath) {
+      throw new Error('The expenses database is not ready yet. Please try again.');
+    }
+    const expenseRef = doc(firestore, expensesPath, id);
     return deleteDocumentNonBlocking(expenseRef);
   };
 

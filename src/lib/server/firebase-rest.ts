@@ -44,9 +44,13 @@ async function getAnonymousFirebaseIdToken() {
   return payload.idToken;
 }
 
-export async function createStudentViaFirebaseRest(data: Record<string, string>) {
+export async function createStudentViaFirebaseRest(data: Record<string, string>, tenantId: string) {
+  if (!tenantId || !/^[A-Za-z0-9_-]+$/.test(tenantId)) {
+    throw new Error('A valid InstructorOS workspace id is required.');
+  }
+
   const idToken = await getAnonymousFirebaseIdToken();
-  const response = await fetch(`${FIRESTORE_BASE_URL}/students`, {
+  const response = await fetch(`${FIRESTORE_BASE_URL}/tenants/${tenantId}/students`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${idToken}`,

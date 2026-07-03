@@ -1,19 +1,32 @@
 "use client";
 
 import { Student } from '@/lib/types';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useSession, useTenantCollectionPath } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
 
 export function useStudents() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const { role } = useSession();
+  const studentsPath = useTenantCollectionPath('students');
 
   const studentsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'students') : null),
-    [firestore, user]
+    () => (firestore && user && studentsPath ? collection(firestore, studentsPath) : null),
+    [firestore, user, studentsPath]
   );
 
-  const { data: students, isLoading } = useCollection<Student>(studentsCollectionRef);
+  const studentsQuery = useMemoFirebase(
+    () => {
+      if (!studentsCollectionRef) return null;
+      if (role === 'schoolInstructor' && user) {
+        return query(studentsCollectionRef, where('assignedInstructorIds', 'array-contains', user.uid));
+      }
+      return studentsCollectionRef;
+    },
+    [studentsCollectionRef, role, user]
+  );
+
+  const { data: students, isLoading } = useCollection<Student>(studentsQuery);
 
   const addStudent = async (student: Omit<Student, 'id' | 'registrationDate' | 'status'>) => {
     if (!user) {
@@ -32,6 +45,7 @@ export function useStudents() {
       licenseType: student.licenseType || 'G2',
       comments: student.comments || '',
       tags: student.tags || [],
+      assignedInstructorIds: role === 'schoolInstructor' && user ? [user.uid] : [],
       registrationDate: new Date().toISOString(),
       status: 'active'
     };
@@ -45,7 +59,10 @@ export function useStudents() {
     if (!firestore) {
       throw new Error('The students database is not ready yet. Please try again.');
     }
-    const studentRef = doc(firestore, 'students', student.id);
+    if (!studentsPath) {
+      throw new Error('The students database is not ready yet. Please try again.');
+    }
+    const studentRef = doc(firestore, studentsPath, student.id);
     // Don't create a new object, to avoid overwriting fields that might not be in the form
     return updateDocumentNonBlocking(studentRef, student);
   };
@@ -57,7 +74,10 @@ export function useStudents() {
     if (!firestore) {
       throw new Error('The students database is not ready yet. Please try again.');
     }
-    const studentRef = doc(firestore, 'students', studentId);
+    if (!studentsPath) {
+      throw new Error('The students database is not ready yet. Please try again.');
+    }
+    const studentRef = doc(firestore, studentsPath, studentId);
     return deleteDocumentNonBlocking(studentRef);
   };
 

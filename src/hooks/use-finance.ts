@@ -1,6 +1,6 @@
 'use client';
 
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useTenantCollectionPath } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { ZakatYear, FinanceAsset, FinanceLiability, ZakatPayment, FinanceLoan, FinanceSpending } from '@/lib/types';
 import { useMemo } from 'react';
@@ -8,14 +8,20 @@ import { useMemo } from 'react';
 export function useFinance() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const yearsPath = useTenantCollectionPath('finance_years');
+  const assetsPath = useTenantCollectionPath('finance_assets');
+  const liabilitiesPath = useTenantCollectionPath('finance_liabilities');
+  const paymentsPath = useTenantCollectionPath('finance_payments');
+  const loansPath = useTenantCollectionPath('finance_loans');
+  const spendingPath = useTenantCollectionPath('finance_spending');
 
   // References
-  const yearsRef = useMemoFirebase(() => (firestore && user ? collection(firestore, 'finance_years') : null), [firestore, user]);
-  const assetsRef = useMemoFirebase(() => (firestore && user ? collection(firestore, 'finance_assets') : null), [firestore, user]);
-  const liabilitiesRef = useMemoFirebase(() => (firestore && user ? collection(firestore, 'finance_liabilities') : null), [firestore, user]);
-  const paymentsRef = useMemoFirebase(() => (firestore && user ? collection(firestore, 'finance_payments') : null), [firestore, user]);
-  const loansRef = useMemoFirebase(() => (firestore && user ? collection(firestore, 'finance_loans') : null), [firestore, user]);
-  const spendingRef = useMemoFirebase(() => (firestore && user ? collection(firestore, 'finance_spending') : null), [firestore, user]);
+  const yearsRef = useMemoFirebase(() => (firestore && user && yearsPath ? collection(firestore, yearsPath) : null), [firestore, user, yearsPath]);
+  const assetsRef = useMemoFirebase(() => (firestore && user && assetsPath ? collection(firestore, assetsPath) : null), [firestore, user, assetsPath]);
+  const liabilitiesRef = useMemoFirebase(() => (firestore && user && liabilitiesPath ? collection(firestore, liabilitiesPath) : null), [firestore, user, liabilitiesPath]);
+  const paymentsRef = useMemoFirebase(() => (firestore && user && paymentsPath ? collection(firestore, paymentsPath) : null), [firestore, user, paymentsPath]);
+  const loansRef = useMemoFirebase(() => (firestore && user && loansPath ? collection(firestore, loansPath) : null), [firestore, user, loansPath]);
+  const spendingRef = useMemoFirebase(() => (firestore && user && spendingPath ? collection(firestore, spendingPath) : null), [firestore, user, spendingPath]);
 
   // Data
   const { data: years, isLoading: yearsLoading } = useCollection<ZakatYear>(yearsRef);
@@ -55,54 +61,54 @@ export function useFinance() {
 
   // Update functions
   const updateYear = async (year: Partial<ZakatYear> & { id: string }) => {
-    if (!firestore) throw new Error('Database not ready');
-    return updateDocumentNonBlocking(doc(firestore, 'finance_years', year.id), year);
+    if (!firestore || !yearsPath) throw new Error('Database not ready');
+    return updateDocumentNonBlocking(doc(firestore, yearsPath, year.id), year);
   };
   const updateAsset = async (asset: Partial<FinanceAsset> & { id: string }) => {
-    if (!firestore) throw new Error('Database not ready');
-    return updateDocumentNonBlocking(doc(firestore, 'finance_assets', asset.id), asset);
+    if (!firestore || !assetsPath) throw new Error('Database not ready');
+    return updateDocumentNonBlocking(doc(firestore, assetsPath, asset.id), asset);
   };
   const updateLiability = async (liability: Partial<FinanceLiability> & { id: string }) => {
-    if (!firestore) throw new Error('Database not ready');
-    return updateDocumentNonBlocking(doc(firestore, 'finance_liabilities', liability.id), liability);
+    if (!firestore || !liabilitiesPath) throw new Error('Database not ready');
+    return updateDocumentNonBlocking(doc(firestore, liabilitiesPath, liability.id), liability);
   };
   const updatePayment = async (payment: Partial<ZakatPayment> & { id: string }) => {
-    if (!firestore) throw new Error('Database not ready');
-    return updateDocumentNonBlocking(doc(firestore, 'finance_payments', payment.id), payment);
+    if (!firestore || !paymentsPath) throw new Error('Database not ready');
+    return updateDocumentNonBlocking(doc(firestore, paymentsPath, payment.id), payment);
   };
   const updateLoan = async (loan: Partial<FinanceLoan> & { id: string }) => {
-    if (!firestore) throw new Error('Database not ready');
-    return updateDocumentNonBlocking(doc(firestore, 'finance_loans', loan.id), loan);
+    if (!firestore || !loansPath) throw new Error('Database not ready');
+    return updateDocumentNonBlocking(doc(firestore, loansPath, loan.id), loan);
   };
   const updateSpending = async (item: Partial<FinanceSpending> & { id: string }) => {
-    if (!firestore) throw new Error('Database not ready');
-    return updateDocumentNonBlocking(doc(firestore, 'finance_spending', item.id), item);
+    if (!firestore || !spendingPath) throw new Error('Database not ready');
+    return updateDocumentNonBlocking(doc(firestore, spendingPath, item.id), item);
   };
 
   // Delete functions
   const deleteYear = async (id: string) => {
-    if (!firestore) throw new Error('Database not ready');
-    return deleteDocumentNonBlocking(doc(firestore, 'finance_years', id));
+    if (!firestore || !yearsPath) throw new Error('Database not ready');
+    return deleteDocumentNonBlocking(doc(firestore, yearsPath, id));
   };
   const deleteAsset = async (id: string) => {
-    if (!firestore) throw new Error('Database not ready');
-    return deleteDocumentNonBlocking(doc(firestore, 'finance_assets', id));
+    if (!firestore || !assetsPath) throw new Error('Database not ready');
+    return deleteDocumentNonBlocking(doc(firestore, assetsPath, id));
   };
   const deleteLiability = async (id: string) => {
-    if (!firestore) throw new Error('Database not ready');
-    return deleteDocumentNonBlocking(doc(firestore, 'finance_liabilities', id));
+    if (!firestore || !liabilitiesPath) throw new Error('Database not ready');
+    return deleteDocumentNonBlocking(doc(firestore, liabilitiesPath, id));
   };
   const deletePayment = async (id: string) => {
-    if (!firestore) throw new Error('Database not ready');
-    return deleteDocumentNonBlocking(doc(firestore, 'finance_payments', id));
+    if (!firestore || !paymentsPath) throw new Error('Database not ready');
+    return deleteDocumentNonBlocking(doc(firestore, paymentsPath, id));
   };
   const deleteLoan = async (id: string) => {
-    if (!firestore) throw new Error('Database not ready');
-    return deleteDocumentNonBlocking(doc(firestore, 'finance_loans', id));
+    if (!firestore || !loansPath) throw new Error('Database not ready');
+    return deleteDocumentNonBlocking(doc(firestore, loansPath, id));
   };
   const deleteSpending = async (id: string) => {
-    if (!firestore) throw new Error('Database not ready');
-    return deleteDocumentNonBlocking(doc(firestore, 'finance_spending', id));
+    if (!firestore || !spendingPath) throw new Error('Database not ready');
+    return deleteDocumentNonBlocking(doc(firestore, spendingPath, id));
   };
 
   // Helpers

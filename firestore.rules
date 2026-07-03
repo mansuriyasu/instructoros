@@ -1,154 +1,199 @@
-/**
- * Core Philosophy:
- * This ruleset enforces a simple but secure "Owner Administrator" model.
- * Access to the entire database is restricted to the SparkOn owner account only.
- * Unauthenticated users and any other signed-in users are denied all access.
- *
- * Data Structure:
- * The data is organized into five flat, top-level collections:
- * - /students/{studentId}: Records for driving students.
- * - /services/{serviceId}: Services offered by the academy.
- * - /serviceCategories/{categoryId}: Categories for services.
- * - /payments/{paymentId}: Transaction records.
- * - /business_expenses/{expenseId}: Business expense records.
- * - /events/{eventId}: Calendar events for lessons and appointments.
- * - /calendar_embeds/{calendarEmbedId}: (Legacy) A singleton collection for the calendar embed code.
- * This flat structure avoids complex relational lookups and simplifies security logic.
- *
- * Key Security Decisions:
- * - Owner Access Only: The signed-in user's email must match the configured
- *   SparkOn owner email.
- * - Default Deny: All access is denied by default. Rules explicitly grant
- *   permissions only to authenticated users.
- * - No Public Data: There are no publicly readable collections. All data,
- *   including services and calendar information, is protected and requires login.
- *
- * Denormalization for Authorization:
- * This security model is simple enough that it does not require denormalization.
- * Authorization is based solely on the user's authentication state (`request.auth`),
- * eliminating the need for cross-document reads (`get()`) to verify permissions.
- *
- * Structural Segregation:
- * Each top-level collection holds data with a uniform security requirement
- * (authenticated access only). This homogeneity simplifies the ruleset and ensures
- * consistent security across the application.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ----------------------------------------------------------------------
-    // Helper Functions
-    // ----------------------------------------------------------------------
-
-    /**
-     * Checks if the user is the SparkOn owner.
-     */
-    function isOwner() {
-      return request.auth != null
-        && request.auth.token.email == "yasin_mansuri@live.com";
+    function signedIn() {
+      return request.auth != null && request.auth.token.email != null;
     }
 
-    // ----------------------------------------------------------------------
-    // Collection Rules
-    // ----------------------------------------------------------------------
-
-    /**
-     * @description Grants full read and write access to the owner for student records.
-     * @path /students/{studentId}
-     * @allow An authenticated admin (create) a new student document.
-     * @deny An unauthenticated user (get) a student document.
-     * @principle Enforces an owner-only access model.
-     */
-    match /students/{studentId} {
-      allow get: if isOwner();
-      allow list: if isOwner();
-      allow create: if isOwner();
-      allow update: if isOwner();
-      allow delete: if isOwner();
+    function email() {
+      return request.auth.token.email.lower();
     }
 
-    /**
-     * @description Grants full read and write access to the owner for service offerings.
-     * @path /services/{serviceId}
-     * @allow An authenticated admin (update) the price of a service.
-     * @deny An unauthenticated user (list) the available services.
-     * @principle Enforces an owner-only access model.
-     */
-    match /services/{serviceId} {
-      allow get: if isOwner();
-      allow list: if isOwner();
-      allow create: if isOwner();
-      allow update: if isOwner();
-      allow delete: if isOwner();
-    }
-    
-    /**
-     * @description Grants full read and write access to the owner for service categories.
-     * @path /serviceCategories/{categoryId}
-     * @allow An authenticated admin (create) a new service category.
-     * @deny An unauthenticated user (list) the available categories.
-     * @principle Enforces an owner-only access model.
-     */
-    match /serviceCategories/{categoryId} {
-      allow get: if isOwner();
-      allow list: if isOwner();
-      allow create: if isOwner();
-      allow update: if isOwner();
-      allow delete: if isOwner();
+    function isMainAdmin() {
+      return signedIn() && email() == "yasin_mansuri@live.com";
     }
 
-    /**
-     * @description Grants full read and write access to the owner for payment records.
-     * @path /payments/{paymentId}
-     * @allow An authenticated admin (create) a new payment record.
-     * @deny An unauthenticated user (delete) a payment record.
-     * @principle Enforces an owner-only access model.
-     */
-    match /payments/{paymentId} {
-      allow get: if isOwner();
-      allow list: if isOwner();
-      allow create: if isOwner();
-      allow update: if isOwner();
-      allow delete: if isOwner();
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
     }
 
-    /**
-     * @description Grants full read and write access to the owner for business expense records.
-     * @path /business_expenses/{expenseId}
-     * @allow An authenticated admin (create) a new business expense record.
-     * @deny An unauthenticated user (list) the business expense records.
-     * @principle Enforces an owner-only access model.
-     */
-    match /business_expenses/{expenseId} {
-      allow get: if isOwner();
-      allow list: if isOwner();
-      allow create: if isOwner();
-      allow update: if isOwner();
-      allow delete: if isOwner();
+    function tenantPath(tenantId) {
+      return /databases/$(database)/documents/tenants/$(tenantId);
     }
 
-    /**
-     * @description Grants full read and write access to the owner for calendar events.
-     * @path /events/{eventId}
-     * @allow An authenticated admin (create) a new event.
-     * @deny An unauthenticated user (get) an event.
-     * @principle Enforces an owner-only access model.
-     */
-    match /events/{eventId} {
-      allow get: if isOwner();
-      allow list: if isOwner();
-      allow create: if isOwner();
-      allow update: if isOwner();
-      allow delete: if isOwner();
+    function memberPath(tenantId, uid) {
+      return /databases/$(database)/documents/tenants/$(tenantId)/members/$(uid);
     }
 
-    match /finance_years/{docId} { allow read, write: if isOwner(); }
-    match /finance_assets/{docId} { allow read, write: if isOwner(); }
-    match /finance_liabilities/{docId} { allow read, write: if isOwner(); }
-    match /finance_payments/{docId} { allow read, write: if isOwner(); }
-    match /finance_loans/{docId} { allow read, write: if isOwner(); }
-    match /finance_spending/{docId} { allow read, write: if isOwner(); }
-    match /smsLogs/{docId} { allow read, write: if isOwner(); }
+    function invitePath(tenantId, inviteId) {
+      return /databases/$(database)/documents/tenants/$(tenantId)/invites/$(inviteId);
+    }
+
+    function tenantExists(tenantId) {
+      return exists(tenantPath(tenantId));
+    }
+
+    function tenantActive(tenantId) {
+      return tenantExists(tenantId) && get(tenantPath(tenantId)).data.status == "active";
+    }
+
+    function member(tenantId) {
+      return get(memberPath(tenantId, request.auth.uid)).data;
+    }
+
+    function isActiveMember(tenantId) {
+      return signedIn()
+        && exists(memberPath(tenantId, request.auth.uid))
+        && member(tenantId).status == "active"
+        && tenantActive(tenantId);
+    }
+
+    function role(tenantId) {
+      return member(tenantId).role;
+    }
+
+    function isTenantAdmin(tenantId) {
+      return isMainAdmin()
+        || (isActiveMember(tenantId) && role(tenantId) in ["schoolAdmin", "soloInstructor"]);
+    }
+
+    function isSchoolInstructor(tenantId) {
+      return isActiveMember(tenantId) && role(tenantId) == "schoolInstructor";
+    }
+
+    function assignedToInstructor() {
+      return (resource.data.assignedInstructorIds is list && request.auth.uid in resource.data.assignedInstructorIds)
+        || (resource.data.instructorId is string && resource.data.instructorId == request.auth.uid);
+    }
+
+    function newAssignedToInstructor() {
+      return (request.resource.data.assignedInstructorIds is list && request.auth.uid in request.resource.data.assignedInstructorIds)
+        || (request.resource.data.instructorId is string && request.resource.data.instructorId == request.auth.uid);
+    }
+
+    match /users/{uid} {
+      allow get: if isMainAdmin() || (signedIn() && request.auth.uid == uid);
+      allow list: if isMainAdmin();
+      allow create: if isMainAdmin()
+        || (signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && request.resource.data.email == email());
+      allow update: if isMainAdmin()
+        || (signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && request.resource.data.email == email());
+      allow delete: if isMainAdmin();
+    }
+
+    match /tenants/{tenantId} {
+      allow get: if isMainAdmin() || isActiveMember(tenantId);
+      allow list: if isMainAdmin();
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerEmail == email()
+        && request.resource.data.status == "active"
+        && request.resource.data.type in ["school", "solo"];
+      allow update: if isMainAdmin() || (isActiveMember(tenantId) && role(tenantId) == "schoolAdmin");
+      allow delete: if isMainAdmin();
+
+      match /members/{uid} {
+        allow get, list: if isMainAdmin() || isTenantAdmin(tenantId);
+        allow create: if isMainAdmin()
+          || (
+            signedIn()
+            && request.auth.uid == uid
+            && request.resource.data.uid == uid
+            && request.resource.data.email == email()
+            && (
+              (
+                request.resource.data.role in ["schoolAdmin", "soloInstructor"]
+                && getAfter(tenantPath(tenantId)).data.ownerUid == request.auth.uid
+              )
+              || (
+                request.resource.data.role == "schoolInstructor"
+                && request.resource.data.inviteId is string
+                && exists(invitePath(tenantId, request.resource.data.inviteId))
+                && get(invitePath(tenantId, request.resource.data.inviteId)).data.email == email()
+                && get(invitePath(tenantId, request.resource.data.inviteId)).data.status == "pending"
+              )
+            )
+          );
+        allow update: if isMainAdmin() || isTenantAdmin(tenantId);
+        allow delete: if isMainAdmin() || isTenantAdmin(tenantId);
+      }
+
+      match /invites/{inviteId} {
+        allow get: if isMainAdmin()
+          || isTenantAdmin(tenantId)
+          || (signedIn() && resource.data.email == email() && resource.data.status == "pending");
+        allow list: if isMainAdmin() || isTenantAdmin(tenantId);
+        allow create: if isMainAdmin()
+          || (isTenantAdmin(tenantId)
+            && request.resource.data.email is string
+            && request.resource.data.role == "schoolInstructor"
+            && request.resource.data.status == "pending"
+            && request.resource.data.tenantId == tenantId);
+        allow update: if isMainAdmin()
+          || isTenantAdmin(tenantId)
+          || (signedIn()
+            && resource.data.email == email()
+            && resource.data.status == "pending"
+            && request.resource.data.status == "accepted"
+            && request.resource.data.acceptedByUid == request.auth.uid);
+        allow delete: if isMainAdmin() || isTenantAdmin(tenantId);
+      }
+
+      match /students/{docId} {
+        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
+        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
+        allow create: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor());
+        allow update: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor());
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /payments/{docId} {
+        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
+        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
+        allow create: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor());
+        allow update: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor());
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /events/{docId} {
+        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
+        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
+        allow create: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor());
+        allow update: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor());
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      match /services/{docId} {
+        allow read: if isActiveMember(tenantId) || isMainAdmin();
+        allow write: if isTenantAdmin(tenantId);
+      }
+
+      match /serviceCategories/{docId} {
+        allow read: if isActiveMember(tenantId) || isMainAdmin();
+        allow write: if isTenantAdmin(tenantId);
+      }
+
+      match /business_expenses/{docId} {
+        allow read, write: if isTenantAdmin(tenantId);
+      }
+
+      match /finance_years/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+      match /finance_assets/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+      match /finance_liabilities/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+      match /finance_payments/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+      match /finance_loans/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+      match /finance_spending/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+      match /smsLogs/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+    }
+
+    match /{document=**} {
+      allow read, write: if isMainAdmin();
+    }
   }
 }

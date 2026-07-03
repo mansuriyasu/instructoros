@@ -12,25 +12,37 @@ import {
   Activity,
   Receipt,
   Settings,
+  Shield,
+  UserCog,
 } from "lucide-react"
+import { useSession } from "@/firebase"
+import type { AppRole } from "@/lib/auth-config"
 
 export const navItems = [
-  { href: "/", label: "Home", icon: Home, exact: true },
-  { href: "/students", label: "Students", icon: Users },
-  { href: "/payments", label: "POS", icon: Wallet, match: "/payments" },
-  { href: "/payments/history", label: "History", icon: History },
-  { href: "/schedule", label: "Schedule", icon: Calendar },
-  { href: "/expenses", label: "Business Expenses", icon: Receipt },
-  { href: "/utility-tracker", label: "Utility Tracker", icon: Activity },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/", label: "Home", icon: Home, exact: true, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/admin", label: "Admin", icon: Shield, roles: ["mainAdmin"] },
+  { href: "/team", label: "Team", icon: UserCog, roles: ["schoolAdmin", "mainAdmin"] },
+  { href: "/students", label: "Students", icon: Users, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/payments", label: "POS", icon: Wallet, match: "/payments", roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/payments/history", label: "History", icon: History, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/expenses", label: "Business Expenses", icon: Receipt, roles: ["schoolAdmin", "mainAdmin"] },
+  { href: "/utility-tracker", label: "Utility Tracker", icon: Activity, roles: ["schoolAdmin", "mainAdmin"] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
 ]
 
 export function SidebarNav() {
   const pathname = usePathname()
+  const { role, activeTenantId } = useSession()
+  const visibleItems = navItems.filter(item => {
+    if (!role || !(item.roles as AppRole[]).includes(role)) return false;
+    if (role === "mainAdmin" && !activeTenantId && item.href !== "/admin") return false;
+    return true;
+  });
 
   return (
     <nav className="flex flex-col gap-[3px] px-[14px] py-[6px]">
-      {navItems.map(({ href, label, icon: Icon, exact, match }) => {
+      {visibleItems.map(({ href, label, icon: Icon, exact, match }) => {
         const isActive = exact
           ? pathname === href
           : match

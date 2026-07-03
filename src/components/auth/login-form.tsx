@@ -9,18 +9,22 @@ import {
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
-  signOut,
+  updateProfile,
+  type User,
 } from 'firebase/auth';
-import { Eye, EyeOff, Loader2, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
+import { collection, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { Building2, Eye, EyeOff, Loader2, LockKeyhole, Mail, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth, useUser } from '@/firebase';
-import { OWNER_EMAIL, isOwnerEmail } from '@/lib/auth-config';
+import { useAuth, useFirestore, useSession } from '@/firebase';
+import { MAIN_ADMIN_EMAIL, normalizeEmail, type TenantInvite } from '@/lib/auth-config';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
+
+type AuthMode = 'login' | 'school' | 'solo' | 'invite';
 
 function getAuthErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -41,50 +45,150 @@ function getAuthErrorMessage(error: unknown) {
     return 'Too many attempts. Please wait a little and try again.';
   }
 
-  return 'Could not complete login. Please try again.';
+  return message || 'Could not complete login. Please try again.';
+}
+
+function safeNextUrl(rawNextUrl: string | null) {
+  const nextUrl = rawNextUrl || '/';
+  return nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/';
 }
 
 export function LoginForm() {
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const session = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const rawNextUrl = searchParams.get('next') || '/';
-  const nextUrl = rawNextUrl.startsWith('/') && !rawNextUrl.startsWith('//') ? rawNextUrl : '/';
+  const nextUrl = safeNextUrl(searchParams.get('next'));
+  const inviteTenantId = searchParams.get('tenantId') || '';
+  const inviteId = searchParams.get('inviteId') || '';
+  const requestedMode = searchParams.get('mode') === 'invite' && inviteTenantId && inviteId ? 'invite' : 'login';
 
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<AuthMode>(requestedMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [schoolName, setSchoolName] = useState('');
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
-  const canSubmit = isOwnerEmail(normalizedEmail) && password.length >= 6 && !isSubmitting;
+  const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
+  const requiresName = mode === 'school' || mode === 'solo' || mode === 'invite';
+  const canSubmit =
+    normalizedEmail.includes('@') &&
+    password.length >= 6 &&
+    (!requiresName || displayName.trim().length >= 2) &&
+    (mode !== 'school' || schoolName.trim().length >= 2) &&
+    (mode !== 'invite' || Boolean(inviteTenantId && inviteId)) &&
+    !isSubmitting;
 
   useEffect(() => {
-    if (isUserLoading || !user) return;
+    if (!session.user || session.isSessionLoading || !session.role) return;
+    router.replace(session.isMainAdmin && !session.activeTenantId ? '/admin' : nextUrl);
+  }, [nextUrl, router, session.activeTenantId, session.isMainAdmin, session.isSessionLoading, session.role, session.user]);
 
-    if (isOwnerEmail(user.email)) {
-      router.replace(nextUrl);
-      return;
+  const createTenantWorkspace = async (user: User, type: 'school' | 'solo') => {
+    const now = new Date().toISOString();
+    const tenantRef = doc(collection(firestore, 'tenants'));
+    const userRef = doc(firestore, 'users', user.uid);
+    const memberRef = doc(firestore, 'tenants', tenantRef.id, 'members', user.uid);
+    const tenantName = type === 'school' ? schoolName.trim() : `${displayName.trim()}'s Workspace`;
+    const role = type === 'school' ? 'schoolAdmin' : 'soloInstructor';
+    const batch = writeBatch(firestore);
+
+    batch.set(tenantRef, {
+      name: tenantName,
+      type,
+      status: 'active',
+      ownerUid: user.uid,
+      ownerEmail: normalizedEmail,
+      createdAt: now,
+      updatedAt: now,
+    });
+    batch.set(userRef, {
+      uid: user.uid,
+      email: normalizedEmail,
+      displayName: displayName.trim(),
+      activeTenantId: tenantRef.id,
+      tenantIds: [tenantRef.id],
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: true });
+    batch.set(memberRef, {
+      uid: user.uid,
+      email: normalizedEmail,
+      displayName: displayName.trim(),
+      role,
+      status: 'active',
+      tenantId: tenantRef.id,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await batch.commit();
+  };
+
+  const acceptInvite = async (user: User) => {
+    if (!inviteTenantId || !inviteId) {
+      throw new Error('This invite link is missing school information.');
     }
 
-    signOut(auth).catch(() => undefined);
-    setError('This app is only for the SparkOn owner account.');
-  }, [auth, isUserLoading, nextUrl, router, user]);
+    const inviteRef = doc(firestore, 'tenants', inviteTenantId, 'invites', inviteId);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) {
+      throw new Error('This invite was not found.');
+    }
+
+    const invite = { ...(inviteSnap.data() as TenantInvite), id: inviteSnap.id };
+    if (invite.status !== 'pending') {
+      throw new Error('This invite is no longer available.');
+    }
+    if (normalizeEmail(invite.email) !== normalizedEmail) {
+      throw new Error('This invite is for a different email address.');
+    }
+
+    const now = new Date().toISOString();
+    const userRef = doc(firestore, 'users', user.uid);
+    const memberRef = doc(firestore, 'tenants', inviteTenantId, 'members', user.uid);
+    const batch = writeBatch(firestore);
+
+    batch.set(userRef, {
+      uid: user.uid,
+      email: normalizedEmail,
+      displayName: displayName.trim() || user.displayName || normalizedEmail,
+      activeTenantId: inviteTenantId,
+      tenantIds: [inviteTenantId],
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: true });
+    batch.set(memberRef, {
+      uid: user.uid,
+      email: normalizedEmail,
+      displayName: displayName.trim() || user.displayName || normalizedEmail,
+      role: 'schoolInstructor',
+      status: 'active',
+      tenantId: inviteTenantId,
+      inviteId,
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: true });
+    batch.update(inviteRef, {
+      status: 'accepted',
+      acceptedAt: now,
+      acceptedByUid: user.uid,
+      updatedAt: serverTimestamp(),
+    });
+
+    await batch.commit();
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
     setNotice('');
-
-    if (!isOwnerEmail(normalizedEmail)) {
-      setError(`Only ${OWNER_EMAIL} can use this app.`);
-      return;
-    }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
@@ -94,14 +198,37 @@ export function LoginForm() {
     setIsSubmitting(true);
     try {
       await setPersistence(auth, keepLoggedIn ? browserLocalPersistence : browserSessionPersistence);
+      let user: User;
 
-      if (mode === 'signup') {
-        await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+      if (mode === 'login') {
+        const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        user = credential.user;
       } else {
-        await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        try {
+          const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+          user = credential.user;
+        } catch (signupError) {
+          if (mode !== 'invite' || !/auth\/email-already-in-use/i.test(signupError instanceof Error ? signupError.message : String(signupError))) {
+            throw signupError;
+          }
+          const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+          user = credential.user;
+        }
       }
 
-      router.replace(nextUrl);
+      if (displayName.trim()) {
+        await updateProfile(user, { displayName: displayName.trim() }).catch(() => undefined);
+      }
+
+      if (mode === 'school') {
+        await createTenantWorkspace(user, 'school');
+      } else if (mode === 'solo') {
+        await createTenantWorkspace(user, 'solo');
+      } else if (mode === 'invite') {
+        await acceptInvite(user);
+      }
+
+      router.replace(normalizedEmail === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
     } catch (submitError) {
       setError(getAuthErrorMessage(submitError));
     } finally {
@@ -113,8 +240,8 @@ export function LoginForm() {
     setError('');
     setNotice('');
 
-    if (!isOwnerEmail(normalizedEmail)) {
-      setError(`Enter ${OWNER_EMAIL} first.`);
+    if (!normalizedEmail.includes('@')) {
+      setError('Enter your email first.');
       return;
     }
 
@@ -126,6 +253,8 @@ export function LoginForm() {
     }
   };
 
+  const title = mode === 'login' ? 'Welcome back' : mode === 'school' ? 'Create school workspace' : mode === 'solo' ? 'Create instructor workspace' : 'Accept school invite';
+
   return (
     <div className="min-h-screen bg-[#F7F8FA] px-4 py-8 text-[#111827]">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
@@ -136,42 +265,71 @@ export function LoginForm() {
         <Card className="overflow-hidden rounded-3xl border-0 shadow-2xl">
           <CardHeader className="bg-[#0D1B2A] px-6 py-7 text-white">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F4C430] text-[#0D1B2A]">
-              <ShieldCheck className="h-6 w-6" />
+              {mode === 'school' ? <Building2 className="h-6 w-6" /> : <UserRound className="h-6 w-6" />}
             </div>
-            <CardTitle className="text-2xl">
-              {mode === 'signup' ? 'Create owner login' : 'Welcome back'}
-            </CardTitle>
+            <CardTitle className="text-2xl">{title}</CardTitle>
             <p className="mt-2 text-sm text-white/65">
-              Sign in to manage SparkOn students, payments, and schedule.
+              Manage students, schedules, payments, and instructors in one workspace.
             </p>
           </CardHeader>
           <CardContent className="space-y-5 p-6">
             <div className="grid grid-cols-2 rounded-2xl bg-muted p-1">
-              <Button
-                type="button"
-                variant="ghost"
-                className={cn('rounded-xl', mode === 'login' && 'bg-background shadow-sm')}
-                onClick={() => {
-                  setMode('login');
-                  setError('');
-                }}
-              >
-                Login
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className={cn('rounded-xl', mode === 'signup' && 'bg-background shadow-sm')}
-                onClick={() => {
-                  setMode('signup');
-                  setError('');
-                }}
-              >
-                First Signup
-              </Button>
+              {([
+                ['login', 'Login'],
+                ['school', 'School'],
+                ['solo', 'Individual'],
+                ['invite', 'Invite'],
+              ] as const).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="ghost"
+                  className={cn('rounded-xl', mode === value && 'bg-background shadow-sm')}
+                  onClick={() => {
+                    setMode(value);
+                    setError('');
+                  }}
+                >
+                  {label}
+                </Button>
+              ))}
             </div>
 
+            {mode === 'invite' && (!inviteTenantId || !inviteId) && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Open the invite link from your school admin to accept a school instructor account.
+              </div>
+            )}
+
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {requiresName && (
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Your name</Label>
+                  <Input
+                    id="displayName"
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    placeholder="Enter your full name"
+                    className="h-12 rounded-2xl"
+                    autoComplete="name"
+                  />
+                </div>
+              )}
+
+              {mode === 'school' && (
+                <div className="space-y-2">
+                  <Label htmlFor="schoolName">School name</Label>
+                  <Input
+                    id="schoolName"
+                    value={schoolName}
+                    onChange={(event) => setSchoolName(event.target.value)}
+                    placeholder="Example Driving School"
+                    className="h-12 rounded-2xl"
+                    autoComplete="organization"
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -200,7 +358,7 @@ export function LoginForm() {
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Enter password"
                     className="h-12 rounded-2xl pl-10 pr-11"
-                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   />
                   <Button
                     type="button"
@@ -223,30 +381,16 @@ export function LoginForm() {
                 <span className="font-medium">Keep me logged in</span>
               </label>
 
-              {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
-
-              {notice && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  {notice}
-                </div>
-              )}
+              {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+              {notice && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
 
               <Button type="submit" className="h-12 w-full rounded-2xl text-base font-bold" disabled={!canSubmit}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === 'signup' ? 'Create Account' : 'Login'}
+                {mode === 'login' ? 'Login' : mode === 'invite' ? 'Accept Invite' : 'Create Workspace'}
               </Button>
             </form>
 
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto w-full p-0 text-sm text-muted-foreground"
-              onClick={handleResetPassword}
-            >
+            <Button type="button" variant="link" className="h-auto w-full p-0 text-sm text-muted-foreground" onClick={handleResetPassword}>
               Forgot password?
             </Button>
           </CardContent>

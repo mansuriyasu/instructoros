@@ -68,11 +68,22 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
+    const tenantId =
+      (formData.get('tenantId') instanceof File ? '' : String(formData.get('tenantId') || '')) ||
+      request.nextUrl.searchParams.get('tenantId') ||
+      '';
     const file = getFileFromForm(formData);
 
     if (!file) {
       return NextResponse.json(
         { ok: false, error: 'Please share one licence photo or PDF.' },
+        { status: 400 }
+      );
+    }
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { ok: false, error: 'Please include your InstructorOS workspace id as tenantId.' },
         { status: 400 }
       );
     }
@@ -119,7 +130,7 @@ export async function POST(request: NextRequest) {
     if (licenseImageUrl) {
       studentData.licenseImageUrl = licenseImageUrl;
     }
-    const studentId = await createStudentViaFirebaseRest(studentData);
+    const studentId = await createStudentViaFirebaseRest(studentData, tenantId);
 
     return NextResponse.json({
       ok: true,

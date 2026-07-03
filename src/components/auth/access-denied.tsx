@@ -6,9 +6,12 @@ import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth, useUser } from '@/firebase';
-import { OWNER_EMAIL } from '@/lib/auth-config';
 
-export function AccessDenied() {
+type AccessDeniedProps = {
+  message?: string;
+};
+
+export function AccessDenied({ message }: AccessDeniedProps) {
   const auth = useAuth();
   const { user } = useUser();
   const router = useRouter();
@@ -28,7 +31,7 @@ export function AccessDenied() {
           <div>
             <h1 className="text-2xl font-bold">Access not allowed</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              You are signed in as {user?.email || 'another account'}. This app only allows {OWNER_EMAIL}.
+              {message || `You are signed in as ${user?.email || 'another account'}, but this account does not have access here.`}
             </p>
           </div>
           <Button className="h-11 w-full rounded-2xl" onClick={handleLogout}>

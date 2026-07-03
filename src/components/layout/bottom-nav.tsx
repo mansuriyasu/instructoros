@@ -1,20 +1,28 @@
 'use client';
 
-import { Calendar, CreditCard, Home, MoreHorizontal, Users } from 'lucide-react';
+import { Calendar, CreditCard, Home, MoreHorizontal, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useSession } from '@/firebase';
+import type { AppRole } from '@/lib/auth-config';
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { role, activeTenantId } = useSession();
 
   const navItems = [
-    { href: "/", label: "Home", icon: Home, activeColor: "text-[#ffb300]" },
-    { href: "/students", label: "Students", icon: Users },
-    { href: "/schedule", label: "Schedule", icon: Calendar },
-    { href: "/payments", label: "POS", icon: CreditCard },
-    { href: "/settings", label: "More", icon: MoreHorizontal },
-  ];
+    { href: "/", label: "Home", icon: Home, activeColor: "text-[#ffb300]", roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/admin", label: "Admin", icon: Shield, roles: ["mainAdmin"] },
+    { href: "/students", label: "Students", icon: Users, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/payments", label: "POS", icon: CreditCard, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/settings", label: "More", icon: MoreHorizontal, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  ].filter(item => {
+    if (!role || !(item.roles as AppRole[]).includes(role)) return false;
+    if (role === "mainAdmin" && !activeTenantId && item.href !== "/admin") return false;
+    return true;
+  }).slice(0, 5);
 
   return (
     <div className="fixed bottom-0 left-0 z-50 w-full h-[68px] bg-background border-t md:hidden pb-safe">
