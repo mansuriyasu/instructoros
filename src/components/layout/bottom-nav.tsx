@@ -12,12 +12,12 @@ export function BottomNav() {
   const { role, activeTenantId } = useSession();
 
   const navItems = [
-    { href: "/", label: "Home", icon: Home, activeColor: "text-[#ffb300]", roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/app", label: "Home", icon: Home, activeColor: "text-[#ffb300]", roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
     { href: "/admin", label: "Admin", icon: Shield, roles: ["mainAdmin"] },
-    { href: "/students", label: "Students", icon: Users, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-    { href: "/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-    { href: "/payments", label: "POS", icon: CreditCard, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-    { href: "/settings", label: "More", icon: MoreHorizontal, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/app/students", label: "Students", icon: Users, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/app/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/app/payments", label: "POS", icon: CreditCard, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+    { href: "/app/settings", label: "More", icon: MoreHorizontal, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   ].filter(item => {
     if (!role || !(item.roles as AppRole[]).includes(role)) return false;
     if (role === "mainAdmin" && !activeTenantId && item.href !== "/admin") return false;
@@ -28,8 +28,8 @@ export function BottomNav() {
     <div className="fixed bottom-0 left-0 z-50 w-full h-[68px] bg-background border-t md:hidden pb-safe">
       <div className="grid h-full w-full grid-cols-5 font-medium px-1">
         {navItems.map(item => {
-          const isActive = item.href === '/' 
-            ? pathname === '/' 
+          const isActive = item.href === '/app'
+            ? pathname === '/app'
             : pathname.startsWith(item.href);
             
           return (
@@ -45,7 +45,7 @@ export function BottomNav() {
             >
               <item.icon className={cn("w-6 h-6", isActive ? "stroke-[2.5]" : "stroke-2")} />
               <span className={cn("text-[10px] font-semibold", isActive ? "" : "font-medium")}>{item.label}</span>
-              {isActive && item.href === '/' && (
+              {isActive && item.href === '/app' && (
                 <span className="absolute bottom-1 w-8 h-[3px] rounded-full bg-[#ffb300]" />
               )}
             </Link>

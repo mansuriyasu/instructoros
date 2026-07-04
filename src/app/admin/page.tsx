@@ -1,20 +1,39 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
-import { Building2, ExternalLink, Shield, UserRound } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle2, ExternalLink, RefreshCw, Shield, UserRound, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCollection, useFirestore, useMemoFirebase, useSession } from '@/firebase';
 import { MAIN_ADMIN_EMAIL, type Tenant } from '@/lib/auth-config';
+
+type ReadinessItem = {
+  key: string;
+  label: string;
+  state: 'ready' | 'missing' | 'warning';
+  detail: string;
+};
+
+type ReadinessResponse = {
+  ok?: boolean;
+  error?: string;
+  missingCount?: number;
+  warningCount?: number;
+  items?: ReadinessItem[];
+  reminders?: string[];
+};
 
 export default function AdminPage() {
   const firestore = useFirestore();
   const { user, isMainAdmin } = useSession();
   const router = useRouter();
+  const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
+  const [readinessLoading, setReadinessLoading] = useState(false);
 
   const tenantsQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'tenants'), orderBy('createdAt', 'desc')) : null),
@@ -35,6 +54,29 @@ export default function AdminPage() {
     }, {});
   }, [users]);
 
+  const loadReadiness = useCallback(async () => {
+    if (!user || !isMainAdmin) return;
+    setReadinessLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/readiness', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      setReadiness(data);
+    } catch (error) {
+      setReadiness({
+        error: error instanceof Error ? error.message : 'Could not load production readiness.',
+      });
+    } finally {
+      setReadinessLoading(false);
+    }
+  }, [isMainAdmin, user]);
+
+  useEffect(() => {
+    void loadReadiness();
+  }, [loadReadiness]);
+
   const openTenant = async (tenant: Tenant) => {
     if (!user) return;
     const now = new Date().toISOString();
@@ -47,7 +89,7 @@ export default function AdminPage() {
       createdAt: now,
       updatedAt: now,
     }, { merge: true });
-    router.push('/');
+    router.push('/app');
   };
 
   const toggleTenantStatus = async (tenant: Tenant) => {
@@ -79,7 +121,7 @@ export default function AdminPage() {
             <p className="mt-1 text-sm text-muted-foreground">Manage schools, individual instructors, and support access.</p>
           </div>
           <Button asChild variant="outline">
-            <Link href="/">
+            <Link href="/app">
               <ExternalLink className="mr-2 h-4 w-4" />
               Open active workspace
             </Link>
@@ -100,6 +142,81 @@ export default function AdminPage() {
             <CardContent className="text-3xl font-bold">{(tenants || []).filter(t => t.type === 'solo').length}</CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Production readiness</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Checks deployment settings without showing secret values.
+                </p>
+              </div>
+              <Button variant="outline" onClick={loadReadiness} disabled={readinessLoading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${readinessLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {readiness?.error && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Readiness check needs attention</AlertTitle>
+                <AlertDescription>{readiness.error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase text-muted-foreground">Missing</p>
+                <p className="mt-2 text-2xl font-black">{readiness?.missingCount ?? '-'}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase text-muted-foreground">Warnings</p>
+                <p className="mt-2 text-2xl font-black">{readiness?.warningCount ?? '-'}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase text-muted-foreground">Status</p>
+                <Badge className="mt-2" variant={readiness?.ok ? 'default' : 'destructive'}>
+                  {readiness?.ok ? 'Ready' : 'Not ready'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {(readiness?.items || []).map(item => (
+                <div key={item.key} className="rounded-xl border bg-white p-4">
+                  <div className="flex items-center gap-2">
+                    {item.state === 'ready' ? (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    ) : item.state === 'warning' ? (
+                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <p className="font-semibold">{item.label}</p>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+
+            {readiness?.reminders && readiness.reminders.length > 0 && (
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertTitle>Before going live</AlertTitle>
+                <AlertDescription>
+                  <ul className="mt-2 list-disc space-y-1 pl-4">
+                    {readiness.reminders.map(reminder => (
+                      <li key={reminder}>{reminder}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

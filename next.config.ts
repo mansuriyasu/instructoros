@@ -28,11 +28,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
+  async redirects() {
+    const privateRoutes = ['students', 'payments', 'schedule', 'settings', 'team', 'expenses', 'utility-tracker', 'services'];
+
+    return privateRoutes.map(route => ({
+      source: `/${route}/:path*`,
+      destination: `/app/${route}/:path*`,
+      permanent: false,
+    }));
   },
   images: {
     remotePatterns: [

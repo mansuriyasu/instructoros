@@ -26,7 +26,7 @@ export function Header() {
       {/* Date — hidden on small screens where Logo is shown instead */}
       <div className="hidden text-[13px] font-medium text-[#8A8E96] md:block">{dateLabel}</div>
 
-      <Logo className="md:hidden" imageClassName="w-[150px]" />
+      <Logo className="md:hidden" imageClassName="text-xl" />
 
       <div className="flex items-center gap-3">
         <NotificationsSheet triggerType="icon" />
@@ -62,7 +62,7 @@ export function Header() {
             </div>
             <div className="p-2 border-t mt-1 space-y-1">
               <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                <Link href="/settings">
+                <Link href="/app/settings">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </Link>

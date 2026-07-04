@@ -77,7 +77,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
 
   const handleCopyBirthdayWish = async (student: Student) => {
     const firstName = student.name.split(' ')[0] || student.name;
-    const wish = `Happy birthday, ${firstName}! Wishing you a wonderful year ahead filled with happiness, success, and safe drives. Have an amazing day! - SparkOn Driving Academy`;
+    const wish = `Happy birthday, ${firstName}! Wishing you a wonderful year ahead filled with happiness, success, and safe drives. Have an amazing day! - InstructorOS`;
     await navigator.clipboard.writeText(wish);
     toast({ title: 'Birthday wish copied' });
   };

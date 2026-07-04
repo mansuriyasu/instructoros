@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       studentId,
       student: studentData,
-      editUrl: `${getAppOrigin(request)}/students/form?id=${studentId}`,
+      editUrl: `${getAppOrigin(request)}/app/students/form?id=${studentId}`,
       message: `Student added: ${studentData.name}`,
     });
   } catch (error) {

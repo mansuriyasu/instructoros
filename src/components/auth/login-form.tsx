@@ -6,9 +6,12 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   sendPasswordResetEmail,
   setPersistence,
+  signOut,
   signInWithEmailAndPassword,
+  signInWithPopup,
   updateProfile,
   type User,
 } from 'firebase/auth';
@@ -21,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useSession } from '@/firebase';
 import { MAIN_ADMIN_EMAIL, normalizeEmail, type TenantInvite } from '@/lib/auth-config';
+import { getIncludedSeats, getPlanForTenantType } from '@/lib/billing';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 
@@ -49,8 +53,8 @@ function getAuthErrorMessage(error: unknown) {
 }
 
 function safeNextUrl(rawNextUrl: string | null) {
-  const nextUrl = rawNextUrl || '/';
-  return nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/';
+  const nextUrl = rawNextUrl || '/app';
+  return nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/app';
 }
 
 export function LoginForm() {
@@ -62,7 +66,12 @@ export function LoginForm() {
   const nextUrl = safeNextUrl(searchParams.get('next'));
   const inviteTenantId = searchParams.get('tenantId') || '';
   const inviteId = searchParams.get('inviteId') || '';
-  const requestedMode = searchParams.get('mode') === 'invite' && inviteTenantId && inviteId ? 'invite' : 'login';
+  const requestedModeParam = searchParams.get('mode');
+  const requestedMode = requestedModeParam === 'invite' && inviteTenantId && inviteId
+    ? 'invite'
+    : requestedModeParam === 'school' || requestedModeParam === 'solo'
+      ? requestedModeParam
+      : 'login';
 
   const [mode, setMode] = useState<AuthMode>(requestedMode);
   const [email, setEmail] = useState('');
@@ -76,10 +85,13 @@ export function LoginForm() {
   const [notice, setNotice] = useState('');
 
   const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
+  const sessionEmail = normalizeEmail(session.user?.email);
+  const hasUnconnectedSession = Boolean(session.user && !session.isSessionLoading && !session.role);
+  const canUseCurrentSessionForSignup = hasUnconnectedSession && sessionEmail === normalizedEmail && mode !== 'login';
   const requiresName = mode === 'school' || mode === 'solo' || mode === 'invite';
   const canSubmit =
-    normalizedEmail.includes('@') &&
-    password.length >= 6 &&
+    (normalizedEmail.includes('@') || Boolean(canUseCurrentSessionForSignup && sessionEmail.includes('@'))) &&
+    (canUseCurrentSessionForSignup || password.length >= 6) &&
     (!requiresName || displayName.trim().length >= 2) &&
     (mode !== 'school' || schoolName.trim().length >= 2) &&
     (mode !== 'invite' || Boolean(inviteTenantId && inviteId)) &&
@@ -90,28 +102,42 @@ export function LoginForm() {
     router.replace(session.isMainAdmin && !session.activeTenantId ? '/admin' : nextUrl);
   }, [nextUrl, router, session.activeTenantId, session.isMainAdmin, session.isSessionLoading, session.role, session.user]);
 
+  useEffect(() => {
+    if (!session.user || session.isSessionLoading || session.role) return;
+    setEmail(value => value || session.user?.email || '');
+    setDisplayName(value => value || session.user?.displayName || '');
+  }, [session.isSessionLoading, session.role, session.user]);
+
   const createTenantWorkspace = async (user: User, type: 'school' | 'solo') => {
     const now = new Date().toISOString();
     const tenantRef = doc(collection(firestore, 'tenants'));
     const userRef = doc(firestore, 'users', user.uid);
     const memberRef = doc(firestore, 'tenants', tenantRef.id, 'members', user.uid);
-    const tenantName = type === 'school' ? schoolName.trim() : `${displayName.trim()}'s Workspace`;
+    const ownerEmail = normalizeEmail(user.email || normalizedEmail);
+    const ownerDisplayName = displayName.trim() || user.displayName || ownerEmail;
+    const tenantName = type === 'school' ? schoolName.trim() : `${ownerDisplayName}'s Workspace`;
     const role = type === 'school' ? 'schoolAdmin' : 'soloInstructor';
+    const plan = getPlanForTenantType(type);
     const batch = writeBatch(firestore);
 
     batch.set(tenantRef, {
       name: tenantName,
       type,
       status: 'active',
+      plan,
+      seatLimit: getIncludedSeats(plan),
+      extraSeats: 0,
+      subscriptionStatus: 'checkout_pending',
+      billingLocked: true,
       ownerUid: user.uid,
-      ownerEmail: normalizedEmail,
+      ownerEmail,
       createdAt: now,
       updatedAt: now,
     });
     batch.set(userRef, {
       uid: user.uid,
-      email: normalizedEmail,
-      displayName: displayName.trim(),
+      email: ownerEmail,
+      displayName: ownerDisplayName,
       activeTenantId: tenantRef.id,
       tenantIds: [tenantRef.id],
       createdAt: now,
@@ -119,8 +145,8 @@ export function LoginForm() {
     }, { merge: true });
     batch.set(memberRef, {
       uid: user.uid,
-      email: normalizedEmail,
-      displayName: displayName.trim(),
+      email: ownerEmail,
+      displayName: ownerDisplayName,
       role,
       status: 'active',
       tenantId: tenantRef.id,
@@ -129,6 +155,29 @@ export function LoginForm() {
     });
 
     await batch.commit();
+    return tenantRef.id;
+  };
+
+  const startBillingCheckout = async (user: User, tenantId: string, type: 'school' | 'solo') => {
+    const response = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({
+        tenantId,
+        plan: getPlanForTenantType(type),
+        seatLimit: getIncludedSeats(getPlanForTenantType(type)),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.url) {
+      throw new Error(data.error || 'Workspace was created, but billing checkout could not start.');
+    }
+
+    window.location.assign(data.url);
   };
 
   const acceptInvite = async (user: User) => {
@@ -190,7 +239,7 @@ export function LoginForm() {
     setError('');
     setNotice('');
 
-    if (password.length < 6) {
+    if (!canUseCurrentSessionForSignup && password.length < 6) {
       setError('Password must be at least 6 characters.');
       return;
     }
@@ -200,7 +249,9 @@ export function LoginForm() {
       await setPersistence(auth, keepLoggedIn ? browserLocalPersistence : browserSessionPersistence);
       let user: User;
 
-      if (mode === 'login') {
+      if (canUseCurrentSessionForSignup && session.user) {
+        user = session.user;
+      } else if (mode === 'login') {
         const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
         user = credential.user;
       } else {
@@ -221,9 +272,13 @@ export function LoginForm() {
       }
 
       if (mode === 'school') {
-        await createTenantWorkspace(user, 'school');
+        const tenantId = await createTenantWorkspace(user, 'school');
+        await startBillingCheckout(user, tenantId, 'school');
+        return;
       } else if (mode === 'solo') {
-        await createTenantWorkspace(user, 'solo');
+        const tenantId = await createTenantWorkspace(user, 'solo');
+        await startBillingCheckout(user, tenantId, 'solo');
+        return;
       } else if (mode === 'invite') {
         await acceptInvite(user);
       }
@@ -231,6 +286,36 @@ export function LoginForm() {
       router.replace(normalizedEmail === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
     } catch (submitError) {
       setError(getAuthErrorMessage(submitError));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setError('');
+    setNotice('');
+    setIsSubmitting(true);
+
+    try {
+      await setPersistence(auth, keepLoggedIn ? browserLocalPersistence : browserSessionPersistence);
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const credential = await signInWithPopup(auth, provider);
+      const user = credential.user;
+
+      if ((mode === 'school' || mode === 'solo') && !session.role) {
+        if (mode === 'school' && schoolName.trim().length < 2) {
+          setError('Enter the school name first.');
+          return;
+        }
+        const tenantId = await createTenantWorkspace(user, mode === 'school' ? 'school' : 'solo');
+        await startBillingCheckout(user, tenantId, mode === 'school' ? 'school' : 'solo');
+        return;
+      }
+
+      router.replace(normalizeEmail(user.email) === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
+    } catch (googleError) {
+      setError(getAuthErrorMessage(googleError));
     } finally {
       setIsSubmitting(false);
     }
@@ -273,6 +358,21 @@ export function LoginForm() {
             </p>
           </CardHeader>
           <CardContent className="space-y-5 p-6">
+            {hasUnconnectedSession && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <p className="font-semibold">Signed in as {session.user?.email}</p>
+                <p className="mt-1">This account is not connected to a workspace yet. Logout first if you want to create a new school or instructor account with a different email.</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3 h-10 rounded-xl bg-white"
+                  onClick={() => signOut(auth)}
+                >
+                  Logout current account
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 rounded-2xl bg-muted p-1">
               {([
                 ['login', 'Login'],
@@ -389,6 +489,26 @@ export function LoginForm() {
                 {mode === 'login' ? 'Login' : mode === 'invite' ? 'Accept Invite' : 'Create Workspace'}
               </Button>
             </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">or</span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 w-full rounded-2xl text-base font-bold"
+              onClick={handleGoogleAuth}
+              disabled={isSubmitting || (mode === 'school' && schoolName.trim().length < 2)}
+            >
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {mode === 'login' ? 'Continue with Google' : 'Sign up with Google'}
+            </Button>
 
             <Button type="button" variant="link" className="h-auto w-full p-0 text-sm text-muted-foreground" onClick={handleResetPassword}>
               Forgot password?

@@ -44,7 +44,7 @@ function getCalendarErrorMessage(error: unknown) {
   }
 
   if (/abort|timeout|timed out|did not respond/i.test(message)) {
-    return 'Google Calendar did not respond in time. The schedule was saved in SparkOn; try calendar sync later.';
+    return 'Google Calendar did not respond in time. The schedule was saved in InstructorOS; try calendar sync later.';
   }
 
   return message || 'Google Calendar request failed.';

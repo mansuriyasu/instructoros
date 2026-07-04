@@ -1,0 +1,225 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Building2, CheckCircle2, CreditCard, Loader2, Lock, UserRound, UsersRound } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useSession, useUser } from '@/firebase';
+import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE, getBillingLocked, getPlanForTenantType } from '@/lib/billing';
+import type { BillingPlan } from '@/lib/billing';
+
+async function postBilling(path: string, token: string, body: Record<string, unknown>) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Billing request failed.');
+  return data;
+}
+
+export default function BillingPage() {
+  const { tenant, activeTenantId, canManageTenant } = useSession();
+  const { user } = useUser();
+  const searchParams = useSearchParams();
+  const [seatLimit, setSeatLimit] = useState(PLAN_DETAILS.school.includedSeats);
+  const [isLoading, setIsLoading] = useState<'checkout' | 'portal' | 'seats' | null>(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const plan = useMemo<BillingPlan>(() => tenant?.plan || getPlanForTenantType(tenant?.type === 'school' ? 'school' : 'solo'), [tenant?.plan, tenant?.type]);
+  const isSchool = tenant?.type === 'school';
+  const status = tenant?.subscriptionStatus || 'not_started';
+  const billingLocked = tenant?.billingLocked ?? getBillingLocked(status);
+
+  useEffect(() => {
+    setSeatLimit(tenant?.seatLimit || (isSchool ? PLAN_DETAILS.school.includedSeats : PLAN_DETAILS.instructor.includedSeats));
+  }, [isSchool, tenant?.seatLimit]);
+
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      setMessage('Checkout completed. Stripe may take a few seconds to confirm the trial here.');
+    }
+    if (searchParams.get('checkout') === 'cancelled') {
+      setError('Checkout was cancelled. Start billing again to unlock the workspace trial.');
+    }
+  }, [searchParams]);
+
+  const runBillingAction = async (action: 'checkout' | 'portal' | 'seats') => {
+    if (!user || !activeTenantId || !tenant) return;
+    setIsLoading(action);
+    setError('');
+    setMessage('');
+
+    try {
+      const token = await user.getIdToken();
+      if (action === 'checkout') {
+        const data = await postBilling('/api/billing/checkout', token, {
+          tenantId: activeTenantId,
+          plan,
+          seatLimit,
+        });
+        window.location.assign(data.url);
+        return;
+      }
+
+      if (action === 'portal') {
+        const data = await postBilling('/api/billing/portal', token, { tenantId: activeTenantId });
+        window.location.assign(data.url);
+        return;
+      }
+
+      const data = await postBilling('/api/billing/seats', token, { tenantId: activeTenantId, seatLimit });
+      setSeatLimit(data.seatLimit);
+      setMessage(`School seat limit updated to ${data.seatLimit} user(s).`);
+    } catch (billingError) {
+      setError(billingError instanceof Error ? billingError.message : 'Billing request failed.');
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
+  if (!tenant) {
+    return null;
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      <div>
+        <h1 className="text-3xl font-black tracking-normal">Billing</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Manage the monthly InstructorOS subscription for {tenant.name}.
+        </p>
+      </div>
+
+      {message && (
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertTitle>Billing update</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="destructive">
+          <Lock className="h-4 w-4" />
+          <AlertTitle>Billing needs attention</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card className="rounded-lg">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-xl">Current plan</CardTitle>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  First month is free. Monthly billing starts after the trial.
+                </p>
+              </div>
+              {isSchool ? <Building2 className="h-6 w-6" /> : <UserRound className="h-6 w-6" />}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase text-muted-foreground">Plan</p>
+                <p className="mt-2 text-lg font-black">{PLAN_DETAILS[plan].label}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase text-muted-foreground">Status</p>
+                <Badge className="mt-2" variant={billingLocked ? 'destructive' : 'default'}>{status}</Badge>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase text-muted-foreground">Seats</p>
+                <p className="mt-2 text-lg font-black">{tenant.seatLimit || PLAN_DETAILS[plan].includedSeats}</p>
+              </div>
+            </div>
+
+            {billingLocked && (
+              <Alert>
+                <Lock className="h-4 w-4" />
+                <AlertTitle>Workspace is read-only</AlertTitle>
+                <AlertDescription>
+                  Start or fix billing to unlock changes. You can still view existing records.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {canManageTenant ? (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg">
+                  {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                  Start free month
+                </Button>
+                <Button variant="outline" onClick={() => runBillingAction('portal')} disabled={Boolean(isLoading) || !tenant.stripeCustomerId} className="rounded-lg">
+                  {isLoading === 'portal' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Manage in Stripe
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Only a school admin or individual instructor owner can manage billing.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-lg">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-xl">School seats</CardTitle>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  School includes 10 users. Extra users are ${SCHOOL_EXTRA_SEAT_PRICE} CAD/month each.
+                </p>
+              </div>
+              <UsersRound className="h-6 w-6" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isSchool ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="seatLimit">Total school users</Label>
+                  <Input
+                    id="seatLimit"
+                    type="number"
+                    min={PLAN_DETAILS.school.includedSeats}
+                    value={seatLimit}
+                    onChange={(event) => setSeatLimit(Number(event.target.value))}
+                    className="h-12 rounded-lg"
+                    disabled={!canManageTenant}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Extra seats: {Math.max(0, seatLimit - PLAN_DETAILS.school.includedSeats)}.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => runBillingAction('seats')}
+                  disabled={!canManageTenant || Boolean(isLoading) || !tenant.stripeSubscriptionId}
+                  className="w-full rounded-lg"
+                >
+                  {isLoading === 'seats' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Update seats
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Seat billing is only needed for school workspaces. Individual instructor accounts include one user.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

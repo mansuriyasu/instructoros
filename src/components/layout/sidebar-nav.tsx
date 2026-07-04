@@ -14,21 +14,23 @@ import {
   Settings,
   Shield,
   UserCog,
+  CreditCard,
 } from "lucide-react"
 import { useSession } from "@/firebase"
 import type { AppRole } from "@/lib/auth-config"
 
 export const navItems = [
-  { href: "/", label: "Home", icon: Home, exact: true, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/app", label: "Home", icon: Home, exact: true, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   { href: "/admin", label: "Admin", icon: Shield, roles: ["mainAdmin"] },
-  { href: "/team", label: "Team", icon: UserCog, roles: ["schoolAdmin", "mainAdmin"] },
-  { href: "/students", label: "Students", icon: Users, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-  { href: "/payments", label: "POS", icon: Wallet, match: "/payments", roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-  { href: "/payments/history", label: "History", icon: History, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-  { href: "/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-  { href: "/expenses", label: "Business Expenses", icon: Receipt, roles: ["schoolAdmin", "mainAdmin"] },
-  { href: "/utility-tracker", label: "Utility Tracker", icon: Activity, roles: ["schoolAdmin", "mainAdmin"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/app/team", label: "Team", icon: UserCog, roles: ["schoolAdmin", "mainAdmin"] },
+  { href: "/app/students", label: "Students", icon: Users, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/app/payments", label: "POS", icon: Wallet, match: "/app/payments", roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/app/payments/history", label: "History", icon: History, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/app/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
+  { href: "/app/expenses", label: "Business Expenses", icon: Receipt, roles: ["schoolAdmin", "mainAdmin"] },
+  { href: "/app/utility-tracker", label: "Utility Tracker", icon: Activity, roles: ["schoolAdmin", "mainAdmin"] },
+  { href: "/app/billing", label: "Billing", icon: CreditCard, roles: ["schoolAdmin", "soloInstructor", "mainAdmin"] },
+  { href: "/app/settings", label: "Settings", icon: Settings, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
 ]
 
 export function SidebarNav() {
@@ -46,7 +48,7 @@ export function SidebarNav() {
         const isActive = exact
           ? pathname === href
           : match
-            ? pathname.startsWith(match) && !(label === "POS" && pathname.startsWith("/payments/history"))
+            ? pathname.startsWith(match) && !(label === "POS" && pathname.startsWith("/app/payments/history"))
             : pathname.startsWith(href)
 
         return (

@@ -37,6 +37,11 @@ service cloud.firestore {
       return tenantExists(tenantId) && get(tenantPath(tenantId)).data.status == "active";
     }
 
+    function billingWritable(tenantId) {
+      return isMainAdmin()
+        || (tenantExists(tenantId) && get(tenantPath(tenantId)).data.billingLocked != true);
+    }
+
     function member(tenantId) {
       return get(memberPath(tenantId, request.auth.uid)).data;
     }
@@ -95,7 +100,7 @@ service cloud.firestore {
         && request.resource.data.ownerEmail == email()
         && request.resource.data.status == "active"
         && request.resource.data.type in ["school", "solo"];
-      allow update: if isMainAdmin() || (isActiveMember(tenantId) && role(tenantId) == "schoolAdmin");
+      allow update: if isMainAdmin() || (isActiveMember(tenantId) && role(tenantId) in ["schoolAdmin", "soloInstructor"]);
       allow delete: if isMainAdmin();
 
       match /members/{uid} {
@@ -120,8 +125,8 @@ service cloud.firestore {
               )
             )
           );
-        allow update: if isMainAdmin() || isTenantAdmin(tenantId);
-        allow delete: if isMainAdmin() || isTenantAdmin(tenantId);
+        allow update: if isMainAdmin() || (isTenantAdmin(tenantId) && billingWritable(tenantId));
+        allow delete: if isMainAdmin() || (isTenantAdmin(tenantId) && billingWritable(tenantId));
       }
 
       match /invites/{inviteId} {
@@ -131,65 +136,89 @@ service cloud.firestore {
         allow list: if isMainAdmin() || isTenantAdmin(tenantId);
         allow create: if isMainAdmin()
           || (isTenantAdmin(tenantId)
+            && billingWritable(tenantId)
             && request.resource.data.email is string
             && request.resource.data.role == "schoolInstructor"
             && request.resource.data.status == "pending"
             && request.resource.data.tenantId == tenantId);
         allow update: if isMainAdmin()
-          || isTenantAdmin(tenantId)
+          || (isTenantAdmin(tenantId) && billingWritable(tenantId))
           || (signedIn()
+            && billingWritable(tenantId)
             && resource.data.email == email()
             && resource.data.status == "pending"
             && request.resource.data.status == "accepted"
             && request.resource.data.acceptedByUid == request.auth.uid);
-        allow delete: if isMainAdmin() || isTenantAdmin(tenantId);
+        allow delete: if isMainAdmin() || (isTenantAdmin(tenantId) && billingWritable(tenantId));
       }
 
       match /students/{docId} {
         allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
         allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow create: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor());
-        allow update: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor());
-        allow delete: if isTenantAdmin(tenantId);
+        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor()));
+        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor()));
+        allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /payments/{docId} {
         allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
         allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow create: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor());
-        allow update: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor());
-        allow delete: if isTenantAdmin(tenantId);
+        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor()));
+        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor()));
+        allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /events/{docId} {
         allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
         allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow create: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor());
-        allow update: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor());
-        allow delete: if isTenantAdmin(tenantId);
+        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor()));
+        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor()));
+        allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /services/{docId} {
         allow read: if isActiveMember(tenantId) || isMainAdmin();
-        allow write: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /serviceCategories/{docId} {
         allow read: if isActiveMember(tenantId) || isMainAdmin();
-        allow write: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /business_expenses/{docId} {
-        allow read, write: if isTenantAdmin(tenantId);
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
-      match /finance_years/{docId} { allow read, write: if isTenantAdmin(tenantId); }
-      match /finance_assets/{docId} { allow read, write: if isTenantAdmin(tenantId); }
-      match /finance_liabilities/{docId} { allow read, write: if isTenantAdmin(tenantId); }
-      match /finance_payments/{docId} { allow read, write: if isTenantAdmin(tenantId); }
-      match /finance_loans/{docId} { allow read, write: if isTenantAdmin(tenantId); }
-      match /finance_spending/{docId} { allow read, write: if isTenantAdmin(tenantId); }
-      match /smsLogs/{docId} { allow read, write: if isTenantAdmin(tenantId); }
+      match /finance_years/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+      match /finance_assets/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+      match /finance_liabilities/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+      match /finance_payments/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+      match /finance_loans/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+      match /finance_spending/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+      match /smsLogs/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
     }
 
     match /{document=**} {

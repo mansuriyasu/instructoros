@@ -55,6 +55,8 @@ export interface Payment {
   subtotal: number;
   discount: number;
   tax: number;
+  taxLabel?: string;
+  taxRate?: number;
   total: number;
   totalCost: number;
   paidAmount: number;
@@ -96,6 +98,13 @@ export interface CalendarEvent {
   examCenter?: string;
   examDateTime?: string;
   examImageDataUri?: string;
+}
+
+export interface InstructorOption {
+  uid: string;
+  displayName?: string;
+  email?: string;
+  role?: string;
 }
 
 // ---- Finance & Zakat Models ----

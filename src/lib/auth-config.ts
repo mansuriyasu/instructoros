@@ -1,3 +1,5 @@
+import type { BillingPlan, BillingStatus } from './billing';
+
 export const MAIN_ADMIN_EMAIL = 'yasin_mansuri@live.com';
 
 export type TenantType = 'school' | 'solo';
@@ -19,6 +21,25 @@ export type Tenant = {
   name: string;
   type: TenantType;
   status: TenantStatus;
+  plan?: BillingPlan;
+  seatLimit?: number;
+  extraSeats?: number;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: BillingStatus;
+  trialEndsAt?: string | null;
+  currentPeriodEnd?: string | null;
+  billingLocked?: boolean;
+  receiptBusinessName?: string;
+  receiptLogoDataUrl?: string;
+  receiptPhone?: string;
+  receiptEmail?: string;
+  receiptWebsite?: string;
+  receiptAddress?: string;
+  hstNumber?: string;
+  taxLabel?: string;
+  taxRate?: number;
+  taxEnabledByDefault?: boolean;
   ownerUid: string;
   ownerEmail: string;
   createdAt: string;

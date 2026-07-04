@@ -18,17 +18,22 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === '/login';
+  const isPublicPage = pathname === '/';
   const isAdminPage = pathname?.startsWith('/admin');
 
   useEffect(() => {
-    if (isUserLoading || isLoginPage || user) return;
+    if (isUserLoading || isLoginPage || isPublicPage || user) return;
     router.replace(`/login?next=${encodeURIComponent(pathname || '/')}`);
-  }, [isLoginPage, isUserLoading, pathname, router, user]);
+  }, [isLoginPage, isPublicPage, isUserLoading, pathname, router, user]);
 
   useEffect(() => {
-    if (isLoginPage || isSessionLoading || !user || !isMainAdmin || activeTenantId || isAdminPage) return;
+    if (isLoginPage || isPublicPage || isSessionLoading || !user || !isMainAdmin || activeTenantId || isAdminPage) return;
     router.replace('/admin');
-  }, [activeTenantId, isAdminPage, isLoginPage, isMainAdmin, isSessionLoading, router, user]);
+  }, [activeTenantId, isAdminPage, isLoginPage, isPublicPage, isMainAdmin, isSessionLoading, router, user]);
+
+  if (isPublicPage) {
+    return <>{children}</>;
+  }
 
   if (isSessionLoading) {
     return null;
