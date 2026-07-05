@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import {
-  Activity,
   ArrowRight,
   CalendarDays,
   Clock3,
@@ -212,7 +211,6 @@ export function HomeMenu() {
           <ActionTile href="/app/payments" icon={Wallet} label="POS" tone="green" />
           <ActionTile href="/app/payments/history" icon={History} label="History" tone="purple" />
           <ActionTile href="/app/expenses" icon={ReceiptText} label="Expenses" tone="teal" />
-          <ActionTile href="/app/utility-tracker" icon={Activity} label="Utility" tone="red" />
           <ActionTile href="/app/settings?tab=import-export" icon={Upload} label="Import" tone="blue" />
           <NotificationsTile />
           <ActionTile href="/app/settings" icon={Settings} label="Settings" tone="slate" />

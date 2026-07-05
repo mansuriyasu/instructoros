@@ -9,7 +9,6 @@ import {
   Wallet,
   History,
   Calendar,
-  Activity,
   Receipt,
   Settings,
   Shield,
@@ -28,7 +27,6 @@ export const navItems = [
   { href: "/app/payments/history", label: "History", icon: History, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   { href: "/app/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   { href: "/app/expenses", label: "Business Expenses", icon: Receipt, roles: ["schoolAdmin", "mainAdmin"] },
-  { href: "/app/utility-tracker", label: "Utility Tracker", icon: Activity, roles: ["schoolAdmin", "mainAdmin"] },
   { href: "/app/billing", label: "Billing", icon: CreditCard, roles: ["schoolAdmin", "soloInstructor", "mainAdmin"] },
   { href: "/app/settings", label: "Settings", icon: Settings, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
 ]

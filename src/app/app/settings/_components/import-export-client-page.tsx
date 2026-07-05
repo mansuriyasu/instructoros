@@ -29,7 +29,6 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useStudents } from '@/hooks/use-students';
-import { useUtilityTracker, type UtilityTrackerData } from '@/hooks/use-utility-tracker';
 import { useActiveTenantId, useFirestore } from '@/firebase';
 import { Student } from '@/lib/types';
 import { downloadJson } from '@/lib/utils';
@@ -48,9 +47,7 @@ type FullBackup = {
   version: 3;
   exportedAt: string;
   collections: Record<string, CollectionBackup>;
-  localStorage: {
-    utilityTrackerData_v4: UtilityTrackerData | null;
-  };
+  localStorage?: Record<string, unknown>;
 };
 
 const COLLECTIONS = [
@@ -200,7 +197,6 @@ export function ImportExportClientPage() {
   const firestore = useFirestore();
   const activeTenantId = useActiveTenantId();
   const { students, addStudent } = useStudents();
-  const { data: utilityData, saveData: saveUtilityData } = useUtilityTracker();
   const { toast } = useToast();
 
   const importRef = useRef<HTMLInputElement>(null);
@@ -240,9 +236,6 @@ export function ImportExportClientPage() {
       version: 3,
       exportedAt: new Date().toISOString(),
       collections: Object.fromEntries(collectionEntries),
-      localStorage: {
-        utilityTrackerData_v4: utilityData,
-      },
     };
   };
 
@@ -291,39 +284,6 @@ export function ImportExportClientPage() {
     }
   };
 
-  const handleUtilityCsvExport = () => {
-    if (!utilityData) {
-      toast({ title: 'Nothing to export', description: 'Utility Tracker has no data loaded yet.' });
-      return;
-    }
-
-    const rows = utilityData.monthlyData.map(month => ({
-      id: month.id,
-      year: month.year,
-      month: month.month + 1,
-      gas: month.utilities.gas,
-      electricity: month.utilities.electricity,
-      wifi: month.utilities.wifi,
-      water: month.utilities.water,
-      numberOfPeople: month.utilities.numberOfPeople,
-      mortgage: month.myCosts.mortgage,
-      insurance: month.myCosts.insurance,
-      maintenance: month.myCosts.maintenance,
-      waterTank: month.myCosts.waterTank,
-      houseTax: month.myCosts.houseTax,
-      waterBill: month.myCosts.waterBill,
-      rentalIn: month.myCosts.rentalIn,
-      tenants: month.rent.tenants,
-    }));
-
-    downloadText(
-      recordsToCsv(rows),
-      `sparkon-utility-tracker-${todayStamp()}.csv`,
-      'text/csv;charset=utf-8;'
-    );
-    toast({ title: 'CSV downloaded', description: 'Utility Tracker was exported.' });
-  };
-
   const handleImportClick = () => {
     importRef.current?.click();
   };
@@ -345,11 +305,6 @@ export function ImportExportClientPage() {
       const section = backup.collections[item.name];
       if (!section?.records) continue;
       await writeCollectionRecords(firestore, activeTenantId, item.name, section.records, mode);
-    }
-
-    const utilityBackup = backup.localStorage?.utilityTrackerData_v4;
-    if (utilityBackup) {
-      saveUtilityData(utilityBackup);
     }
 
     toast({
@@ -490,7 +445,7 @@ export function ImportExportClientPage() {
           <CardHeader>
             <CardTitle>Complete Backup</CardTitle>
             <CardDescription>
-              Download one JSON file containing students, schedule, payments, services, expenses, and Utility Tracker data.
+              Download one JSON file containing students, schedule, payments, services, and expenses.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -558,16 +513,6 @@ export function ImportExportClientPage() {
             </div>
           ))}
 
-          <div className="rounded-lg border p-4">
-            <div className="mb-3">
-              <p className="font-semibold">Utility Tracker</p>
-              <p className="text-sm text-muted-foreground">Local utility, rent, and home cost tracker data</p>
-            </div>
-            <Button variant="outline" className="w-full" onClick={handleUtilityCsvExport} disabled={isBusy || !utilityData}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
-          </div>
         </CardContent>
       </Card>
 

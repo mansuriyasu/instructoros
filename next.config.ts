@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
-    const privateRoutes = ['students', 'payments', 'schedule', 'settings', 'team', 'expenses', 'utility-tracker', 'services'];
+    const privateRoutes = ['students', 'payments', 'schedule', 'settings', 'team', 'expenses', 'services'];
 
     return privateRoutes.map(route => ({
       source: `/${route}/:path*`,
