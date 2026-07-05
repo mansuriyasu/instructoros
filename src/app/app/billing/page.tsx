@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { doc, updateDoc } from 'firebase/firestore';
-import { Building2, CheckCircle2, CreditCard, Loader2, Lock, UserRound, UsersRound } from 'lucide-react';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { Building2, CheckCircle2, CreditCard, Loader2, Lock, TicketPercent, UserRound, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirestore, useSession, useUser } from '@/firebase';
 import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE, getBillingLocked, getPlanForTenantType } from '@/lib/billing';
-import type { BillingPlan } from '@/lib/billing';
+import type { BillingPlan, PromoCode } from '@/lib/billing';
 
 async function postBilling(path: string, token: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
@@ -53,6 +53,10 @@ function formatDate(value?: string | null) {
   }).format(new Date(value));
 }
 
+function normalizePromoCode(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+}
+
 export default function BillingPage() {
   const firestore = useFirestore();
   const { tenant, activeTenantId, canManageTenant } = useSession();
@@ -60,8 +64,10 @@ export default function BillingPage() {
   const searchParams = useSearchParams();
   const [seatLimit, setSeatLimit] = useState(PLAN_DETAILS.school.includedSeats);
   const [isLoading, setIsLoading] = useState<'trial' | 'checkout' | 'portal' | 'seats' | null>(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [promoCodeInput, setPromoCodeInput] = useState('');
 
   const plan = useMemo<BillingPlan>(() => tenant?.plan || getPlanForTenantType(tenant?.type === 'school' ? 'school' : 'solo'), [tenant?.plan, tenant?.type]);
   const isSchool = tenant?.type === 'school';
@@ -109,6 +115,67 @@ export default function BillingPage() {
       setError(trialError instanceof Error ? trialError.message : 'Could not start the free trial.');
     } finally {
       setIsLoading(null);
+    }
+  };
+
+  const applyPromoCode = async () => {
+    if (!activeTenantId || !tenant) return;
+    const code = normalizePromoCode(promoCodeInput);
+    if (!code) return;
+
+    setIsApplyingPromo(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const promoSnap = await getDoc(doc(firestore, 'promoCodes', code));
+      if (!promoSnap.exists()) {
+        throw new Error('This promo code was not found.');
+      }
+
+      const promo = { ...(promoSnap.data() as PromoCode), id: promoSnap.id };
+      if (!promo.active) {
+        throw new Error('This promo code is not active.');
+      }
+      if (promo.expiresAt && new Date(promo.expiresAt).getTime() < Date.now()) {
+        throw new Error('This promo code has expired.');
+      }
+
+      const now = new Date();
+
+      if (promo.kind === 'free') {
+        const freeAccessUntil = addDays(now, promo.freeDays || 30).toISOString();
+        await updateDoc(doc(firestore, 'tenants', activeTenantId), {
+          promoCodeApplied: promo.code,
+          updatedAt: now.toISOString(),
+          subscriptionStatus: 'active',
+          billingLocked: false,
+          freeAccessUntil,
+          freeAccessReason: `Promo code ${promo.code}`,
+        });
+        setMessage(`${promo.code} applied. Free access is active until ${formatDate(freeAccessUntil)}.`);
+      } else {
+        const update = {
+          promoCodeApplied: promo.code,
+          updatedAt: now.toISOString(),
+          promoPercentOff: promo.percentOff || 0,
+          ...(billingLocked
+            ? {
+                subscriptionStatus: 'trialing',
+                billingLocked: false,
+                trialEndsAt: tenant.trialEndsAt || addDays(now, PLAN_DETAILS[plan].trialDays).toISOString(),
+              }
+            : {}),
+        };
+        await updateDoc(doc(firestore, 'tenants', activeTenantId), update);
+        setMessage(`${promo.code} applied. ${promo.percentOff || 0}% discount is saved for this workspace.`);
+      }
+
+      setPromoCodeInput('');
+    } catch (promoError) {
+      setError(promoError instanceof Error ? promoError.message : 'Could not apply this promo code.');
+    } finally {
+      setIsApplyingPromo(false);
     }
   };
 
@@ -209,6 +276,14 @@ export default function BillingPage() {
               </div>
             )}
 
+            {(tenant.freeAccessUntil || tenant.promoCodeApplied || tenant.promoPercentOff) && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                {tenant.freeAccessUntil && <p className="font-semibold">Free access until {formatDate(tenant.freeAccessUntil)}.</p>}
+                {tenant.promoCodeApplied && <p className="mt-1">Promo code: <span className="font-black">{tenant.promoCodeApplied}</span></p>}
+                {tenant.promoPercentOff ? <p className="mt-1">{tenant.promoPercentOff}% discount saved for this workspace.</p> : null}
+              </div>
+            )}
+
             {billingLocked && (
               <Alert>
                 <Lock className="h-4 w-4" />
@@ -220,21 +295,40 @@ export default function BillingPage() {
             )}
 
             {canManageTenant ? (
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {canStartTrial && (
-                  <Button onClick={startFreeTrial} disabled={Boolean(isLoading)} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
-                    {isLoading === 'trial' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                    Get 1 Month Free Trial
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <Label htmlFor="promoCode">Promo code</Label>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="promoCode"
+                      value={promoCodeInput}
+                      onChange={event => setPromoCodeInput(normalizePromoCode(event.target.value))}
+                      placeholder="Enter code"
+                      className="h-11 rounded-lg"
+                    />
+                    <Button variant="outline" onClick={applyPromoCode} disabled={isApplyingPromo || !promoCodeInput.trim()} className="rounded-lg">
+                      {isApplyingPromo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TicketPercent className="mr-2 h-4 w-4" />}
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  {canStartTrial && (
+                    <Button onClick={startFreeTrial} disabled={Boolean(isLoading)} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+                      {isLoading === 'trial' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                      Get 1 Month Free Trial
+                    </Button>
+                  )}
+                  <Button variant={canStartTrial ? 'outline' : 'default'} onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg">
+                    {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                    Set up paid billing
                   </Button>
-                )}
-                <Button variant={canStartTrial ? 'outline' : 'default'} onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg">
-                  {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                  Set up paid billing
-                </Button>
-                <Button variant="outline" onClick={() => runBillingAction('portal')} disabled={Boolean(isLoading) || !tenant.stripeCustomerId} className="rounded-lg">
-                  {isLoading === 'portal' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Manage in Stripe
-                </Button>
+                  <Button variant="outline" onClick={() => runBillingAction('portal')} disabled={Boolean(isLoading) || !tenant.stripeCustomerId} className="rounded-lg">
+                    {isLoading === 'portal' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Manage in Stripe
+                  </Button>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Only a school admin or individual instructor owner can manage billing.</p>

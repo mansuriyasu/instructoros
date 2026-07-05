@@ -30,6 +30,10 @@ export type Tenant = {
   trialEndsAt?: string | null;
   currentPeriodEnd?: string | null;
   billingLocked?: boolean;
+  freeAccessUntil?: string | null;
+  freeAccessReason?: string;
+  promoCodeApplied?: string;
+  promoPercentOff?: number;
   receiptBusinessName?: string;
   receiptLogoDataUrl?: string;
   receiptPhone?: string;

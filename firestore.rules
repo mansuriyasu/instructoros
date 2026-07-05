@@ -221,6 +221,11 @@ service cloud.firestore {
       }
     }
 
+    match /promoCodes/{codeId} {
+      allow get: if signedIn();
+      allow list, create, update, delete: if isMainAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if isMainAdmin();
     }

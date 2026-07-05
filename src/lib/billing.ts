@@ -37,6 +37,22 @@ export const PLAN_DETAILS: Record<BillingPlan, {
 
 export const SCHOOL_EXTRA_SEAT_PRICE = 5;
 
+export type PromoCodeKind = 'free' | 'percent';
+
+export type PromoCode = {
+  id: string;
+  code: string;
+  kind: PromoCodeKind;
+  active: boolean;
+  percentOff?: number;
+  freeDays?: number;
+  expiresAt?: string | null;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdByUid?: string;
+};
+
 export function isBillingPlan(value: unknown): value is BillingPlan {
   return value === 'instructor' || value === 'school';
 }
