@@ -23,7 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useSession } from '@/firebase';
-import { MAIN_ADMIN_EMAIL, normalizeEmail, type TenantInvite } from '@/lib/auth-config';
+import { MAIN_ADMIN_EMAIL, normalizeEmail, type AppUserProfile, type TenantInvite, type TenantMember } from '@/lib/auth-config';
 import { getIncludedSeats, getPlanForTenantType } from '@/lib/billing';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
@@ -192,11 +192,34 @@ export function LoginForm() {
     window.location.assign(data.url);
   };
 
-  const acceptInvite = async (user: User) => {
+  const getExistingWorkspace = async (user: User) => {
+    const profileSnap = await getDoc(doc(firestore, 'users', user.uid));
+    if (!profileSnap.exists()) return null;
+
+    const profile = profileSnap.data() as AppUserProfile;
+    const activeTenantId = profile.activeTenantId || null;
+    if (!activeTenantId) return null;
+
+    if (normalizeEmail(user.email) === MAIN_ADMIN_EMAIL) {
+      return { activeTenantId, role: 'mainAdmin' as const };
+    }
+
+    const memberSnap = await getDoc(doc(firestore, 'tenants', activeTenantId, 'members', user.uid));
+    if (!memberSnap.exists()) return { activeTenantId, role: null };
+
+    const member = memberSnap.data() as TenantMember;
+    return {
+      activeTenantId,
+      role: member.status === 'active' ? member.role : null,
+    };
+  };
+
+  const acceptInvite = async (user: User, emailOverride?: string) => {
     if (!inviteTenantId || !inviteId) {
       throw new Error('This invite link is missing school information.');
     }
 
+    const inviteEmail = normalizeEmail(emailOverride || user.email || normalizedEmail);
     const inviteRef = doc(firestore, 'tenants', inviteTenantId, 'invites', inviteId);
     const inviteSnap = await getDoc(inviteRef);
     if (!inviteSnap.exists()) {
@@ -207,7 +230,7 @@ export function LoginForm() {
     if (invite.status !== 'pending') {
       throw new Error('This invite is no longer available.');
     }
-    if (normalizeEmail(invite.email) !== normalizedEmail) {
+    if (normalizeEmail(invite.email) !== inviteEmail) {
       throw new Error('This invite is for a different email address.');
     }
 
@@ -218,8 +241,8 @@ export function LoginForm() {
 
     batch.set(userRef, {
       uid: user.uid,
-      email: normalizedEmail,
-      displayName: displayName.trim() || user.displayName || normalizedEmail,
+      email: inviteEmail,
+      displayName: displayName.trim() || user.displayName || inviteEmail,
       activeTenantId: inviteTenantId,
       tenantIds: [inviteTenantId],
       createdAt: now,
@@ -227,8 +250,8 @@ export function LoginForm() {
     }, { merge: true });
     batch.set(memberRef, {
       uid: user.uid,
-      email: normalizedEmail,
-      displayName: displayName.trim() || user.displayName || normalizedEmail,
+      email: inviteEmail,
+      displayName: displayName.trim() || user.displayName || inviteEmail,
       role: 'schoolInstructor',
       status: 'active',
       tenantId: inviteTenantId,
@@ -314,18 +337,32 @@ export function LoginForm() {
       provider.setCustomParameters({ prompt: 'select_account' });
       const credential = await signInWithPopup(auth, provider);
       const user = credential.user;
+      const googleEmail = normalizeEmail(user.email);
 
-      if ((mode === 'school' || mode === 'solo') && !session.role) {
+      if (mode === 'invite') {
+        await acceptInvite(user, googleEmail);
+        router.replace(nextUrl);
+        return;
+      }
+
+      if (mode === 'school' || mode === 'solo') {
         if (mode === 'school' && schoolName.trim().length < 2) {
           setError('Enter the school name first.');
           return;
         }
+
+        const existingWorkspace = await getExistingWorkspace(user);
+        if (existingWorkspace?.role) {
+          setError('This Google account is already connected to an InstructorOS workspace. Use Login with Google, or choose a different Google account.');
+          return;
+        }
+
         const tenantId = await createTenantWorkspace(user, mode === 'school' ? 'school' : 'solo');
         await startBillingCheckout(user, tenantId, mode === 'school' ? 'school' : 'solo');
         return;
       }
 
-      router.replace(normalizeEmail(user.email) === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
+      router.replace(googleEmail === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
     } catch (googleError) {
       setError(getAuthErrorMessage(googleError, 'google'));
     } finally {
@@ -351,6 +388,13 @@ export function LoginForm() {
   };
 
   const title = mode === 'login' ? 'Welcome back' : mode === 'school' ? 'Create school workspace' : mode === 'solo' ? 'Create instructor workspace' : 'Accept school invite';
+  const googleButtonLabel = mode === 'login'
+    ? 'Continue with Google'
+    : mode === 'school'
+      ? 'Create school with Google'
+      : mode === 'solo'
+        ? 'Create instructor with Google'
+        : 'Accept invite with Google';
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] px-4 py-8 text-[#111827]">
@@ -519,7 +563,7 @@ export function LoginForm() {
               disabled={isSubmitting || (mode === 'school' && schoolName.trim().length < 2)}
             >
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {mode === 'login' ? 'Continue with Google' : 'Sign up with Google'}
+              {googleButtonLabel}
             </Button>
 
             <Button type="button" variant="link" className="h-auto w-full p-0 text-sm text-muted-foreground" onClick={handleResetPassword}>
