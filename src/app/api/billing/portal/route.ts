@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBillingActor } from '@/lib/server/billing-auth';
-import { getAppUrl, getStripe } from '@/lib/server/stripe';
+import { getAppUrl, getStripe, publicBillingError } from '@/lib/server/stripe';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not open billing portal.';
+    const message = publicBillingError(error, 'Could not open billing portal.');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

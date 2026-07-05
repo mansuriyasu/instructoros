@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Building2, CheckCircle2, CreditCard, Loader2, Lock, UserRound, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useSession, useUser } from '@/firebase';
+import { useFirestore, useSession, useUser } from '@/firebase';
 import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE, getBillingLocked, getPlanForTenantType } from '@/lib/billing';
 import type { BillingPlan } from '@/lib/billing';
 
@@ -27,12 +28,38 @@ async function postBilling(path: string, token: string, body: Record<string, unk
   return data;
 }
 
+function friendlyBillingError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/default credentials|application default credentials|GOOGLE_APPLICATION_CREDENTIALS|Firebase Admin/i.test(message)) {
+    return 'Paid billing setup is not fully connected yet. You can still start the 1 month free trial now.';
+  }
+
+  return message || 'Billing request failed.';
+}
+
+function addDays(date: Date, days: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(value));
+}
+
 export default function BillingPage() {
+  const firestore = useFirestore();
   const { tenant, activeTenantId, canManageTenant } = useSession();
   const { user } = useUser();
   const searchParams = useSearchParams();
   const [seatLimit, setSeatLimit] = useState(PLAN_DETAILS.school.includedSeats);
-  const [isLoading, setIsLoading] = useState<'checkout' | 'portal' | 'seats' | null>(null);
+  const [isLoading, setIsLoading] = useState<'trial' | 'checkout' | 'portal' | 'seats' | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -40,6 +67,8 @@ export default function BillingPage() {
   const isSchool = tenant?.type === 'school';
   const status = tenant?.subscriptionStatus || 'not_started';
   const billingLocked = tenant?.billingLocked ?? getBillingLocked(status);
+  const trialIsActive = status === 'trialing';
+  const canStartTrial = canManageTenant && !trialIsActive && tenant?.subscriptionStatus !== 'active';
 
   useEffect(() => {
     setSeatLimit(tenant?.seatLimit || (isSchool ? PLAN_DETAILS.school.includedSeats : PLAN_DETAILS.instructor.includedSeats));
@@ -50,9 +79,38 @@ export default function BillingPage() {
       setMessage('Checkout completed. Stripe may take a few seconds to confirm the trial here.');
     }
     if (searchParams.get('checkout') === 'cancelled') {
-      setError('Checkout was cancelled. Start billing again to unlock the workspace trial.');
+      setError('Checkout was cancelled. You can still start the 1 month free trial from this page.');
     }
   }, [searchParams]);
+
+  const startFreeTrial = async () => {
+    if (!activeTenantId || !tenant) return;
+    setIsLoading('trial');
+    setError('');
+    setMessage('');
+
+    try {
+      const now = new Date();
+      const trialEndsAt = addDays(now, PLAN_DETAILS[plan].trialDays).toISOString();
+
+      await updateDoc(doc(firestore, 'tenants', activeTenantId), {
+        plan,
+        subscriptionStatus: 'trialing',
+        billingLocked: false,
+        trialEndsAt,
+        seatLimit: isSchool
+          ? Math.max(seatLimit, PLAN_DETAILS.school.includedSeats)
+          : PLAN_DETAILS.instructor.includedSeats,
+        updatedAt: now.toISOString(),
+      });
+
+      setMessage(`Your 1 month free trial is active until ${formatDate(trialEndsAt)}.`);
+    } catch (trialError) {
+      setError(trialError instanceof Error ? trialError.message : 'Could not start the free trial.');
+    } finally {
+      setIsLoading(null);
+    }
+  };
 
   const runBillingAction = async (action: 'checkout' | 'portal' | 'seats') => {
     if (!user || !activeTenantId || !tenant) return;
@@ -82,7 +140,7 @@ export default function BillingPage() {
       setSeatLimit(data.seatLimit);
       setMessage(`School seat limit updated to ${data.seatLimit} user(s).`);
     } catch (billingError) {
-      setError(billingError instanceof Error ? billingError.message : 'Billing request failed.');
+      setError(friendlyBillingError(billingError));
     } finally {
       setIsLoading(null);
     }
@@ -123,7 +181,7 @@ export default function BillingPage() {
               <div>
                 <CardTitle className="text-xl">Current plan</CardTitle>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  First month is free. Monthly billing starts after the trial.
+                  Get 1 month free. Monthly billing starts only after the trial and payment setup.
                 </p>
               </div>
               {isSchool ? <Building2 className="h-6 w-6" /> : <UserRound className="h-6 w-6" />}
@@ -145,6 +203,12 @@ export default function BillingPage() {
               </div>
             </div>
 
+            {tenant.trialEndsAt && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+                Free trial ends {formatDate(tenant.trialEndsAt)}.
+              </div>
+            )}
+
             {billingLocked && (
               <Alert>
                 <Lock className="h-4 w-4" />
@@ -157,9 +221,15 @@ export default function BillingPage() {
 
             {canManageTenant ? (
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg">
+                {canStartTrial && (
+                  <Button onClick={startFreeTrial} disabled={Boolean(isLoading)} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+                    {isLoading === 'trial' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                    Get 1 Month Free Trial
+                  </Button>
+                )}
+                <Button variant={canStartTrial ? 'outline' : 'default'} onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg">
                   {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                  Start free month
+                  Set up paid billing
                 </Button>
                 <Button variant="outline" onClick={() => runBillingAction('portal')} disabled={Boolean(isLoading) || !tenant.stripeCustomerId} className="rounded-lg">
                   {isLoading === 'portal' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

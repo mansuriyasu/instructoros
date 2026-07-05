@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PLAN_DETAILS, getExtraSeats, getIncludedSeats, isBillingPlan } from '@/lib/billing';
 import { getBillingActor } from '@/lib/server/billing-auth';
-import { getAppUrl, getStripe, requireEnv } from '@/lib/server/stripe';
+import { getAppUrl, getStripe, publicBillingError, requireEnv } from '@/lib/server/stripe';
 
 export const runtime = 'nodejs';
 
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not start checkout.';
+    const message = publicBillingError(error, 'Could not start checkout.');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

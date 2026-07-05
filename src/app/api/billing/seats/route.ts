@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PLAN_DETAILS } from '@/lib/billing';
 import { getBillingActor } from '@/lib/server/billing-auth';
 import { normalizeSeatLimit, seatLimitToExtraSeats, syncSubscriptionToTenant } from '@/lib/server/billing-sync';
-import { getStripe, requireEnv } from '@/lib/server/stripe';
+import { getStripe, publicBillingError, requireEnv } from '@/lib/server/stripe';
 
 export const runtime = 'nodejs';
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       extraSeats,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not update seats.';
+    const message = publicBillingError(error, 'Could not update seats.');
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

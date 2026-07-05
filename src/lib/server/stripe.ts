@@ -28,3 +28,13 @@ export function requireEnv(name: string) {
   }
   return value;
 }
+
+export function publicBillingError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/default credentials|application default credentials|GOOGLE_APPLICATION_CREDENTIALS|Firebase Admin/i.test(message)) {
+    return 'Billing server setup is missing Firebase Admin credentials. The free trial can still be started from the Billing page.';
+  }
+
+  return message || fallback;
+}
