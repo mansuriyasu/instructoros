@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { addDoc, collection, doc, orderBy, query, updateDoc } from 'firebase/firestore';
-import { Copy, Loader2, Mail, UserCheck, UserX } from 'lucide-react';
+import { Copy, Loader2, Mail, RotateCcw, UserCheck, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,8 @@ export default function TeamPage() {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   const membersRef = useMemoFirebase(
     () => (firestore && activeTenantId ? collection(firestore, 'tenants', activeTenantId, 'members') : null),
@@ -41,16 +43,27 @@ export default function TeamPage() {
   const { data: members, isLoading: membersLoading } = useCollection<TenantMember>(membersRef);
   const { data: invites, isLoading: invitesLoading } = useCollection<TenantInvite>(invitesQuery);
 
-  const instructors = useMemo(
-    () => (members || []).filter(member => member.role === 'schoolInstructor' && member.status === 'active'),
+  const activeMembers = useMemo(
+    () => (members || []).filter(member => member.status === 'active'),
     [members]
   );
+  const removedMembers = useMemo(
+    () => (members || []).filter(member => member.status !== 'active'),
+    [members]
+  );
+  const instructors = useMemo(
+    () => activeMembers.filter(member => member.role === 'schoolInstructor'),
+    [activeMembers]
+  );
   const pendingInvites = useMemo(
-    () => (invites || []).filter(invite => invite.status === 'pending'),
-    [invites]
+    () => {
+      const activeEmails = new Set(activeMembers.map(member => normalizeEmail(member.email)));
+      return (invites || []).filter(invite => invite.status === 'pending' && !activeEmails.has(normalizeEmail(invite.email)));
+    },
+    [activeMembers, invites]
   );
   const seatLimit = tenant?.seatLimit || PLAN_DETAILS.school.includedSeats;
-  const usedSeats = (members || []).filter(member => member.status === 'active').length + pendingInvites.length;
+  const usedSeats = activeMembers.length + pendingInvites.length;
   const hasSeatAvailable = usedSeats < seatLimit;
 
   const handleInvite = async (event: FormEvent<HTMLFormElement>) => {
@@ -60,6 +73,26 @@ export default function TeamPage() {
 
     const email = normalizeEmail(inviteEmail);
     if (!email.includes('@')) return;
+
+    setError('');
+    setMessage('');
+
+    const existingMember = (members || []).find(member => normalizeEmail(member.email) === email);
+    if (existingMember?.status === 'active') {
+      setError(`${existingMember.displayName || existingMember.email} is already an active team member.`);
+      return;
+    }
+
+    const existingInvite = pendingInvites.find(invite => normalizeEmail(invite.email) === email);
+    if (existingInvite) {
+      const origin = window.location.origin;
+      const link = `${origin}/login?mode=invite&tenantId=${activeTenantId}&inviteId=${existingInvite.id}`;
+      setLastInviteLink(link);
+      await navigator.clipboard?.writeText(link).catch(() => undefined);
+      setMessage('This email already has a pending invite. I copied the existing invite link.');
+      setInviteEmail('');
+      return;
+    }
 
     setIsBusy(true);
     try {
@@ -77,6 +110,9 @@ export default function TeamPage() {
       setLastInviteLink(link);
       await navigator.clipboard?.writeText(link).catch(() => undefined);
       setInviteEmail('');
+      setMessage('Invite created and copied.');
+    } catch (inviteError) {
+      setError(inviteError instanceof Error ? inviteError.message : 'Could not create invite.');
     } finally {
       setIsBusy(false);
     }
@@ -84,10 +120,53 @@ export default function TeamPage() {
 
   const handleDisable = async (member: TenantMember) => {
     if (!activeTenantId) return;
+    setError('');
+    setMessage('');
+    setIsBusy(true);
+
+    try {
+      await updateDoc(doc(firestore, 'tenants', activeTenantId, 'members', member.uid), {
+        status: 'disabled',
+        disabledAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const assignedStudents = (students || []).filter(student => (student.assignedInstructorIds || []).includes(member.uid));
+      for (const student of assignedStudents) {
+        await updateStudent({
+          id: student.id,
+          assignedInstructorIds: (student.assignedInstructorIds || []).filter(uid => uid !== member.uid),
+        });
+      }
+
+      setMessage(`${member.displayName || member.email} was removed from active team and unassigned from ${assignedStudents.length} student(s).`);
+    } catch (disableError) {
+      setError(disableError instanceof Error ? disableError.message : 'Could not remove this team member.');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleReactivate = async (member: TenantMember) => {
+    if (!activeTenantId) return;
+    setError('');
+    setMessage('');
     await updateDoc(doc(firestore, 'tenants', activeTenantId, 'members', member.uid), {
-      status: 'disabled',
+      status: 'active',
       updatedAt: new Date().toISOString(),
     });
+    setMessage(`${member.displayName || member.email} is active again.`);
+  };
+
+  const handleRevokeInvite = async (invite: TenantInvite) => {
+    if (!activeTenantId) return;
+    setError('');
+    setMessage('');
+    await updateDoc(doc(firestore, 'tenants', activeTenantId, 'invites', invite.id), {
+      status: 'revoked',
+      updatedAt: new Date().toISOString(),
+    });
+    setMessage(`Invite for ${invite.email} was revoked.`);
   };
 
   const handleAssignStudent = async () => {
@@ -96,6 +175,7 @@ export default function TeamPage() {
     if (!student) return;
     const assignedInstructorIds = Array.from(new Set([...(student.assignedInstructorIds || []), selectedInstructorId]));
     await updateStudent({ id: student.id, assignedInstructorIds });
+    setMessage('Student assignment updated.');
   };
 
   if (!canManageTenant || !activeTenantId) {
@@ -114,6 +194,17 @@ export default function TeamPage() {
         <h1 className="text-3xl font-bold tracking-tight">Team</h1>
         <p className="mt-2 text-sm text-muted-foreground">Invite instructors and assign students in {tenant?.name || 'this workspace'}.</p>
       </div>
+
+      {message && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
+          {message}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
+          {error}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 rounded-lg border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -134,7 +225,7 @@ export default function TeamPage() {
             <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleInvite}>
               <div className="flex-1 space-y-2">
                 <Label htmlFor="inviteEmail">Instructor email</Label>
-                <Input id="inviteEmail" type="email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="instructor@example.com" />
+                <Input id="inviteEmail" type="email" value={inviteEmail} onChange={event => setInviteEmail(normalizeEmail(event.target.value))} placeholder="instructor@example.com" />
               </div>
               <Button className="mt-auto" disabled={isBusy || !inviteEmail.includes('@') || !hasSeatAvailable}>
                 {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -183,16 +274,19 @@ export default function TeamPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {membersLoading && <p className="text-sm text-muted-foreground">Loading members...</p>}
-          {(members || []).map(member => (
+          {activeMembers.length === 0 && !membersLoading && (
+            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No active team members yet.</p>
+          )}
+          {activeMembers.map(member => (
             <div key={member.uid} className="flex items-center justify-between gap-3 rounded-lg border p-3">
               <div>
                 <div className="font-medium">{member.displayName || member.email}</div>
-                <div className="text-xs text-muted-foreground">{member.email} · {member.role} · {member.status}</div>
+                <div className="text-xs text-muted-foreground">{member.email} · {member.role}</div>
               </div>
-              {member.role === 'schoolInstructor' && member.status === 'active' && (
-                <Button variant="outline" size="sm" onClick={() => handleDisable(member)}>
+              {member.role === 'schoolInstructor' && (
+                <Button variant="outline" size="sm" onClick={() => handleDisable(member)} disabled={isBusy}>
                   <UserX className="mr-2 h-4 w-4" />
-                  Disable
+                  Remove
                 </Button>
               )}
             </div>
@@ -206,6 +300,9 @@ export default function TeamPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {invitesLoading && <p className="text-sm text-muted-foreground">Loading invites...</p>}
+          {pendingInvites.length === 0 && !invitesLoading && (
+            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No pending invites.</p>
+          )}
           {pendingInvites.map(invite => {
             const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/login?mode=invite&tenantId=${activeTenantId}&inviteId=${invite.id}`;
             return (
@@ -214,15 +311,42 @@ export default function TeamPage() {
                   <div className="font-medium">{invite.email}</div>
                   <div className="text-xs text-muted-foreground">Pending instructor invite</div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => navigator.clipboard?.writeText(link)}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy link
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => navigator.clipboard?.writeText(link)}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleRevokeInvite(invite)}>
+                    Revoke
+                  </Button>
+                </div>
               </div>
             );
           })}
         </CardContent>
       </Card>
+
+      {removedMembers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Removed members</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {removedMembers.map(member => (
+              <div key={member.uid} className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+                <div>
+                  <div className="font-medium">{member.displayName || member.email}</div>
+                  <div className="text-xs text-muted-foreground">{member.email} · {member.role} · removed</div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => handleReactivate(member)}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reactivate
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
