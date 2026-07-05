@@ -29,8 +29,9 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 
 type AuthMode = 'login' | 'school' | 'solo' | 'invite';
+type AuthAttemptType = 'email' | 'google';
 
-function getAuthErrorMessage(error: unknown) {
+function getAuthErrorMessage(error: unknown, attemptType: AuthAttemptType = 'email') {
   const message = error instanceof Error ? error.message : String(error);
 
   if (/auth\/invalid-credential|auth\/wrong-password|auth\/user-not-found/i.test(message)) {
@@ -43,7 +44,18 @@ function getAuthErrorMessage(error: unknown) {
     return 'Password must be at least 6 characters.';
   }
   if (/auth\/operation-not-allowed/i.test(message)) {
-    return 'Email/password login is not enabled in Firebase yet.';
+    return attemptType === 'google'
+      ? 'Google login is not enabled in Firebase yet. In Firebase Console, open Authentication > Sign-in method, enable Google, add a support email, and save.'
+      : 'Email/password login is not enabled in Firebase yet. In Firebase Console, open Authentication > Sign-in method, enable Email/Password, and save.';
+  }
+  if (/auth\/unauthorized-domain/i.test(message)) {
+    return 'This domain is not authorized for Firebase login yet. In Firebase Console, open Authentication > Settings > Authorized domains, then add instructoros.ca and localhost.';
+  }
+  if (/auth\/popup-blocked/i.test(message)) {
+    return 'The Google sign-in popup was blocked. Allow popups for this site and try again.';
+  }
+  if (/auth\/popup-closed-by-user|auth\/cancelled-popup-request/i.test(message)) {
+    return 'Google login was cancelled before it finished.';
   }
   if (/auth\/too-many-requests/i.test(message)) {
     return 'Too many attempts. Please wait a little and try again.';
@@ -285,7 +297,7 @@ export function LoginForm() {
 
       router.replace(normalizedEmail === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
     } catch (submitError) {
-      setError(getAuthErrorMessage(submitError));
+      setError(getAuthErrorMessage(submitError, 'email'));
     } finally {
       setIsSubmitting(false);
     }
@@ -315,7 +327,7 @@ export function LoginForm() {
 
       router.replace(normalizeEmail(user.email) === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
     } catch (googleError) {
-      setError(getAuthErrorMessage(googleError));
+      setError(getAuthErrorMessage(googleError, 'google'));
     } finally {
       setIsSubmitting(false);
     }
@@ -334,7 +346,7 @@ export function LoginForm() {
       await sendPasswordResetEmail(auth, normalizedEmail);
       setNotice('Password reset email sent.');
     } catch (resetError) {
-      setError(getAuthErrorMessage(resetError));
+      setError(getAuthErrorMessage(resetError, 'email'));
     }
   };
 

@@ -13,6 +13,11 @@ type ReadinessItem = {
   detail: string;
 };
 
+type AuthProviderCheckResult = {
+  ok: boolean;
+  detail: string;
+};
+
 function hasEnv(name: string) {
   return Boolean(process.env[name]?.trim());
 }
@@ -26,7 +31,64 @@ function item(key: string, label: string, ready: boolean, readyDetail: string, m
   };
 }
 
-function getReadinessItems(): ReadinessItem[] {
+async function checkFirebaseAuthProvider(providerId: string, label: string): Promise<AuthProviderCheckResult> {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const continueUri = process.env.NEXT_PUBLIC_APP_URL || 'https://instructoros.ca';
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      detail: `Cannot check ${label}; NEXT_PUBLIC_FIREBASE_API_KEY is missing.`,
+    };
+  }
+
+  try {
+    const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identifier: 'provider-check@instructoros.ca',
+        continueUri,
+        providerId,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    const errorMessage = String(data.error?.message || '');
+
+    if (response.ok) {
+      return {
+        ok: true,
+        detail: `${label} provider responded successfully.`,
+      };
+    }
+
+    if (/OPERATION_NOT_ALLOWED|configuration is not found/i.test(errorMessage)) {
+      return {
+        ok: false,
+        detail: `${label} is not enabled in Firebase Authentication > Sign-in method.`,
+      };
+    }
+
+    if (/INVALID_CONTINUE_URI|UNAUTHORIZED_DOMAIN/i.test(errorMessage)) {
+      return {
+        ok: false,
+        detail: `${label} is enabled, but ${continueUri} is not authorized in Firebase Authentication > Settings > Authorized domains.`,
+      };
+    }
+
+    return {
+      ok: false,
+      detail: `${label} check failed: ${errorMessage || `HTTP ${response.status}`}.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `${label} check failed: ${error instanceof Error ? error.message : 'network error'}.`,
+    };
+  }
+}
+
+async function getReadinessItems(): Promise<ReadinessItem[]> {
   const hasPublicFirebase = [
     'NEXT_PUBLIC_FIREBASE_API_KEY',
     'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
@@ -49,6 +111,10 @@ function getReadinessItems(): ReadinessItem[] {
     && hasEnv('GOOGLE_CALENDAR_CLIENT_SECRET')
     && hasEnv('GOOGLE_CALENDAR_REFRESH_TOKEN')
     && hasEnv('GOOGLE_CALENDAR_ID');
+  const [emailPasswordCheck, googleCheck] = await Promise.all([
+    checkFirebaseAuthProvider('password', 'Email/password sign-in'),
+    checkFirebaseAuthProvider('google.com', 'Google sign-in'),
+  ]);
 
   return [
     item(
@@ -71,6 +137,20 @@ function getReadinessItems(): ReadinessItem[] {
       hasFirebaseAdmin,
       'Server Firebase credentials are present.',
       'Add FIREBASE_SERVICE_ACCOUNT_KEY or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.'
+    ),
+    item(
+      'firebase-auth-email',
+      'Email/password auth',
+      emailPasswordCheck.ok,
+      emailPasswordCheck.detail,
+      emailPasswordCheck.detail
+    ),
+    item(
+      'firebase-auth-google',
+      'Google auth',
+      googleCheck.ok,
+      googleCheck.detail,
+      googleCheck.detail
     ),
     item(
       'stripe-core',
@@ -135,13 +215,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Firebase Admin could not verify this admin session. Check server Firebase credentials.',
-        items: getReadinessItems(),
+        items: await getReadinessItems(),
       },
       { status: 503 }
     );
   }
 
-  const items = getReadinessItems();
+  const items = await getReadinessItems();
   const missingCount = items.filter(readinessItem => readinessItem.state === 'missing').length;
   const warningCount = items.filter(readinessItem => readinessItem.state === 'warning').length;
 

@@ -12,6 +12,17 @@ Use this checklist before pushing a deployment to the live domain.
 - Rotate any live Stripe secret key that was shared outside Stripe, then update hosting environment variables.
 - Confirm Hostinger or the hosting provider uses the new InstructorOS repository and not the old SparkOn repository.
 
+## Firebase Auth Setup
+
+In the Firebase project used by InstructorOS:
+
+- Open Firebase Console > Authentication > Sign-in method.
+- Enable **Email/Password** and save.
+- Enable **Google**, choose a project support email, and save.
+- Open Authentication > Settings > Authorized domains.
+- Add `instructoros.ca`, `www.instructoros.ca`, and `localhost` for local testing.
+- Reopen `/admin` and confirm the Production readiness panel shows Email/password auth and Google auth as ready.
+
 ## Firebase Role Tests
 
 Test these with real accounts in the new Firebase project:
