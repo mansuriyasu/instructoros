@@ -31,6 +31,17 @@ import { Logo } from '@/components/logo';
 type AuthMode = 'login' | 'school' | 'solo' | 'invite';
 type AuthAttemptType = 'email' | 'google';
 
+const AUTH_ATTEMPT_STORAGE_KEY = 'instructorosAuthAttempts_v1';
+const AUTH_ATTEMPT_LIMIT = 5;
+const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_LOCK_MS = 15 * 60 * 1000;
+
+type AuthAttemptRecord = {
+  count: number;
+  firstAttemptAt: number;
+  lockedUntil?: number;
+};
+
 function getAuthErrorMessage(error: unknown, attemptType: AuthAttemptType = 'email') {
   const message = error instanceof Error ? error.message : String(error);
 
@@ -69,6 +80,75 @@ function safeNextUrl(rawNextUrl: string | null) {
   return nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/app';
 }
 
+function getAuthAttemptId(mode: AuthMode, email: string) {
+  return `${mode}:${normalizeEmail(email) || 'unknown'}`;
+}
+
+function readAuthAttempts(): Record<string, AuthAttemptRecord> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(AUTH_ATTEMPT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, AuthAttemptRecord> : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeAuthAttempts(records: Record<string, AuthAttemptRecord>) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(AUTH_ATTEMPT_STORAGE_KEY, JSON.stringify(records));
+}
+
+function formatLockTime(ms: number) {
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+function getAuthLockMessage(attemptId: string) {
+  const record = readAuthAttempts()[attemptId];
+  if (!record?.lockedUntil) return '';
+
+  const remaining = record.lockedUntil - Date.now();
+  if (remaining <= 0) {
+    clearAuthAttempts(attemptId);
+    return '';
+  }
+
+  return `Too many login attempts. Please wait ${formatLockTime(remaining)} before trying again.`;
+}
+
+function recordFailedAuthAttempt(attemptId: string) {
+  const now = Date.now();
+  const records = readAuthAttempts();
+  const current = records[attemptId];
+  const isFreshWindow = current && now - current.firstAttemptAt <= AUTH_ATTEMPT_WINDOW_MS;
+  const nextCount = isFreshWindow ? current.count + 1 : 1;
+  const lockedUntil = nextCount >= AUTH_ATTEMPT_LIMIT ? now + AUTH_LOCK_MS : undefined;
+
+  records[attemptId] = {
+    count: nextCount,
+    firstAttemptAt: isFreshWindow ? current.firstAttemptAt : now,
+    lockedUntil,
+  };
+  writeAuthAttempts(records);
+
+  return lockedUntil
+    ? `Too many login attempts. Please wait ${formatLockTime(AUTH_LOCK_MS)} before trying again.`
+    : '';
+}
+
+function clearAuthAttempts(attemptId: string) {
+  const records = readAuthAttempts();
+  if (!records[attemptId]) return;
+  delete records[attemptId];
+  writeAuthAttempts(records);
+}
+
+function shouldCountFailedAttempt(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /auth\/invalid-credential|auth\/wrong-password|auth\/user-not-found|auth\/too-many-requests/i.test(message);
+}
+
 export function LoginForm() {
   const auth = useAuth();
   const firestore = useFirestore();
@@ -95,6 +175,7 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [authLockMessage, setAuthLockMessage] = useState('');
 
   const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
   const sessionEmail = normalizeEmail(session.user?.email);
@@ -108,6 +189,15 @@ export function LoginForm() {
     (mode !== 'school' || schoolName.trim().length >= 2) &&
     (mode !== 'invite' || Boolean(inviteTenantId && inviteId)) &&
     !isSubmitting;
+
+  useEffect(() => {
+    const attemptId = getAuthAttemptId(mode, normalizedEmail);
+    const refreshLock = () => setAuthLockMessage(getAuthLockMessage(attemptId));
+
+    refreshLock();
+    const interval = window.setInterval(refreshLock, 30000);
+    return () => window.clearInterval(interval);
+  }, [mode, normalizedEmail]);
 
   useEffect(() => {
     if (!session.user || session.isSessionLoading || !session.role) return;
@@ -279,6 +369,14 @@ export function LoginForm() {
       return;
     }
 
+    const attemptId = getAuthAttemptId(mode, normalizedEmail);
+    const lockMessage = getAuthLockMessage(attemptId);
+    if (lockMessage) {
+      setAuthLockMessage(lockMessage);
+      setError(lockMessage);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await setPersistence(auth, keepLoggedIn ? browserLocalPersistence : browserSessionPersistence);
@@ -318,9 +416,12 @@ export function LoginForm() {
         await acceptInvite(user);
       }
 
+      clearAuthAttempts(attemptId);
       router.replace(normalizedEmail === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
     } catch (submitError) {
-      setError(getAuthErrorMessage(submitError, 'email'));
+      const lockoutMessage = shouldCountFailedAttempt(submitError) ? recordFailedAuthAttempt(attemptId) : '';
+      setAuthLockMessage(lockoutMessage);
+      setError(lockoutMessage || getAuthErrorMessage(submitError, 'email'));
     } finally {
       setIsSubmitting(false);
     }
@@ -538,9 +639,10 @@ export function LoginForm() {
               </label>
 
               {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+              {!error && authLockMessage && <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{authLockMessage}</div>}
               {notice && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
 
-              <Button type="submit" className="h-12 w-full rounded-2xl text-base font-bold" disabled={!canSubmit}>
+              <Button type="submit" className="h-12 w-full rounded-2xl text-base font-bold" disabled={!canSubmit || Boolean(authLockMessage)}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {mode === 'login' ? 'Login' : mode === 'invite' ? 'Accept Invite' : 'Create Workspace'}
               </Button>
