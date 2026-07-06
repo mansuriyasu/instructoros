@@ -31,7 +31,7 @@ function item(key: string, label: string, ready: boolean, readyDetail: string, m
   };
 }
 
-async function checkFirebaseAuthProvider(providerId: string, label: string): Promise<AuthProviderCheckResult> {
+async function checkFederatedFirebaseAuthProvider(providerId: string, label: string): Promise<AuthProviderCheckResult> {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   const continueUri = process.env.NEXT_PUBLIC_APP_URL || 'https://instructoros.ca';
 
@@ -88,6 +88,55 @@ async function checkFirebaseAuthProvider(providerId: string, label: string): Pro
   }
 }
 
+async function checkEmailPasswordAuthProvider(): Promise<AuthProviderCheckResult> {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      detail: 'Cannot check Email/password sign-in; NEXT_PUBLIC_FIREBASE_API_KEY is missing.',
+    };
+  }
+
+  try {
+    const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'provider-check@instructoros.ca',
+        password: 'ProviderCheck123!',
+        returnSecureToken: true,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    const errorMessage = String(data.error?.message || '');
+
+    if (response.ok || /EMAIL_NOT_FOUND|INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD/i.test(errorMessage)) {
+      return {
+        ok: true,
+        detail: 'Email/password sign-in provider responded successfully.',
+      };
+    }
+
+    if (/OPERATION_NOT_ALLOWED|PASSWORD_LOGIN_DISABLED/i.test(errorMessage)) {
+      return {
+        ok: false,
+        detail: 'Email/password sign-in is not enabled in Firebase Authentication > Sign-in method.',
+      };
+    }
+
+    return {
+      ok: false,
+      detail: `Email/password sign-in check failed: ${errorMessage || `HTTP ${response.status}`}.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Email/password sign-in check failed: ${error instanceof Error ? error.message : 'network error'}.`,
+    };
+  }
+}
+
 async function getReadinessItems(): Promise<ReadinessItem[]> {
   const hasPublicFirebase = [
     'NEXT_PUBLIC_FIREBASE_API_KEY',
@@ -112,8 +161,8 @@ async function getReadinessItems(): Promise<ReadinessItem[]> {
     && hasEnv('GOOGLE_CALENDAR_REFRESH_TOKEN')
     && hasEnv('GOOGLE_CALENDAR_ID');
   const [emailPasswordCheck, googleCheck] = await Promise.all([
-    checkFirebaseAuthProvider('password', 'Email/password sign-in'),
-    checkFirebaseAuthProvider('google.com', 'Google sign-in'),
+    checkEmailPasswordAuthProvider(),
+    checkFederatedFirebaseAuthProvider('google.com', 'Google sign-in'),
   ]);
 
   return [
