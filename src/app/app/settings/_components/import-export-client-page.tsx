@@ -56,7 +56,6 @@ const COLLECTIONS = [
   { name: 'payments', label: 'Payments & History' },
   { name: 'services', label: 'Services' },
   { name: 'serviceCategories', label: 'Service Categories' },
-  { name: 'business_expenses', label: 'Business Expenses' },
 ] as const;
 
 function todayStamp() {
@@ -215,9 +214,7 @@ export function ImportExportClientPage() {
               ? 'Bills, paid/unpaid records, payment history'
               : item.name === 'services'
                 ? 'Lesson services, prices, costs, duration'
-                : item.name === 'business_expenses'
-                  ? 'Expense records and receipt scan data'
-                  : 'Service grouping/order',
+                : 'Service grouping/order',
     }));
   }, []);
 

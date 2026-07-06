@@ -206,8 +206,7 @@ service cloud.firestore {
       }
 
       match /business_expenses/{docId} {
-        allow read: if isTenantAdmin(tenantId);
-        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+        allow read, write: if isMainAdmin();
       }
 
       match /finance_years/{docId} {

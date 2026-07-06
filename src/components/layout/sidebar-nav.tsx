@@ -26,7 +26,7 @@ export const navItems = [
   { href: "/app/payments", label: "POS", icon: Wallet, match: "/app/payments", roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   { href: "/app/payments/history", label: "History", icon: History, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   { href: "/app/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-  { href: "/app/expenses", label: "Business Expenses", icon: Receipt, roles: ["schoolAdmin", "mainAdmin"] },
+  { href: "/app/expenses", label: "Business Expenses", icon: Receipt, roles: ["mainAdmin"] },
   { href: "/app/billing", label: "Billing", icon: CreditCard, roles: ["schoolAdmin", "soloInstructor", "mainAdmin"] },
   { href: "/app/settings", label: "Settings", icon: Settings, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
 ]

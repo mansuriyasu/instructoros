@@ -64,7 +64,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
-    const privateRoutes = ['students', 'payments', 'schedule', 'settings', 'team', 'expenses', 'services'];
+    const privateRoutes = ['students', 'payments', 'schedule', 'settings', 'team', 'services'];
 
     return privateRoutes.map(route => ({
       source: `/${route}/:path*`,

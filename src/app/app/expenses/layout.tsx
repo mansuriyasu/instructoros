@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { PieChart, Plus, List } from "lucide-react"
+import { useSession } from "@/firebase"
 
 export default function ExpensesLayout({
   children,
@@ -11,12 +12,24 @@ export default function ExpensesLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const { role } = useSession()
 
   const navItems = [
     { href: "/app/expenses", label: "Dashboard", icon: PieChart, exact: true },
     { href: "/app/expenses/add", label: "Add Expense", icon: Plus, exact: false },
     { href: "/app/expenses/list", label: "History", icon: List, exact: false },
   ]
+
+  if (role !== "mainAdmin") {
+    return (
+      <div className="mx-auto w-full max-w-2xl rounded-xl border bg-white p-6 text-center shadow-sm">
+        <h1 className="text-xl font-bold text-foreground">Admin only</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Business Expenses is only available in the main admin area.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto animate-in fade-in duration-500">

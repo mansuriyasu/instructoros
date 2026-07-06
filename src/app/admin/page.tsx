@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
-import { AlertTriangle, Building2, CheckCircle2, ExternalLink, Gift, RefreshCw, Shield, TicketPercent, UserRound, XCircle } from 'lucide-react';
+import { Activity, AlertTriangle, Building2, CheckCircle2, ExternalLink, Gift, Receipt, RefreshCw, Shield, TicketPercent, UserRound, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -52,7 +52,7 @@ function normalizePromoCode(value: string) {
 
 export default function AdminPage() {
   const firestore = useFirestore();
-  const { user, isMainAdmin } = useSession();
+  const { user, isMainAdmin, activeTenantId } = useSession();
   const router = useRouter();
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
@@ -241,6 +241,33 @@ export default function AdminPage() {
             <AlertDescription>{adminMessage}</AlertDescription>
           </Alert>
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Admin tools</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {activeTenantId ? (
+              <Button asChild variant="outline" className="justify-start">
+                <Link href="/app/expenses">
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Business Expenses
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" className="justify-start" disabled>
+                <Receipt className="mr-2 h-4 w-4" />
+                Business Expenses
+              </Button>
+            )}
+            <Button asChild variant="outline" className="justify-start">
+              <Link href="/admin/utility-tracker">
+                <Activity className="mr-2 h-4 w-4" />
+                Utility Tracker
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

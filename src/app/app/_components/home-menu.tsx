@@ -210,7 +210,6 @@ export function HomeMenu() {
           <ActionTile href="/app/schedule" icon={CalendarDays} label="Schedule" tone="blue" />
           <ActionTile href="/app/payments" icon={Wallet} label="POS" tone="green" />
           <ActionTile href="/app/payments/history" icon={History} label="History" tone="purple" />
-          <ActionTile href="/app/expenses" icon={ReceiptText} label="Expenses" tone="teal" />
           <ActionTile href="/app/settings?tab=import-export" icon={Upload} label="Import" tone="blue" />
           <NotificationsTile />
           <ActionTile href="/app/settings" icon={Settings} label="Settings" tone="slate" />
