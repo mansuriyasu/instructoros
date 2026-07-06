@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { addDoc, collection, doc, orderBy, query, updateDoc } from 'firebase/firestore';
 import { Copy, Loader2, Mail, RotateCcw, UserCheck, UserX } from 'lucide-react';
@@ -62,14 +62,35 @@ export default function TeamPage() {
     },
     [activeMembers, invites]
   );
-  const seatLimit = tenant?.seatLimit || PLAN_DETAILS.school.includedSeats;
+  const isSchoolWorkspace = tenant?.type === 'school';
+  const savedSeatLimit = Number(tenant?.seatLimit || 0);
+  const seatLimit = isSchoolWorkspace
+    ? Math.max(PLAN_DETAILS.school.includedSeats, savedSeatLimit)
+    : PLAN_DETAILS.instructor.includedSeats;
   const usedSeats = activeMembers.length + pendingInvites.length;
-  const hasSeatAvailable = usedSeats < seatLimit;
+  const hasSeatAvailable = isSchoolWorkspace && usedSeats < seatLimit;
+
+  useEffect(() => {
+    if (!activeTenantId || !isSchoolWorkspace) return;
+    if (savedSeatLimit >= PLAN_DETAILS.school.includedSeats) return;
+
+    void updateDoc(doc(firestore, 'tenants', activeTenantId), {
+      seatLimit: PLAN_DETAILS.school.includedSeats,
+      updatedAt: new Date().toISOString(),
+    }).catch(() => undefined);
+  }, [activeTenantId, firestore, isSchoolWorkspace, savedSeatLimit]);
 
   const handleInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!invitesRef || !activeTenantId || !user) return;
-    if (!hasSeatAvailable) return;
+    if (!isSchoolWorkspace) {
+      setError('Team invites are only available for school workspaces.');
+      return;
+    }
+    if (!hasSeatAvailable) {
+      setError(`Seat limit reached: ${usedSeats} of ${seatLimit} seats are already active or invited.`);
+      return;
+    }
 
     const email = normalizeEmail(inviteEmail);
     if (!email.includes('@')) return;
@@ -188,6 +209,17 @@ export default function TeamPage() {
     );
   }
 
+  if (tenant && tenant.type !== 'school') {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="font-semibold">Team management is for school workspaces.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Individual instructor accounts do not need team seats or instructor invites.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -210,6 +242,11 @@ export default function TeamPage() {
         <div>
           <p className="text-sm font-bold">School seats</p>
           <p className="text-sm text-muted-foreground">{usedSeats} of {seatLimit} user seats are active or invited.</p>
+          {savedSeatLimit > 0 && savedSeatLimit < PLAN_DETAILS.school.includedSeats && (
+            <p className="mt-1 text-xs font-medium text-amber-700">
+              This school includes 10 seats. The old saved limit was {savedSeatLimit}, so InstructorOS is using 10 here.
+            </p>
+          )}
         </div>
         <Button asChild variant="outline" className="rounded-lg">
           <Link href="/app/billing">Manage seats</Link>
@@ -234,7 +271,9 @@ export default function TeamPage() {
             </form>
             {!hasSeatAvailable && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
-                Seat limit reached. Add seats in Billing before inviting another instructor.
+                {usedSeats >= seatLimit
+                  ? `Seat limit reached: ${usedSeats} of ${seatLimit} seats are already active or invited.`
+                  : 'Team invites are only available for school workspaces.'}
               </div>
             )}
             {lastInviteLink && (
