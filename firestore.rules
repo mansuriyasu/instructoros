@@ -108,7 +108,10 @@ service cloud.firestore {
       allow delete: if isMainAdmin();
 
       match /members/{uid} {
-        allow get, list: if isMainAdmin() || isTenantAdmin(tenantId);
+        allow get: if isMainAdmin()
+          || isTenantAdmin(tenantId)
+          || (signedIn() && request.auth.uid == uid && resource.data.status == "active");
+        allow list: if isMainAdmin() || isTenantAdmin(tenantId);
         allow create: if isMainAdmin()
           || (
             signedIn()

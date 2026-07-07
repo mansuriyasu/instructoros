@@ -14,6 +14,7 @@ import { useSession, useUser } from "@/firebase";
 import { BriefcaseBusiness, CreditCard, Settings } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export function Header() {
   const { user } = useUser();
@@ -61,6 +62,7 @@ export function Header() {
               </div>
             </div>
             <div className="p-2 border-t mt-1 space-y-1">
+              <WorkspaceSwitcher variant="menu" />
               {canManageTenant && (
                 <>
                   <DropdownMenuItem asChild className="rounded-lg cursor-pointer">

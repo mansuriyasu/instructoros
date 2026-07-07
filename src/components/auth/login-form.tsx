@@ -15,7 +15,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth';
-import { collection, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { arrayUnion, collection, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Building2, Eye, EyeOff, Loader2, LockKeyhole, LogIn, Mail, UserPlus, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -242,7 +242,7 @@ export function LoginForm() {
       email: ownerEmail,
       displayName: ownerDisplayName,
       activeTenantId: tenantRef.id,
-      tenantIds: [tenantRef.id],
+      tenantIds: arrayUnion(tenantRef.id),
       createdAt: now,
       updatedAt: now,
     }, { merge: true });
@@ -335,7 +335,7 @@ export function LoginForm() {
       email: inviteEmail,
       displayName: displayName.trim() || user.displayName || inviteEmail,
       activeTenantId: inviteTenantId,
-      tenantIds: [inviteTenantId],
+      tenantIds: arrayUnion(inviteTenantId),
       createdAt: now,
       updatedAt: now,
     }, { merge: true });

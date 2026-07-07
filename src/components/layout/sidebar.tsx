@@ -1,5 +1,6 @@
 import { SidebarNav } from "./sidebar-nav";
 import { SidebarUserCard } from "./sidebar-user-card";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 import { Logo } from "@/components/logo";
 
 export function Sidebar() {
@@ -13,6 +14,7 @@ export function Sidebar() {
       </div>
 
       {/* User card */}
+      <WorkspaceSwitcher />
       <SidebarUserCard />
     </aside>
   );
