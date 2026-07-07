@@ -171,6 +171,7 @@ export function LoginForm() {
   const [displayName, setDisplayName] = useState('');
   const [schoolName, setSchoolName] = useState('');
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
+  const [activateTrialOnSignup, setActivateTrialOnSignup] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -229,7 +230,7 @@ export function LoginForm() {
       plan,
       seatLimit: getIncludedSeats(plan),
       extraSeats: 0,
-      subscriptionStatus: 'checkout_pending',
+      subscriptionStatus: 'not_started',
       billingLocked: true,
       ownerUid: user.uid,
       ownerEmail,
@@ -406,11 +407,19 @@ export function LoginForm() {
 
       if (mode === 'school') {
         const tenantId = await createTenantWorkspace(user, 'school');
-        await startBillingCheckout(user, tenantId, 'school');
+        if (activateTrialOnSignup) {
+          await startBillingCheckout(user, tenantId, 'school');
+          return;
+        }
+        router.replace('/app/billing');
         return;
       } else if (mode === 'solo') {
         const tenantId = await createTenantWorkspace(user, 'solo');
-        await startBillingCheckout(user, tenantId, 'solo');
+        if (activateTrialOnSignup) {
+          await startBillingCheckout(user, tenantId, 'solo');
+          return;
+        }
+        router.replace('/app/billing');
         return;
       } else if (mode === 'invite') {
         await acceptInvite(user);
@@ -459,7 +468,11 @@ export function LoginForm() {
         }
 
         const tenantId = await createTenantWorkspace(user, mode === 'school' ? 'school' : 'solo');
-        await startBillingCheckout(user, tenantId, mode === 'school' ? 'school' : 'solo');
+        if (activateTrialOnSignup) {
+          await startBillingCheckout(user, tenantId, mode === 'school' ? 'school' : 'solo');
+          return;
+        }
+        router.replace('/app/billing');
         return;
       }
 
@@ -638,13 +651,35 @@ export function LoginForm() {
                 <span className="font-medium">Keep me logged in</span>
               </label>
 
+              {(mode === 'school' || mode === 'solo') && (
+                <label className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
+                  <Checkbox
+                    checked={activateTrialOnSignup}
+                    onCheckedChange={(checked) => setActivateTrialOnSignup(Boolean(checked))}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block font-bold">Activate my 1 month free trial now</span>
+                    <span className="mt-1 block text-emerald-900/80">
+                      If selected, Stripe will ask for payment details now and will charge only after the free trial.
+                    </span>
+                  </span>
+                </label>
+              )}
+
               {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
               {!error && authLockMessage && <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{authLockMessage}</div>}
               {notice && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
 
               <Button type="submit" className="h-12 w-full rounded-2xl text-base font-bold" disabled={!canSubmit || Boolean(authLockMessage)}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === 'login' ? 'Login' : mode === 'invite' ? 'Accept Invite' : 'Create Workspace'}
+                {mode === 'login'
+                  ? 'Login'
+                  : mode === 'invite'
+                    ? 'Accept Invite'
+                    : activateTrialOnSignup
+                      ? 'Create Workspace & Start Trial'
+                      : 'Create Workspace'}
               </Button>
             </form>
 

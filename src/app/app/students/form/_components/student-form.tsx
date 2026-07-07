@@ -25,7 +25,6 @@ import { Student } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useStudents } from '@/hooks/use-students';
-import { useSmsLogs } from '@/hooks/use-sms-logs';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -127,8 +126,6 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     }
   }, [student, form]);
   
-  const { sendAndLogSms } = useSmsLogs();
-
   const sendWelcomeSmsMessage = async (mobileNumber: string, studentName: string) => {
     const body = `Hello ${studentName}! Thank you for registering with your driving instructor. 🚗
 
@@ -514,10 +511,10 @@ InstructorOS
                             />
                             <div className="space-y-1 leading-none">
                               <label htmlFor="sendWelcomeSms" className="text-sm font-medium leading-none cursor-pointer">
-                                Send Welcome SMS
+                                Open WhatsApp welcome message
                               </label>
                               <p className="text-sm text-muted-foreground">
-                                Automatically text the student a welcome message.
+                                Opens WhatsApp with a ready welcome message after saving.
                               </p>
                             </div>
                           </div>

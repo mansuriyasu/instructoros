@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SmsLogsTable } from './sms-logs-table';
+import { WhatsAppLogsTable } from './whatsapp-logs-table';
 import { ImportExportClientPage } from './import-export-client-page';
 import { WorkspaceProfileSettings } from './workspace-profile-settings';
 import { ServiceList } from '../../services/_components/service-list';
@@ -17,7 +17,7 @@ export function SettingsClientPage() {
   const canManageWorkspace = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
   const visibleTabs = useMemo(() => [
     { value: 'workspace', label: 'Workspace', icon: Settings2, visible: canManageWorkspace },
-    { value: 'sms-logs', label: 'SMS Logs', icon: MessageSquare, visible: role !== 'schoolInstructor' },
+    { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, visible: role !== 'schoolInstructor' },
     { value: 'services', label: 'Services', icon: BriefcaseBusiness, visible: canManageServices },
     { value: 'import-export', label: 'Import / Export', icon: Database, visible: canImportExport },
   ].filter(item => item.visible), [canImportExport, canManageServices, canManageWorkspace, role]);
@@ -39,7 +39,7 @@ export function SettingsClientPage() {
             Settings & Data
           </h1>
           <p className="text-muted-foreground mt-2 max-w-xl">
-            Manage your app settings, view automated text message history, and backup or restore your data securely.
+            Manage workspace settings, services, WhatsApp activity, and backup or restore your data securely.
           </p>
         </div>
       </div>
@@ -60,8 +60,8 @@ export function SettingsClientPage() {
           ))}
         </TabsList>
         <div className="mt-6">
-            <TabsContent value="sms-logs">
-                <SmsLogsTable />
+            <TabsContent value="whatsapp">
+                <WhatsAppLogsTable />
             </TabsContent>
             <TabsContent value="workspace">
                 {canManageWorkspace ? <WorkspaceProfileSettings /> : null}

@@ -9,6 +9,7 @@ import { useSession } from "@/firebase";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { tenant, canManageTenant } = useSession();
+  const billingActionLabel = tenant?.subscriptionStatus === 'checkout_pending' ? 'Continue trial setup' : 'Start free trial';
 
   return (
     <div className="flex min-h-screen bg-[#F5F5F5]">
@@ -24,7 +25,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
               {canManageTenant && (
                 <Link href="/app/billing" className="font-black underline underline-offset-4">
-                  Fix billing
+                  {billingActionLabel}
                 </Link>
               )}
             </div>

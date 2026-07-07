@@ -1,6 +1,6 @@
 'use client';
 
-import { useSmsLogs } from '@/hooks/use-sms-logs';
+import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
 import { format } from 'date-fns';
 import {
   Table,
@@ -11,12 +11,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, CheckCircle2, XCircle, MessageSquare, MessageCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-export function SmsLogsTable() {
-  const { smsLogs, loading } = useSmsLogs();
+export function WhatsAppLogsTable() {
+  const { whatsAppLogs, loading } = useWhatsAppLogs();
 
   if (loading) {
     return (
@@ -26,13 +26,13 @@ export function SmsLogsTable() {
     );
   }
 
-  if (!smsLogs || smsLogs.length === 0) {
+  if (!whatsAppLogs || whatsAppLogs.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-          <p className="text-lg font-medium text-muted-foreground">No SMS logs found</p>
+          <p className="text-lg font-medium text-muted-foreground">No WhatsApp activity found</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Automated text messages sent to students will appear here.
+            WhatsApp messages opened from InstructorOS will appear here.
           </p>
         </CardContent>
       </Card>
@@ -42,8 +42,8 @@ export function SmsLogsTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>SMS History</CardTitle>
-        <CardDescription>A log of all automated text messages sent from the app.</CardDescription>
+        <CardTitle>WhatsApp Activity</CardTitle>
+        <CardDescription>A log of WhatsApp messages opened from the app.</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[600px] rounded-md border">
@@ -58,7 +58,7 @@ export function SmsLogsTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {smsLogs.map((log) => (
+              {whatsAppLogs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell className="font-medium whitespace-nowrap">
                     {format(new Date(log.date), 'MMM d, yyyy')}
@@ -85,15 +85,10 @@ export function SmsLogsTable() {
                           WhatsApp
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">
-                          <MessageSquare className="h-3 w-3 mr-1" />
-                          SMS
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
+                          <MessageCircle className="h-3 w-3 mr-1" />
+                          WhatsApp
                         </Badge>
-                      )}
-                      {log.fallbackFrom === 'whatsapp' && (
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground ml-1">
-                          Fallback
-                        </span>
                       )}
                     </div>
                   </TableCell>
@@ -101,7 +96,7 @@ export function SmsLogsTable() {
                     {log.status === 'sent' ? (
                       <div className="flex items-center justify-end text-green-600 gap-1.5">
                         <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-sm font-medium">Sent</span>
+                        <span className="text-sm font-medium">Opened</span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-end text-red-500 gap-1.5">

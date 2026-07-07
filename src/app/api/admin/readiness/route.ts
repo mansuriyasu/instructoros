@@ -151,11 +151,6 @@ async function getReadinessItems(): Promise<ReadinessItem[]> {
     && hasEnv('STRIPE_PRICE_SCHOOL_MONTHLY')
     && hasEnv('STRIPE_PRICE_SCHOOL_EXTRA_SEAT_MONTHLY');
   const hasStripeWebhook = hasEnv('STRIPE_WEBHOOK_SECRET');
-  const hasTwilioSms = hasEnv('TWILIO_ACCOUNT_SID')
-    && hasEnv('TWILIO_AUTH_TOKEN')
-    && (hasEnv('TWILIO_FROM_NUMBER') || hasEnv('TWILIO_MESSAGING_SERVICE_SID'));
-  const hasTwilioWhatsapp = hasEnv('TWILIO_WHATSAPP_FROM')
-    && (hasEnv('TWILIO_WHATSAPP_TEMPLATE_SID') || hasEnv('TWILIO_WHATSAPP_SCHEDULE_TEMPLATE_SID'));
   const hasGoogleCalendar = hasEnv('GOOGLE_CALENDAR_CLIENT_ID')
     && hasEnv('GOOGLE_CALENDAR_CLIENT_SECRET')
     && hasEnv('GOOGLE_CALENDAR_REFRESH_TOKEN')
@@ -215,20 +210,11 @@ async function getReadinessItems(): Promise<ReadinessItem[]> {
       'Stripe webhook secret is present.',
       'Add STRIPE_WEBHOOK_SECRET after creating the production webhook endpoint.'
     ),
-    item(
-      'twilio-sms',
-      'Twilio SMS',
-      hasTwilioSms,
-      'Twilio SMS credentials are present.',
-      'Add Twilio account credentials and a sender number or messaging service.'
-    ),
     {
-      key: 'twilio-whatsapp',
-      label: 'Twilio WhatsApp',
-      state: hasTwilioWhatsapp ? 'ready' : 'warning',
-      detail: hasTwilioWhatsapp
-        ? 'WhatsApp sender/template settings are present.'
-        : 'Optional: add WhatsApp sender/template settings if WhatsApp reminders are enabled.',
+      key: 'whatsapp-app',
+      label: 'WhatsApp app links',
+      state: 'ready',
+      detail: 'WhatsApp messages open in the user’s WhatsApp app. No messaging provider setup is required.',
     },
     item(
       'gemini',

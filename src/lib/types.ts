@@ -190,15 +190,12 @@ export interface FinanceSpending {
   notes?: string;
 }
 
-export interface SmsLog {
+export interface WhatsAppLog {
   id: string;
   date: string; // ISO 8601
   to: string;
   body: string;
   status: 'sent' | 'error';
-  channel?: 'whatsapp' | 'sms';
+  channel?: 'whatsapp';
   errorMessage?: string;
-  fallbackFrom?: 'whatsapp';
-  fallbackReason?: string;
-  sid?: string;
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { Building2, CheckCircle2, CreditCard, Loader2, Lock, TicketPercent, UserRound, UsersRound } from 'lucide-react';
+import { Building2, CheckCircle2, Loader2, Lock, TicketPercent, UserRound, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -74,7 +74,7 @@ export default function BillingPage() {
   const status = tenant?.subscriptionStatus || 'not_started';
   const billingLocked = tenant?.billingLocked ?? getBillingLocked(status);
   const trialIsActive = status === 'trialing';
-  const canStartTrial = canManageTenant && !trialIsActive && tenant?.subscriptionStatus !== 'active';
+  const canActivateTrialCheckout = canManageTenant && status !== 'active';
 
   useEffect(() => {
     setSeatLimit(tenant?.seatLimit || (isSchool ? PLAN_DETAILS.school.includedSeats : PLAN_DETAILS.instructor.includedSeats));
@@ -88,35 +88,6 @@ export default function BillingPage() {
       setError('Checkout was cancelled. You can still start the 1 month free trial from this page.');
     }
   }, [searchParams]);
-
-  const startFreeTrial = async () => {
-    if (!activeTenantId || !tenant) return;
-    setIsLoading('trial');
-    setError('');
-    setMessage('');
-
-    try {
-      const now = new Date();
-      const trialEndsAt = addDays(now, PLAN_DETAILS[plan].trialDays).toISOString();
-
-      await updateDoc(doc(firestore, 'tenants', activeTenantId), {
-        plan,
-        subscriptionStatus: 'trialing',
-        billingLocked: false,
-        trialEndsAt,
-        seatLimit: isSchool
-          ? Math.max(seatLimit, PLAN_DETAILS.school.includedSeats)
-          : PLAN_DETAILS.instructor.includedSeats,
-        updatedAt: now.toISOString(),
-      });
-
-      setMessage(`Your 1 month free trial is active until ${formatDate(trialEndsAt)}.`);
-    } catch (trialError) {
-      setError(trialError instanceof Error ? trialError.message : 'Could not start the free trial.');
-    } finally {
-      setIsLoading(null);
-    }
-  };
 
   const applyPromoCode = async () => {
     if (!activeTenantId || !tenant) return;
@@ -246,9 +217,9 @@ export default function BillingPage() {
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <CardTitle className="text-xl">Current plan</CardTitle>
+                <CardTitle className="text-xl">Subscription</CardTitle>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Get 1 month free. Monthly billing starts only after the trial and payment setup.
+                  Start with 1 month free. Stripe collects payment details now, then charges monthly only after the trial.
                 </p>
               </div>
               {isSchool ? <Building2 className="h-6 w-6" /> : <UserRound className="h-6 w-6" />}
@@ -314,19 +285,15 @@ export default function BillingPage() {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  {canStartTrial && (
-                    <Button onClick={startFreeTrial} disabled={Boolean(isLoading)} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
-                      {isLoading === 'trial' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                      Get 1 Month Free Trial
+                  {canActivateTrialCheckout && (
+                    <Button onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+                      {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                      {trialIsActive ? 'Add payment method' : 'Activate 1 Month Free Trial'}
                     </Button>
                   )}
-                  <Button variant={canStartTrial ? 'outline' : 'default'} onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg">
-                    {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                    Set up paid billing
-                  </Button>
                   <Button variant="outline" onClick={() => runBillingAction('portal')} disabled={Boolean(isLoading) || !tenant.stripeCustomerId} className="rounded-lg">
                     {isLoading === 'portal' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Manage in Stripe
+                    Manage or unsubscribe
                   </Button>
                 </div>
               </div>

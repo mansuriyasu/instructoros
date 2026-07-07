@@ -59,15 +59,6 @@ GOOGLE_CALENDAR_CLIENT_ID=
 GOOGLE_CALENDAR_CLIENT_SECRET=
 GOOGLE_CALENDAR_REFRESH_TOKEN=
 GOOGLE_CALENDAR_ID=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_FROM_NUMBER=
-TWILIO_MESSAGING_SERVICE_SID=
-TWILIO_WHATSAPP_FROM=
-TWILIO_WHATSAPP_TEMPLATE_SID=
-TWILIO_WHATSAPP_SCHEDULE_TEMPLATE_SID=
-TWILIO_WHATSAPP_PAYMENT_TEMPLATE_SID=
-TWILIO_WHATSAPP_WELCOME_TEMPLATE_SID=
 ```
 
 For Google Calendar, configure the OAuth redirect URI as:
@@ -123,6 +114,6 @@ After launch:
 1. Open `https://instructoros.ca`.
 2. Create the owner account using `yasin_mansuri@live.com`.
 3. Confirm Firestore writes go to the new Firebase project.
-4. Send a test SMS only after fresh Twilio values are configured.
+4. Open a test WhatsApp message from the app and confirm it launches WhatsApp with the correct text.
 5. Connect Google Calendar using the new OAuth client.
 6. Confirm `https://app.sparkondrive.ca` still loads unchanged.

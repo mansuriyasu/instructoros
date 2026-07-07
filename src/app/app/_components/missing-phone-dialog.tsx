@@ -45,7 +45,7 @@ export function MissingPhoneDialog({ isOpen, student, onCancel, onSuccess }: Mis
         <DialogHeader>
           <DialogTitle>Missing Phone Number</DialogTitle>
           <DialogDescription>
-            You opted to send an SMS, but {student?.name || "this student"} doesn't have a phone number saved.
+            You opted to open WhatsApp, but {student?.name || "this student"} doesn't have a phone number saved.
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center space-x-2 py-4">
@@ -68,10 +68,10 @@ export function MissingPhoneDialog({ isOpen, student, onCancel, onSuccess }: Mis
         </div>
         <DialogFooter className="sm:justify-end">
           <Button type="button" variant="ghost" onClick={onCancel}>
-            Skip SMS
+            Skip WhatsApp
           </Button>
           <Button type="button" onClick={handleSave} disabled={isSaving || !phone.trim()}>
-            {isSaving ? "Saving..." : "Save & Send SMS"}
+            {isSaving ? "Saving..." : "Save & Open WhatsApp"}
           </Button>
         </DialogFooter>
       </DialogContent>

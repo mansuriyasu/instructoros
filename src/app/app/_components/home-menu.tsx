@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import {
   ArrowRight,
+  BriefcaseBusiness,
   CalendarDays,
   Clock3,
+  CreditCard,
   History,
   ReceiptText,
   Settings,
@@ -19,7 +21,7 @@ import { NotificationsSheet } from '@/components/layout/notifications-sheet';
 import { useEvents } from '@/hooks/use-events';
 import { usePayments } from '@/hooks/use-payments';
 import { useStudents } from '@/hooks/use-students';
-import { useUser } from '@/firebase';
+import { useSession, useUser } from '@/firebase';
 import { formatCurrency } from '@/lib/utils';
 
 function isToday(dateString: string | Date) {
@@ -37,6 +39,7 @@ export function HomeMenu() {
   const { payments } = usePayments();
   const { events } = useEvents();
   const { students } = useStudents();
+  const { tenant, canManageTenant } = useSession();
 
   const firstName = user?.displayName?.split(' ')[0] || 'Instructor';
 
@@ -73,6 +76,8 @@ export function HomeMenu() {
       .filter(payment => payment.status === 'unpaid')
       .reduce((sum, payment) => sum + (payment.amountDue || payment.total || 0), 0);
   }, [payments]);
+
+  const showTrialPaymentPrompt = canManageTenant && tenant?.subscriptionStatus === 'trialing' && !tenant.stripeSubscriptionId;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 pb-24">
@@ -129,6 +134,26 @@ export function HomeMenu() {
           tone="red"
         />
       </section>
+
+      {showTrialPaymentPrompt && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-amber-950">Free trial is active</h2>
+              <p className="mt-1 text-sm text-amber-900">
+                Add payment details before the trial ends so service continues without interruption.
+              </p>
+            </div>
+            <Link
+              href="/app/billing"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-[#0D1B2A] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#132840]"
+            >
+              Manage billing
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
@@ -210,6 +235,8 @@ export function HomeMenu() {
           <ActionTile href="/app/schedule" icon={CalendarDays} label="Schedule" tone="blue" />
           <ActionTile href="/app/payments" icon={Wallet} label="POS" tone="green" />
           <ActionTile href="/app/payments/history" icon={History} label="History" tone="purple" />
+          <ActionTile href="/app/services" icon={BriefcaseBusiness} label="Services" tone="teal" />
+          {canManageTenant && <ActionTile href="/app/billing" icon={CreditCard} label="Billing" tone="navy" />}
           <ActionTile href="/app/settings?tab=import-export" icon={Upload} label="Import" tone="blue" />
           <NotificationsTile />
           <ActionTile href="/app/settings" icon={Settings} label="Settings" tone="slate" />

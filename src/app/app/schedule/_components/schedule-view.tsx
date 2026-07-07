@@ -23,7 +23,7 @@ import { useEvents } from '@/hooks/use-events';
 import { usePayments } from '@/hooks/use-payments';
 import { useServices } from '@/hooks/use-services';
 import { useStudents } from '@/hooks/use-students';
-import { useSmsLogs } from '@/hooks/use-sms-logs';
+import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
 import { MonthView } from './month-view';
 import { WeekView } from './week-view';
 import { DayView } from './day-view';
@@ -149,7 +149,7 @@ export function ScheduleView() {
     findEvent: findGEvent,
   } = useGoogleCalendar();
   const { toast } = useToast();
-  const { sendAndLogSms } = useSmsLogs();
+  const { sendAndLogWhatsApp } = useWhatsAppLogs();
 
   const membersQuery = useMemoFirebase(
     () => (firestore && activeTenantId ? query(collection(firestore, 'tenants', activeTenantId, 'members'), where('status', '==', 'active')) : null),
@@ -422,7 +422,7 @@ export function ScheduleView() {
       const startTime = format(new Date(item.event.start), 'h:mm a');
       const body = `Hi ${item.name}, just a friendly reminder that you have a driving lesson scheduled today at ${startTime}. See you soon!`;
       
-      const result = await sendAndLogSms(item.phone, body, {
+      const result = await sendAndLogWhatsApp(item.phone, body, {
         templateKey: 'schedule',
         variables: buildScheduleWhatsappVariables(item.event, false)
       });
@@ -434,8 +434,8 @@ export function ScheduleView() {
     setIsSendingBulkMessage(false);
     setIsBulkMessageDialogOpen(false);
     toast({
-      title: 'Reminders Sent',
-      description: `Successfully sent ${sentCount} reminder(s).`,
+      title: 'WhatsApp reminders opened',
+      description: `Opened ${sentCount} reminder message(s). Send them in WhatsApp to deliver.`,
     });
   };
 
@@ -836,7 +836,7 @@ export function ScheduleView() {
     if (!mobileNumber) return;
 
     const body = buildScheduleSmsMessage(eventData, isUpdate);
-    const result = await sendAndLogSms(mobileNumber, body, {
+    const result = await sendAndLogWhatsApp(mobileNumber, body, {
       templateKey: 'schedule',
       variables: buildScheduleWhatsappVariables(eventData, isUpdate),
     });
@@ -844,17 +844,15 @@ export function ScheduleView() {
     if (!result.ok) {
       toast({
         variant: 'destructive',
-        title: 'Message not sent',
-        description: result.error || 'Could not send the schedule text.',
+        title: 'WhatsApp not opened',
+        description: result.error || 'Could not open the schedule message.',
       });
       return;
     }
 
     toast({
-      title: result.channel === 'whatsapp' ? 'WhatsApp message sent' : 'SMS message sent',
-      description: result.fallbackFrom === 'whatsapp'
-        ? `WhatsApp was not available, so SMS was sent to ${eventData.studentName}.`
-        : `Schedule update sent to ${eventData.studentName}.`,
+      title: 'WhatsApp message opened',
+      description: `Schedule message is ready for ${eventData.studentName}.`,
     });
   };
 
@@ -1262,10 +1260,9 @@ export function ScheduleView() {
         onSuccess={async (updatedStudent) => {
           setMissingPhoneStudent(null);
           if (pendingSmsData) {
-            // Re-fetch or pass the updated number so the SMS gets sent correctly
-            // We need to inject the updated mobileNumber because the students list might not be updated yet
+            // Use the updated mobileNumber because the students list might not be updated yet.
             const body = buildScheduleSmsMessage(pendingSmsData.finalData, pendingSmsData.isUpdate);
-            const result = await sendAndLogSms(updatedStudent.mobileNumber, body, {
+            const result = await sendAndLogWhatsApp(updatedStudent.mobileNumber, body, {
               templateKey: 'schedule',
               variables: buildScheduleWhatsappVariables(pendingSmsData.finalData, pendingSmsData.isUpdate),
             });
@@ -1273,15 +1270,13 @@ export function ScheduleView() {
             if (!result.ok) {
               toast({
                 variant: 'destructive',
-                title: 'Message not sent',
-                description: result.error || 'Could not send the schedule text.',
+                title: 'WhatsApp not opened',
+                description: result.error || 'Could not open the schedule message.',
               });
             } else {
               toast({
-                title: result.channel === 'whatsapp' ? 'WhatsApp message sent' : 'SMS message sent',
-                description: result.fallbackFrom === 'whatsapp'
-                  ? `WhatsApp was not available, so SMS was sent to ${pendingSmsData.finalData.studentName}.`
-                  : `Schedule update sent to ${pendingSmsData.finalData.studentName}.`,
+                title: 'WhatsApp message opened',
+                description: `Schedule message is ready for ${pendingSmsData.finalData.studentName}.`,
               });
             }
 

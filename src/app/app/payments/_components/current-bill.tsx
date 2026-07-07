@@ -12,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { usePayments } from '@/hooks/use-payments';
-import { useSmsLogs } from '@/hooks/use-sms-logs';
+import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -55,7 +55,7 @@ export function CurrentBill({
   isEditing,
 }: CurrentBillProps) {
   const { payments, addPayment, updatePayment } = usePayments();
-  const { sendAndLogSms } = useSmsLogs();
+  const { sendAndLogWhatsApp } = useWhatsAppLogs();
   const { tenant } = useSession();
   const { toast } = useToast();
   const router = useRouter();
@@ -213,8 +213,7 @@ export function CurrentBill({
         if (sendSms && selectedStudent && amountPaidNow > 0) {
           if (!selectedStudent.mobileNumber?.trim()) {
             setMissingPhoneStudent(selectedStudent);
-            // We will pause and wait for the dialog to finish. We can't await it easily here without a promise wrapper,
-            // but the MissingPhoneDialog will handle sending the SMS and then we can navigate.
+            // The MissingPhoneDialog will save the phone number, open WhatsApp, and then navigate.
             // Wait, if it pops up, `handleFinalize` finishes and user is still on the page. We shouldn't route away immediately!
             return;
           } else {
@@ -230,7 +229,7 @@ export function CurrentBill({
 
   const sendPaymentSms = async (mobileNumber: string, amount: number, servicesDesc: string, studentName: string) => {
     const body = `InstructorOS: Received payment of $${amount} for ${servicesDesc}. Thank you!`;
-    const result = await sendAndLogSms(mobileNumber, body, {
+    const result = await sendAndLogWhatsApp(mobileNumber, body, {
       templateKey: 'payment',
       variables: {
         1: studentName,
@@ -242,15 +241,13 @@ export function CurrentBill({
     if (!result.ok) {
       toast({
         variant: 'destructive',
-        title: 'Message not sent',
-        description: result.error || 'Could not send the payment text.',
+        title: 'WhatsApp not opened',
+        description: result.error || 'Could not open the payment message.',
       });
     } else {
       toast({
-        title: result.channel === 'whatsapp' ? 'WhatsApp message sent' : 'SMS message sent',
-        description: result.fallbackFrom === 'whatsapp'
-          ? `WhatsApp was not available, so SMS receipt was sent to ${studentName}.`
-          : `Payment receipt sent to ${studentName}.`,
+        title: 'WhatsApp message opened',
+        description: `Payment receipt is ready for ${studentName}.`,
       });
     }
   };
@@ -494,7 +491,7 @@ export function CurrentBill({
           <div className="flex items-center space-x-2 rounded-lg border bg-background px-3 py-3 shadow-sm">
             <Checkbox id="sendSms" checked={sendSms} onCheckedChange={(checked) => setSendSms(checked as boolean)} />
             <label htmlFor="sendSms" className="text-sm font-medium leading-none cursor-pointer">
-              Send SMS Receipt
+              Open WhatsApp receipt
             </label>
           </div>
         )}
@@ -580,13 +577,13 @@ export function CurrentBill({
         student={missingPhoneStudent}
         onCancel={() => {
           setMissingPhoneStudent(null);
-          // Navigate since they opted to skip SMS
+          // Navigate since they opted to skip WhatsApp
           onReset();
           router.push('/app/payments/history');
         }}
         onSuccess={async (updatedStudent) => {
           setMissingPhoneStudent(null);
-          // Send SMS now that we have the number
+          // Open WhatsApp now that we have the number
           const advanceOnly = isAdvancePayment && billItems.length === 0;
           const servicesDesc = advanceOnly ? 'Advance Payment' : billItems.map(item => item.name).join(', ');
           await sendPaymentSms(updatedStudent.mobileNumber, amountPaidNow, servicesDesc, updatedStudent.name);

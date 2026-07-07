@@ -75,7 +75,7 @@ export function StudentSelector({
       </CardContent>
       {selectedStudent && !selectedStudent.mobileNumber?.trim() && (
         <div className="border-t bg-amber-50/50 px-4 py-3 text-sm text-amber-900 rounded-b-2xl">
-          <strong>Missing Phone Number:</strong> This student has no phone number on file. SMS notifications will not be sent. You can update this in their profile.
+          <strong>Missing Phone Number:</strong> This student has no phone number on file. WhatsApp messages cannot be opened. You can update this in their profile.
         </div>
       )}
     </Card>

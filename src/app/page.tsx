@@ -114,7 +114,7 @@ const detailedFeatures = [
       'Send clearer messages for lessons, payments, exams, birthdays, and updates without rebuilding the same text.',
     items: [
       'Prepare lesson reminders, payment messages, road test details, and student updates',
-      'Use SMS or WhatsApp style workflows depending on the contact method configured',
+      'Open ready-to-send WhatsApp messages from student, schedule, and payment workflows',
       'Keep communication connected to the student record so the school has context later',
       'Avoid accidental exam messages with an explicit send-message checkbox on scheduling',
     ],

@@ -11,13 +11,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { useSession, useUser } from "@/firebase";
-import { Settings } from "lucide-react";
+import { BriefcaseBusiness, CreditCard, Settings } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 
 export function Header() {
   const { user } = useUser();
-  const { role, tenant } = useSession();
+  const { role, tenant, canManageTenant } = useSession();
   const today = new Date();
   const dateLabel = format(today, "EEEE, MMMM d · yyyy");
 
@@ -61,6 +61,22 @@ export function Header() {
               </div>
             </div>
             <div className="p-2 border-t mt-1 space-y-1">
+              {canManageTenant && (
+                <>
+                  <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+                    <Link href="/app/billing">
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      <span>Billing</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+                    <Link href="/app/services">
+                      <BriefcaseBusiness className="mr-2 h-4 w-4" />
+                      <span>Services</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
                 <Link href="/app/settings">
                   <Settings className="mr-2 h-4 w-4" />
