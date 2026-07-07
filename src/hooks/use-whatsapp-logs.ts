@@ -36,7 +36,7 @@ function openWhatsAppMessage(to: string, body: string) {
 export function useWhatsAppLogs() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const whatsAppLogsPath = useTenantCollectionPath('whatsappLogs');
+  const whatsAppLogsPath = useTenantCollectionPath('smsLogs');
 
   const whatsAppLogsCollectionRef = useMemoFirebase(
     () => (firestore && user && whatsAppLogsPath ? collection(firestore, whatsAppLogsPath) : null),

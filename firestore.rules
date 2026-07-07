@@ -233,7 +233,7 @@ service cloud.firestore {
         allow read: if isTenantAdmin(tenantId);
         allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
-      match /whatsappLogs/{docId} {
+      match /smsLogs/{docId} {
         allow read: if isTenantAdmin(tenantId);
         allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
