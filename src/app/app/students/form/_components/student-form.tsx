@@ -29,7 +29,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Camera, Download, Eye, FileImage, Loader2 } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { useSession, useUser } from '@/firebase';
 import { getScanErrorMessage, prepareLicenseFileForAi, scanLicenseFile } from '@/lib/license-scan-client';
 import { useStorage } from '@/hooks/use-storage';
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
@@ -69,6 +69,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
   const router = useRouter();
   const { addStudent, updateStudent } = useStudents();
   const { user, isUserLoading } = useUser();
+  const { tenant } = useSession();
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sendWelcomeSms, setSendWelcomeSms] = useState(false);
@@ -142,9 +143,8 @@ Before your driving lesson, please make sure you:
 If you have any questions before your lesson, feel free to contact us.
 
 We look forward to helping you become a safe and confident driver!
-Thank you! 
-InstructorOS
-🌐 www.instructoros.ca`;
+Thank you!
+${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor'}${tenant?.receiptWebsite ? `\n🌐 ${tenant.receiptWebsite}` : ''}`;
 
     const cleanedNumber = mobileNumber.replace(/\D/g, '');
     const url = `https://api.whatsapp.com/send?phone=1${cleanedNumber}&text=${encodeURIComponent(body)}`;

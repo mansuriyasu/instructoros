@@ -220,6 +220,7 @@ export function LoginForm() {
     const ownerDisplayName = displayName.trim() || user.displayName || ownerEmail;
     const tenantName = type === 'school' ? schoolName.trim() : `${ownerDisplayName}'s Workspace`;
     const role = type === 'school' ? 'schoolAdmin' : 'soloInstructor';
+    const customerBusinessName = type === 'school' ? tenantName : ownerDisplayName;
     const plan = getPlanForTenantType(type);
     const batch = writeBatch(firestore);
 
@@ -232,6 +233,9 @@ export function LoginForm() {
       extraSeats: 0,
       subscriptionStatus: 'not_started',
       billingLocked: true,
+      receiptBusinessName: customerBusinessName,
+      receiptEmail: ownerEmail,
+      messageSenderName: customerBusinessName,
       ownerUid: user.uid,
       ownerEmail,
       createdAt: now,

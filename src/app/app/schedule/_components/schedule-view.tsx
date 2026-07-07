@@ -131,7 +131,7 @@ export function ScheduleView() {
   const [isAskNotifyDialogOpen, setIsAskNotifyDialogOpen] = useState(false);
 
   const firestore = useFirestore();
-  const { activeTenantId, canManageTenant, user } = useSession();
+  const { activeTenantId, canManageTenant, tenant, user } = useSession();
   const { events: allEvents, loading: isEventsLoading, addEvent, updateEvent: updateEventFirestore, deleteEvent: deleteEventFirestore } = useEvents();
   const { students: allStudents } = useStudents();
   const { addPayment, updatePayment, getPaymentById, loading: paymentsLoading } = usePayments();
@@ -796,7 +796,7 @@ export function ScheduleView() {
       `Hi ${eventData.studentName},\n\nYour driving lesson has been ${action} for ${date} from ${time}.`,
       services ? `Service: ${services}` : '',
       eventData.studentAddress ? `Pickup: ${eventData.studentAddress}` : '',
-      'Thanks,\nInstructorOS'
+      `Thanks,\n${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor'}`
     ].filter(Boolean).join('\n\n');
   };
 

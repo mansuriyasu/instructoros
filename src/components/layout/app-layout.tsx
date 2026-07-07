@@ -3,6 +3,7 @@
 import { Header } from "./header";
 import { BottomNav } from "./bottom-nav";
 import { Sidebar } from "./sidebar";
+import { WorkspaceSetupPrompt } from "./workspace-setup-prompt";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { useSession } from "@/firebase";
@@ -35,6 +36,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <WorkspaceSetupPrompt />
       <BottomNav />
     </div>
   );

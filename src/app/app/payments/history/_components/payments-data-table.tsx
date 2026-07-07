@@ -50,6 +50,7 @@ import { DateRange } from 'react-day-picker';
 import { endOfDay } from 'date-fns';
 import { useStudents } from '@/hooks/use-students';
 import { useToast } from '@/hooks/use-toast';
+import { useSession } from '@/firebase';
 
 interface PaymentsDataTableProps {
   payments: Payment[];
@@ -142,6 +143,7 @@ export function PaymentsDataTable({
   const router = useRouter();
   const { toast } = useToast();
   const { students } = useStudents();
+  const { tenant } = useSession();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'paymentDate', direction: 'desc' });
@@ -284,13 +286,14 @@ export function PaymentsDataTable({
     
     const services = payment.items?.map(i => i.name).join(', ') || 'driving lessons';
     const isPartial = payment.amountDue > 0 && payment.paidAmount > 0;
+    const senderName = tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor';
     
     let message = '';
     if (payment.status === 'paid') {
-      message = `Hi ${payment.studentName},\n\nThank you for your payment of $${payment.total} for ${services}.\n\nHere is your receipt confirmation. Drive safely!\n\nInstructorOS`;
+      message = `Hi ${payment.studentName},\n\nThank you for your payment of $${payment.total} for ${services}.\n\nHere is your receipt confirmation. Drive safely!\n\n${senderName}`;
     } else {
       const balanceType = isPartial ? 'remaining balance' : 'outstanding balance';
-      message = `Hi ${payment.studentName},\n\nThis is a gentle reminder that there is an ${balanceType} of $${payment.amountDue} for your ${services}.\n\nPlease let us know if you have any questions!\n\nInstructorOS`;
+      message = `Hi ${payment.studentName},\n\nThis is a gentle reminder that there is an ${balanceType} of $${payment.amountDue} for your ${services}.\n\nPlease let us know if you have any questions!\n\n${senderName}`;
     }
 
     const cleanedNumber = student.mobileNumber.replace(/\D/g, '');

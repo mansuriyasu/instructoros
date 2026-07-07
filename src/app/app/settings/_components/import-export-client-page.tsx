@@ -4,12 +4,25 @@ import { useMemo, useRef, useState } from 'react';
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   writeBatch,
   type Firestore,
 } from 'firebase/firestore';
-import { AlertTriangle, Database, Download, FileJson, RefreshCw, Upload } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { AlertTriangle, Database, Download, FileJson, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -29,9 +42,10 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useStudents } from '@/hooks/use-students';
-import { useActiveTenantId, useFirestore } from '@/firebase';
+import { useActiveTenantId, useAuth, useFirestore, useSession, useUser } from '@/firebase';
 import { Student } from '@/lib/types';
 import { downloadJson } from '@/lib/utils';
+import type { AppUserProfile, Tenant } from '@/lib/auth-config';
 
 type BackupMode = 'merge' | 'replace';
 
@@ -40,23 +54,38 @@ type CollectionBackup = {
   label: string;
   exportedAt: string;
   records: Array<{ id: string; data: Record<string, unknown> }>;
+  error?: string;
 };
 
 type FullBackup = {
   app: 'sparkon-instructor-pro' | 'instructoros';
-  version: 3;
+  version: 4;
   exportedAt: string;
+  tenant?: Tenant | null;
+  userProfile?: AppUserProfile | null;
   collections: Record<string, CollectionBackup>;
   localStorage?: Record<string, unknown>;
 };
 
 const COLLECTIONS = [
-  { name: 'students', label: 'Students' },
-  { name: 'events', label: 'Schedule Events' },
-  { name: 'payments', label: 'Payments & History' },
-  { name: 'services', label: 'Services' },
-  { name: 'serviceCategories', label: 'Service Categories' },
+  { name: 'students', label: 'Students', restorable: true },
+  { name: 'events', label: 'Schedule Events', restorable: true },
+  { name: 'payments', label: 'Payments & History', restorable: true },
+  { name: 'services', label: 'Services', restorable: true },
+  { name: 'serviceCategories', label: 'Service Categories', restorable: true },
+  { name: 'smsLogs', label: 'WhatsApp Logs', restorable: true },
+  { name: 'finance_years', label: 'Finance Years', restorable: true },
+  { name: 'finance_assets', label: 'Finance Assets', restorable: true },
+  { name: 'finance_liabilities', label: 'Finance Liabilities', restorable: true },
+  { name: 'finance_payments', label: 'Finance Payments', restorable: true },
+  { name: 'finance_loans', label: 'Finance Loans', restorable: true },
+  { name: 'finance_spending', label: 'Finance Spending', restorable: true },
+  { name: 'business_expenses', label: 'Business Expenses', restorable: false },
+  { name: 'members', label: 'Team Members', restorable: false },
+  { name: 'invites', label: 'Team Invites', restorable: false },
 ] as const;
+
+const RESTORABLE_COLLECTIONS = COLLECTIONS.filter(item => item.restorable);
 
 function todayStamp() {
   return new Date().toISOString().slice(0, 10);
@@ -152,13 +181,23 @@ function tenantCollectionPath(activeTenantId: string, collectionName: string) {
 }
 
 async function fetchCollectionBackup(firestore: Firestore, activeTenantId: string, collectionName: string, label: string) {
-  const snapshot = await getDocs(collection(firestore, tenantCollectionPath(activeTenantId, collectionName)));
-  return {
-    name: collectionName,
-    label,
-    exportedAt: new Date().toISOString(),
-    records: snapshot.docs.map(item => ({ id: item.id, data: item.data() })),
-  } satisfies CollectionBackup;
+  try {
+    const snapshot = await getDocs(collection(firestore, tenantCollectionPath(activeTenantId, collectionName)));
+    return {
+      name: collectionName,
+      label,
+      exportedAt: new Date().toISOString(),
+      records: snapshot.docs.map(item => ({ id: item.id, data: item.data() })),
+    } satisfies CollectionBackup;
+  } catch (error) {
+    return {
+      name: collectionName,
+      label,
+      exportedAt: new Date().toISOString(),
+      records: [],
+      error: error instanceof Error ? error.message : 'Could not export this section.',
+    } satisfies CollectionBackup;
+  }
 }
 
 async function deleteCollectionRecords(firestore: Firestore, activeTenantId: string, collectionName: string) {
@@ -194,16 +233,22 @@ async function writeCollectionRecords(
 
 export function ImportExportClientPage() {
   const firestore = useFirestore();
+  const auth = useAuth();
   const activeTenantId = useActiveTenantId();
+  const { user } = useUser();
+  const { tenant, profile } = useSession();
   const { students, addStudent } = useStudents();
   const { toast } = useToast();
 
   const importRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<BackupMode>('merge');
   const [isBusy, setIsBusy] = useState(false);
+  const [hasDownloadedBackup, setHasDownloadedBackup] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const collectionRows = useMemo(() => {
-    return COLLECTIONS.map(item => ({
+    return COLLECTIONS.filter(item => item.restorable).map(item => ({
       ...item,
       helper:
         item.name === 'students'
@@ -214,7 +259,11 @@ export function ImportExportClientPage() {
               ? 'Bills, paid/unpaid records, payment history'
               : item.name === 'services'
                 ? 'Lesson services, prices, costs, duration'
-                : 'Service grouping/order',
+                : item.name === 'serviceCategories'
+                  ? 'Service grouping/order'
+                  : item.name === 'smsLogs'
+                    ? 'WhatsApp message history'
+                    : 'Finance records and reports',
     }));
   }, []);
 
@@ -227,11 +276,15 @@ export function ImportExportClientPage() {
         return [item.name, backup] as const;
       })
     );
+    const tenantSnap = await getDoc(doc(firestore, 'tenants', activeTenantId));
+    const profileSnap = user ? await getDoc(doc(firestore, 'users', user.uid)) : null;
 
     return {
       app: 'instructoros',
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
+      tenant: tenantSnap.exists() ? ({ ...(tenantSnap.data() as Tenant), id: tenantSnap.id } as Tenant) : tenant || null,
+      userProfile: profileSnap?.exists() ? ({ ...(profileSnap.data() as AppUserProfile), id: profileSnap.id } as AppUserProfile) : profile || null,
       collections: Object.fromEntries(collectionEntries),
     };
   };
@@ -240,8 +293,15 @@ export function ImportExportClientPage() {
     try {
       setIsBusy(true);
       const backup = await buildFullBackup();
-      downloadJson(backup, `sparkon-full-backup-${todayStamp()}.json`);
-      toast({ title: 'Backup downloaded', description: 'Everything was exported into one JSON file.' });
+      downloadJson(backup, `instructoros-full-backup-${todayStamp()}.json`);
+      setHasDownloadedBackup(true);
+      const skipped = Object.values(backup.collections).filter(section => section.error).length;
+      toast({
+        title: 'Backup downloaded',
+        description: skipped
+          ? `Backup downloaded. ${skipped} protected section(s) could not be exported by this role.`
+          : 'Everything available to this workspace was exported into one JSON file.',
+      });
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -298,7 +358,7 @@ export function ImportExportClientPage() {
       if (!confirmed) return;
     }
 
-    for (const item of COLLECTIONS) {
+    for (const item of RESTORABLE_COLLECTIONS) {
       const section = backup.collections[item.name];
       if (!section?.records) continue;
       await writeCollectionRecords(firestore, activeTenantId, item.name, section.records, mode);
@@ -413,6 +473,49 @@ export function ImportExportClientPage() {
   };
 
   const studentCount = students?.length || 0;
+  const requiredDeleteText = tenant?.name ? `DELETE ${tenant.name}` : 'DELETE';
+  const canDeleteWorkspace = Boolean(activeTenantId && tenant && user && hasDownloadedBackup && deleteConfirmText === requiredDeleteText && !isDeleting);
+
+  const handleDeleteWorkspace = async () => {
+    if (!activeTenantId || !user || !tenant) return;
+
+    setIsDeleting(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/account/delete-workspace', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenantId: activeTenantId,
+          confirmationText: deleteConfirmText,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not delete this workspace.');
+      }
+
+      toast({
+        title: 'Workspace deleted',
+        description: data.authDeleted ? 'Your account and workspace data were deleted.' : 'Workspace data was deleted.',
+      });
+      await signOut(auth).catch(() => undefined);
+      window.location.assign('/');
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        duration: 9000,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -442,7 +545,7 @@ export function ImportExportClientPage() {
           <CardHeader>
             <CardTitle>Complete Backup</CardTitle>
             <CardDescription>
-              Download one JSON file containing students, schedule, payments, services, and expenses.
+              Download one JSON file containing workspace profile, students, schedule, payments, services, WhatsApp logs, finance records, members, and invites where your role has access.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -539,6 +642,67 @@ export function ImportExportClientPage() {
           Full JSON backup is the safest file because it can restore app data with document IDs. CSV is mainly for viewing and reporting.
         </AlertDescription>
       </Alert>
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="h-5 w-5" />
+            Delete Account and Data
+          </CardTitle>
+          <CardDescription>
+            Export your full backup first. Deleting removes this workspace, students, schedules, payments, services, logs, team records, and related app data.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>This cannot be undone</AlertTitle>
+            <AlertDescription>
+              If this is your only workspace, the app will also delete your Firebase login account. Stripe subscription cancellation is attempted during deletion when billing is connected.
+            </AlertDescription>
+          </Alert>
+
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="deleteConfirm">Type {requiredDeleteText} to confirm</Label>
+              <Input
+                id="deleteConfirm"
+                value={deleteConfirmText}
+                onChange={event => setDeleteConfirmText(event.target.value)}
+                placeholder={requiredDeleteText}
+              />
+              {!hasDownloadedBackup && (
+                <p className="text-sm font-medium text-destructive">
+                  Download Full JSON before deletion is enabled.
+                </p>
+              )}
+            </div>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={!canDeleteWorkspace}>
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {tenant?.name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently removes the selected workspace and its app data. Make sure your full JSON backup was downloaded successfully.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteWorkspace}>
+                    Delete permanently
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

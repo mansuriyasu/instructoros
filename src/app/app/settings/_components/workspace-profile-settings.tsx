@@ -28,6 +28,7 @@ export function WorkspaceProfileSettings() {
     receiptEmail: '',
     receiptWebsite: '',
     receiptAddress: '',
+    messageSenderName: '',
     hstNumber: '',
     taxLabel: DEFAULT_TAX_LABEL,
     taxRatePercent: String(ONTARIO_HST_RATE * 100),
@@ -42,8 +43,9 @@ export function WorkspaceProfileSettings() {
       receiptLogoDataUrl: tenant.receiptLogoDataUrl || '',
       receiptPhone: tenant.receiptPhone || '',
       receiptEmail: tenant.receiptEmail || tenant.ownerEmail || '',
-      receiptWebsite: tenant.receiptWebsite || 'www.instructoros.ca',
+      receiptWebsite: tenant.receiptWebsite || '',
       receiptAddress: tenant.receiptAddress || '',
+      messageSenderName: tenant.messageSenderName || tenant.receiptBusinessName || tenant.name || '',
       hstNumber: tenant.hstNumber || '',
       taxLabel: tenant.taxLabel || DEFAULT_TAX_LABEL,
       taxRatePercent: String(((tenant.taxRate ?? ONTARIO_HST_RATE) * 100).toFixed(2).replace(/\.00$/, '')),
@@ -91,10 +93,12 @@ export function WorkspaceProfileSettings() {
         receiptEmail: form.receiptEmail.trim(),
         receiptWebsite: form.receiptWebsite.trim(),
         receiptAddress: form.receiptAddress.trim(),
+        messageSenderName: form.messageSenderName.trim() || form.receiptBusinessName.trim() || form.name.trim(),
         hstNumber: form.hstNumber.trim(),
         taxLabel: form.taxLabel.trim() || DEFAULT_TAX_LABEL,
         taxRate: taxRatePercent / 100,
         taxEnabledByDefault: form.taxEnabledByDefault,
+        profileSetupCompletedAt: tenant?.profileSetupCompletedAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
       toast({ title: 'Workspace profile saved.' });
@@ -136,8 +140,29 @@ export function WorkspaceProfileSettings() {
             <Input id="workspaceName" value={form.name} onChange={event => updateField('name', event.target.value)} className="rounded-lg" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="receiptBusinessName">Receipt business name</Label>
-            <Input id="receiptBusinessName" value={form.receiptBusinessName} onChange={event => updateField('receiptBusinessName', event.target.value)} className="rounded-lg" />
+            <Label htmlFor="receiptBusinessName">
+              {tenant?.type === 'school' ? 'Legal school / business name for invoices' : 'Legal business or personal name for invoices'}
+            </Label>
+            <Input
+              id="receiptBusinessName"
+              value={form.receiptBusinessName}
+              onChange={event => updateField('receiptBusinessName', event.target.value)}
+              placeholder={tenant?.type === 'school' ? 'Example Driving School Inc.' : 'Your legal name or business name'}
+              className="rounded-lg"
+            />
+          </div>
+          <div className="space-y-2 lg:col-span-2">
+            <Label htmlFor="messageSenderName">Name shown in student messages</Label>
+            <Input
+              id="messageSenderName"
+              value={form.messageSenderName}
+              onChange={event => updateField('messageSenderName', event.target.value)}
+              placeholder={tenant?.type === 'school' ? 'Your school name' : 'Your instructor name'}
+              className="rounded-lg"
+            />
+            <p className="text-xs text-muted-foreground">
+              This name is used in WhatsApp payment, schedule, and welcome messages.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptPhone">Phone</Label>

@@ -40,10 +40,12 @@ export type Tenant = {
   receiptEmail?: string;
   receiptWebsite?: string;
   receiptAddress?: string;
+  messageSenderName?: string;
   hstNumber?: string;
   taxLabel?: string;
   taxRate?: number;
   taxEnabledByDefault?: boolean;
+  profileSetupCompletedAt?: string;
   ownerUid: string;
   ownerEmail: string;
   createdAt: string;

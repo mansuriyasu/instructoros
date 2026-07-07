@@ -228,7 +228,8 @@ export function CurrentBill({
   };
 
   const sendPaymentSms = async (mobileNumber: string, amount: number, servicesDesc: string, studentName: string) => {
-    const body = `InstructorOS: Received payment of $${amount} for ${servicesDesc}. Thank you!`;
+    const senderName = tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor';
+    const body = `${senderName}: Received payment of $${amount} for ${servicesDesc}. Thank you!`;
     const result = await sendAndLogWhatsApp(mobileNumber, body, {
       templateKey: 'payment',
       variables: {
