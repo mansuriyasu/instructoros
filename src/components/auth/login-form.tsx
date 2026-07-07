@@ -16,7 +16,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { collection, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { Building2, Eye, EyeOff, Loader2, LockKeyhole, Mail, UserRound } from 'lucide-react';
+import { Building2, Eye, EyeOff, Loader2, LockKeyhole, LogIn, Mail, UserPlus, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -501,7 +501,42 @@ export function LoginForm() {
     }
   };
 
+  const modeOptions = [
+    {
+      value: 'login',
+      label: 'Sign in',
+      description: 'Existing account',
+      icon: LogIn,
+    },
+    {
+      value: 'school',
+      label: 'Create school',
+      description: 'Manage a team',
+      icon: Building2,
+    },
+    {
+      value: 'solo',
+      label: 'Create instructor',
+      description: 'Work alone',
+      icon: UserRound,
+    },
+    {
+      value: 'invite',
+      label: 'Join with invite',
+      description: 'School instructor',
+      icon: UserPlus,
+    },
+  ] as const;
+  const selectedMode = modeOptions.find(option => option.value === mode) || modeOptions[0];
+  const SelectedModeIcon = selectedMode.icon;
   const title = mode === 'login' ? 'Welcome back' : mode === 'school' ? 'Create school workspace' : mode === 'solo' ? 'Create instructor workspace' : 'Accept school invite';
+  const subtitle = mode === 'login'
+    ? 'Sign in to manage your students, schedules, payments, and team.'
+    : mode === 'school'
+      ? 'Start a school workspace for your instructors, students, billing, and schedules.'
+      : mode === 'solo'
+        ? 'Start an individual instructor workspace for your students, lessons, and payments.'
+        : 'Use the invite link from your school to connect your instructor account.';
   const googleButtonLabel = mode === 'login'
     ? 'Continue with Google'
     : mode === 'school'
@@ -511,23 +546,23 @@ export function LoginForm() {
         : 'Accept invite with Google';
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] px-4 py-8 text-[#111827]">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <div className="mb-8 flex justify-center">
+    <div className="min-h-dvh bg-[#F7F8FA] px-3 pb-28 pt-4 text-[#111827] sm:px-4 sm:py-8">
+      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md flex-col justify-start sm:min-h-[calc(100vh-4rem)] sm:justify-center">
+        <div className="mb-4 flex justify-center sm:mb-8">
           <Logo />
         </div>
 
-        <Card className="overflow-hidden rounded-3xl border-0 shadow-2xl">
-          <CardHeader className="bg-[#0D1B2A] px-6 py-7 text-white">
-            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F4C430] text-[#0D1B2A]">
-              {mode === 'school' ? <Building2 className="h-6 w-6" /> : <UserRound className="h-6 w-6" />}
+        <Card className="overflow-hidden rounded-[1.35rem] border-0 shadow-2xl sm:rounded-3xl">
+          <CardHeader className="bg-[#0D1B2A] px-5 py-6 text-white sm:px-6 sm:py-7">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F4C430] text-[#0D1B2A] sm:mb-5">
+              <SelectedModeIcon className="h-6 w-6" />
             </div>
             <CardTitle className="text-2xl">{title}</CardTitle>
             <p className="mt-2 text-sm text-white/65">
-              Manage students, schedules, payments, and instructors in one workspace.
+              {subtitle}
             </p>
           </CardHeader>
-          <CardContent className="space-y-5 p-6">
+          <CardContent className="space-y-5 p-5 sm:p-6">
             {hasUnconnectedSession && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 <p className="font-semibold">Signed in as {session.user?.email}</p>
@@ -543,26 +578,38 @@ export function LoginForm() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 rounded-2xl bg-muted p-1">
-              {([
-                ['login', 'Login'],
-                ['school', 'School'],
-                ['solo', 'Individual'],
-                ['invite', 'Invite'],
-              ] as const).map(([value, label]) => (
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-foreground">Choose what you want to do</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {modeOptions.map(({ value, label, description, icon: Icon }) => (
                 <Button
                   key={value}
                   type="button"
                   variant="ghost"
-                  className={cn('rounded-xl', mode === value && 'bg-background shadow-sm')}
+                  className={cn(
+                    'h-auto justify-start gap-3 rounded-2xl border bg-background px-3 py-3 text-left shadow-sm transition',
+                    mode === value
+                      ? 'border-[#F4C430] bg-[#FFF8D8] ring-2 ring-[#F4C430]/35'
+                      : 'border-border hover:bg-muted/70'
+                  )}
                   onClick={() => {
                     setMode(value);
                     setError('');
                   }}
                 >
-                  {label}
+                  <span className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                    mode === value ? 'bg-[#F4C430] text-[#0D1B2A]' : 'bg-muted text-muted-foreground'
+                  )}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold leading-tight">{label}</span>
+                    <span className="mt-0.5 block text-xs font-medium leading-tight text-muted-foreground">{description}</span>
+                  </span>
                 </Button>
-              ))}
+                ))}
+              </div>
             </div>
 
             {mode === 'invite' && (!inviteTenantId || !inviteId) && (
