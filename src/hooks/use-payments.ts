@@ -40,7 +40,12 @@ export function usePayments() {
     useCollection<Payment>(paymentsQuery);
 
   const addPayment = async (payment: Omit<Payment, 'id'>) => {
-    if (!paymentsCollectionRef) return;
+    if (!user) {
+      throw new Error('Firebase sign-in is not ready. Please refresh the app and try again.');
+    }
+    if (!paymentsCollectionRef) {
+      throw new Error('The payments database is not ready yet. Please try again.');
+    }
     return addDocumentNonBlocking(paymentsCollectionRef, {
       ...payment,
       instructorId: payment.instructorId || user?.uid || null,
@@ -48,13 +53,23 @@ export function usePayments() {
   };
 
   const updatePayment = async (payment: Payment) => {
-    if (!firestore || !paymentsPath) return;
+    if (!user) {
+      throw new Error('Firebase sign-in is not ready. Please refresh the app and try again.');
+    }
+    if (!firestore || !paymentsPath) {
+      throw new Error('The payments database is not ready yet. Please try again.');
+    }
     const paymentRef = doc(firestore, paymentsPath, payment.id);
     return updateDocumentNonBlocking(paymentRef, payment);
   };
 
   const deletePayment = async (paymentId: string) => {
-    if (!firestore || !paymentsPath) return;
+    if (!user) {
+      throw new Error('Firebase sign-in is not ready. Please refresh the app and try again.');
+    }
+    if (!firestore || !paymentsPath) {
+      throw new Error('The payments database is not ready yet. Please try again.');
+    }
     const paymentRef = doc(firestore, paymentsPath, paymentId);
     return deleteDocumentNonBlocking(paymentRef);
   };

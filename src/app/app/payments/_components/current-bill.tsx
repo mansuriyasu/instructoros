@@ -25,6 +25,7 @@ import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, g
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { useSession } from '@/firebase';
 import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, calculateTaxAmount, formatTaxLabel } from '@/lib/tax';
+import { getBillingLocked } from '@/lib/billing';
 
 interface CurrentBillProps {
   billItems: BillItem[];
@@ -41,6 +42,16 @@ interface CurrentBillProps {
 function toDateTimeLocalValue(dateString: string) {
   const date = new Date(dateString);
   return format(isValid(date) ? date : new Date(), "yyyy-MM-dd'T'HH:mm");
+}
+
+function getPaymentSaveErrorMessage(error: unknown, workspaceReadOnly: boolean) {
+  const message = error instanceof Error ? error.message : String(error || '');
+
+  if (workspaceReadOnly || /permission|permission-denied|insufficient permissions/i.test(message)) {
+    return 'This workspace is read-only until the 1 month free trial or billing is active. Open Billing and activate the trial first.';
+  }
+
+  return message || 'Could not save this bill. Please try again.';
 }
 
 export function CurrentBill({
@@ -72,6 +83,7 @@ export function CurrentBill({
   const taxRate = tenant?.taxRate ?? ONTARIO_HST_RATE;
   const taxLabel = tenant?.taxLabel || DEFAULT_TAX_LABEL;
   const taxDisplayLabel = formatTaxLabel(taxLabel, taxRate);
+  const workspaceReadOnly = tenant?.billingLocked ?? getBillingLocked(tenant?.subscriptionStatus);
 
   useEffect(() => {
     if (activeBill) {
@@ -117,6 +129,16 @@ export function CurrentBill({
   }, [isFinalizing, isAdvancePayment, billItems.length, total, activeBill, availableCredit]);
 
   const handleFinalize = async () => {
+    if (workspaceReadOnly) {
+      toast({
+        variant: 'destructive',
+        title: 'Billing needs attention',
+        description: getPaymentSaveErrorMessage(null, true),
+      });
+      router.push('/app/billing');
+      return;
+    }
+
     if (isAdvancePayment && !selectedStudent && !activeBill) {
       toast({ variant: 'destructive', title: 'Please select a student for advance payment.' });
       return;
@@ -222,8 +244,12 @@ export function CurrentBill({
         }
 
         proceedWithCompletion();
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Error processing payment' });
+    } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error processing payment',
+          description: getPaymentSaveErrorMessage(error, workspaceReadOnly),
+        });
     }
   };
 
@@ -254,6 +280,16 @@ export function CurrentBill({
   };
 
   const handleUpdateBill = async () => {
+    if (workspaceReadOnly) {
+      toast({
+        variant: 'destructive',
+        title: 'Billing needs attention',
+        description: getPaymentSaveErrorMessage(null, true),
+      });
+      router.push('/app/billing');
+      return;
+    }
+
     if (!activeBill && !selectedStudent) {
       toast({ variant: 'destructive', title: 'Please select a student' });
       return;
@@ -294,7 +330,11 @@ export function CurrentBill({
       toast({ title: "Student's bill has been updated." });
       onReset();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Failed to update bill' });
+      toast({
+        variant: 'destructive',
+        title: 'Failed to update bill',
+        description: getPaymentSaveErrorMessage(error, workspaceReadOnly),
+      });
     }
   }
 
@@ -557,16 +597,23 @@ export function CurrentBill({
             </div>
         )}
 
+        {workspaceReadOnly && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <p className="font-semibold">Billing needs attention</p>
+            <p className="mt-1">Activate the 1 month free trial before saving bills or payments.</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
             <Button size="lg" variant="outline" className="rounded-xl" onClick={onReset}>
                 Clear
             </Button>
             {isFinalizing ? (
-                <Button size="lg" className="rounded-xl" onClick={handleFinalize} disabled={billItems.length === 0 && !isAdvancePayment}>
+                <Button size="lg" className="rounded-xl" onClick={handleFinalize} disabled={(billItems.length === 0 && !isAdvancePayment) || workspaceReadOnly}>
                     Record Payment
                 </Button>
             ) : (
-                <Button size="lg" className="rounded-xl" onClick={handleUpdateBill} disabled={billItems.length === 0}>
+                <Button size="lg" className="rounded-xl" onClick={handleUpdateBill} disabled={billItems.length === 0 || workspaceReadOnly}>
                     {activeBill ? 'Update Bill' : 'Save Bill'}
                 </Button>
             )}
