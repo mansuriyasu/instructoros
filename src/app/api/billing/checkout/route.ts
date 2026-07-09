@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PLAN_DETAILS, getExtraSeats, getIncludedSeats, isBillingPlan } from '@/lib/billing';
+import { PLAN_DETAILS, getExtraSeats, getIncludedSeats, isBillingPlan, type PromoCode } from '@/lib/billing';
 import { getBillingActor } from '@/lib/server/billing-auth';
+import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { getAppUrl, getStripe, publicBillingError, requireEnv } from '@/lib/server/stripe';
 
 export const runtime = 'nodejs';
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing billing plan or workspace.' }, { status: 400 });
     }
 
-    const { tenant, tenantRef, email } = await getBillingActor(request, tenantId);
+    const { tenant, tenantRef, email } = await getBillingActor(request, tenantId, { requireOwner: true });
     const expectedPlan = tenant.type === 'school' ? 'school' : 'instructor';
     if (plan !== expectedPlan) {
       return NextResponse.json({ error: 'This plan does not match the workspace type.' }, { status: 400 });
@@ -53,13 +54,34 @@ export async function POST(request: NextRequest) {
       seatLimit: String(plan === 'school' ? PLAN_DETAILS.school.includedSeats + extraSeats : PLAN_DETAILS.instructor.includedSeats),
     };
 
+    let discount: { coupon: string } | undefined;
+    if (tenant.promoCodeApplied && tenant.promoPercentOff) {
+      const promoSnap = await getAdminFirestore().collection('promoCodes').doc(tenant.promoCodeApplied).get();
+      const promo = promoSnap.exists ? promoSnap.data() as PromoCode : null;
+      const isValidPercentPromo = promo?.active
+        && promo.kind === 'percent'
+        && promo.percentOff === tenant.promoPercentOff
+        && (!promo.expiresAt || new Date(promo.expiresAt).getTime() >= Date.now());
+      if (!isValidPercentPromo) {
+        return NextResponse.json({ error: 'The saved promo code is no longer active.' }, { status: 400 });
+      }
+
+      const coupon = await stripe.coupons.create({
+        percent_off: tenant.promoPercentOff,
+        duration: 'forever',
+        name: `InstructorOS ${tenant.promoCodeApplied}`,
+        metadata: { tenantId, promoCode: tenant.promoCodeApplied },
+      });
+      discount = { coupon: coupon.id };
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
       client_reference_id: tenantId,
       line_items: lineItems,
       payment_method_collection: 'always',
-      allow_promotion_codes: true,
+      ...(discount ? { discounts: [discount] } : {}),
       success_url: `${appUrl}/app/billing?checkout=success`,
       cancel_url: `${appUrl}/app/billing?checkout=cancelled`,
       metadata,
@@ -74,7 +96,8 @@ export async function POST(request: NextRequest) {
       extraSeats,
       seatLimit: plan === 'school' ? PLAN_DETAILS.school.includedSeats + extraSeats : PLAN_DETAILS.instructor.includedSeats,
       subscriptionStatus: 'checkout_pending',
-      billingLocked: true,
+      // Do not lock a workspace until Stripe confirms a real billing status.
+      billingLocked: false,
       updatedAt: new Date().toISOString(),
     }, { merge: true });
 

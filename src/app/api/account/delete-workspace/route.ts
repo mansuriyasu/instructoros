@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const isMainAdmin = email === MAIN_ADMIN_EMAIL;
     const memberSnap = await tenantRef.collection('members').doc(decoded.uid).get();
     const member = memberSnap.exists ? (memberSnap.data() as TenantMember) : null;
-    const canDelete = isMainAdmin || (member?.status === 'active' && ['schoolAdmin', 'soloInstructor'].includes(member.role));
+    const canDelete = isMainAdmin || (member?.status === 'active' && tenant.ownerUid === decoded.uid);
 
     if (!canDelete) {
       return NextResponse.json({ error: 'Only the workspace owner/admin can delete this workspace.' }, { status: 403 });

@@ -1,8 +1,8 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { addDoc, collection, doc, orderBy, query, updateDoc } from 'firebase/firestore';
+import { collection, doc, orderBy, query, updateDoc } from 'firebase/firestore';
 import { Copy, Loader2, Mail, RotateCcw, UserCheck, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,19 +70,9 @@ export default function TeamPage() {
   const usedSeats = activeMembers.length + pendingInvites.length;
   const hasSeatAvailable = isSchoolWorkspace && usedSeats < seatLimit;
 
-  useEffect(() => {
-    if (!activeTenantId || !isSchoolWorkspace) return;
-    if (savedSeatLimit >= PLAN_DETAILS.school.includedSeats) return;
-
-    void updateDoc(doc(firestore, 'tenants', activeTenantId), {
-      seatLimit: PLAN_DETAILS.school.includedSeats,
-      updatedAt: new Date().toISOString(),
-    }).catch(() => undefined);
-  }, [activeTenantId, firestore, isSchoolWorkspace, savedSeatLimit]);
-
   const handleInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!invitesRef || !activeTenantId || !user) return;
+    if (!activeTenantId || !user) return;
     if (!isSchoolWorkspace) {
       setError('Team invites are only available for school workspaces.');
       return;
@@ -117,21 +107,24 @@ export default function TeamPage() {
 
     setIsBusy(true);
     try {
-      const inviteDoc = await addDoc(invitesRef, {
-        email,
-        role: 'schoolInstructor',
-        status: 'pending',
-        tenantId: activeTenantId,
-        createdByUid: user.uid,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } satisfies Omit<TenantInvite, 'id'>);
+      const response = await fetch('/api/team/invites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({ tenantId: activeTenantId, email }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.inviteId) {
+        throw new Error(result.error || 'Could not create invite.');
+      }
       const origin = window.location.origin;
-      const link = `${origin}/login?mode=invite&tenantId=${activeTenantId}&inviteId=${inviteDoc.id}`;
+      const link = `${origin}/login?mode=invite&tenantId=${activeTenantId}&inviteId=${result.inviteId}`;
       setLastInviteLink(link);
       await navigator.clipboard?.writeText(link).catch(() => undefined);
       setInviteEmail('');
-      setMessage('Invite created and copied.');
+      setMessage(result.existing ? 'This email already has a pending invite. I copied the existing invite link.' : 'Invite created and copied.');
     } catch (inviteError) {
       setError(inviteError instanceof Error ? inviteError.message : 'Could not create invite.');
     } finally {
@@ -199,11 +192,11 @@ export default function TeamPage() {
     setMessage('Student assignment updated.');
   };
 
-  if (!canManageTenant || !activeTenantId) {
+  if (!canManageTenant || !activeTenantId || !isSchoolWorkspace) {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-sm text-muted-foreground">Only school admins can manage instructors.</p>
+          <p className="text-sm text-muted-foreground">Team management is available for school workspaces.</p>
         </CardContent>
       </Card>
     );

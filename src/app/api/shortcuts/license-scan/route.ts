@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createStudentViaFirebaseRest } from '@/lib/server/firebase-rest';
+import crypto from 'crypto';
 import { createEnhancedFaceThumbnail, createStoredLicenseImage } from '@/lib/server/license-images';
+import { getAdminFirestore } from '@/lib/server/firebase-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,12 @@ function getShortcutSecret(request: NextRequest) {
     request.nextUrl.searchParams.get('secret') ||
     ''
   );
+}
+
+function secretsMatch(provided: string, expected: string) {
+  const providedBytes = Buffer.from(provided);
+  const expectedBytes = Buffer.from(expected);
+  return providedBytes.length === expectedBytes.length && crypto.timingSafeEqual(providedBytes, expectedBytes);
 }
 
 function getAppOrigin(request: NextRequest) {
@@ -43,15 +50,16 @@ async function fileToDataUri(file: File) {
 
 export async function POST(request: NextRequest) {
   const configuredSecret = process.env.SHORTCUT_SECRET;
+  const configuredTenantId = process.env.SHORTCUT_TENANT_ID;
 
-  if (!configuredSecret) {
+  if (!configuredSecret || !configuredTenantId) {
     return NextResponse.json(
-      { ok: false, error: 'Shortcut secret is not configured on the server.' },
+      { ok: false, error: 'Shortcut access is not configured on the server.' },
       { status: 500 }
     );
   }
 
-  if (getShortcutSecret(request) !== configuredSecret) {
+  if (!secretsMatch(getShortcutSecret(request), configuredSecret)) {
     return unauthorized();
   }
 
@@ -86,6 +94,10 @@ export async function POST(request: NextRequest) {
         { ok: false, error: 'Please include your InstructorOS workspace id as tenantId.' },
         { status: 400 }
       );
+    }
+
+    if (tenantId !== configuredTenantId) {
+      return unauthorized();
     }
 
     if (file.size > MAX_FILE_SIZE) {
@@ -130,7 +142,13 @@ export async function POST(request: NextRequest) {
     if (licenseImageUrl) {
       studentData.licenseImageUrl = licenseImageUrl;
     }
-    const studentId = await createStudentViaFirebaseRest(studentData, tenantId);
+    const tenantRef = getAdminFirestore().collection('tenants').doc(tenantId);
+    const tenantSnap = await tenantRef.get();
+    if (!tenantSnap.exists || tenantSnap.data()?.status !== 'active') {
+      return NextResponse.json({ ok: false, error: 'Shortcut workspace is not available.' }, { status: 403 });
+    }
+    const studentRef = await tenantRef.collection('students').add(studentData);
+    const studentId = studentRef.id;
 
     return NextResponse.json({
       ok: true,

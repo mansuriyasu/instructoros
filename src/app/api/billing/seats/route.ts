@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing workspace.' }, { status: 400 });
     }
 
-    const { tenant, tenantRef } = await getBillingActor(request, tenantId);
+    const { tenant, tenantRef } = await getBillingActor(request, tenantId, { requireOwner: true });
     if (tenant.type !== 'school') {
       return NextResponse.json({ error: 'Only school workspaces can add seats.' }, { status: 400 });
     }

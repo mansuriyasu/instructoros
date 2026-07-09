@@ -1,5 +1,7 @@
 'use client';
 
+import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -87,6 +89,7 @@ export async function scanLicenseFile(licenseFile: string): Promise<LicenseScanD
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      ...(await getAuthenticatedHeaders()),
     },
     body: JSON.stringify({ licenseFile }),
   });

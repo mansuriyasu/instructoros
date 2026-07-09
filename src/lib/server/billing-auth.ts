@@ -9,7 +9,7 @@ function getBearerToken(request: NextRequest) {
   return match?.[1] || '';
 }
 
-export async function getBillingActor(request: NextRequest, tenantId: string) {
+export async function getBillingActor(request: NextRequest, tenantId: string, options?: { requireOwner?: boolean }) {
   const token = getBearerToken(request);
   if (!token) {
     throw new Error('Please sign in before managing billing.');
@@ -35,6 +35,10 @@ export async function getBillingActor(request: NextRequest, tenantId: string) {
 
     if (!canManageBilling) {
       throw new Error('Only a workspace admin can manage billing.');
+    }
+
+    if (options?.requireOwner && tenant.ownerUid !== decoded.uid) {
+      throw new Error('Only the workspace owner can manage subscriptions, promos, or account deletion.');
     }
   }
 

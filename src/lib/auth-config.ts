@@ -106,7 +106,7 @@ export function roleLabel(role?: AppRole | null) {
 }
 
 export function canManageTenant(role?: AppRole | null) {
-  return role === 'mainAdmin' || role === 'schoolAdmin';
+  return role === 'mainAdmin' || role === 'schoolAdmin' || role === 'soloInstructor';
 }
 
 export function canUseFullWorkspace(role?: AppRole | null) {

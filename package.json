@@ -10,7 +10,8 @@
     "build": "NODE_ENV=production next build",
     "start": "next start -p 3000",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "security:check": "node scripts/verify-security-boundaries.mjs"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.37.0",

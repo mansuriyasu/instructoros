@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing workspace.' }, { status: 400 });
     }
 
-    const { tenant } = await getBillingActor(request, tenantId);
+    const { tenant } = await getBillingActor(request, tenantId, { requireOwner: true });
     if (!tenant.stripeCustomerId) {
       return NextResponse.json({ error: 'Billing has not been started yet.' }, { status: 400 });
     }

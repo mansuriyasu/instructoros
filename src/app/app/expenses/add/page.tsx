@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle2, Image as ImageIcon, Loader2, Sparkles, X, Briefcase, User as UserIcon } from "lucide-react"
 import { compressImage } from "@/lib/image-utils"
 import { cn } from "@/lib/utils"
+import { getAuthenticatedHeaders } from "@/lib/authenticated-fetch"
 
 const formSchema = z.object({
   expenseType: z.enum(["business", "personal"]).default("business"),
@@ -52,7 +53,7 @@ export default function AddExpensePage() {
     try {
       const response = await fetch("/api/receipt-scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getAuthenticatedHeaders()) },
         body: JSON.stringify({ receiptFile: receiptDataUri }),
       })
       const result = await response.json()

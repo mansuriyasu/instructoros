@@ -18,6 +18,7 @@ import { CalendarEvent, InstructorOption } from '@/lib/types';
 import { compressImage } from '@/lib/image-utils';
 import { useToast } from '@/hooks/use-toast';
 import { useServices } from '@/hooks/use-services';
+import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 
 const CUSTOM_EXAM_CENTER_VALUE = '__custom_exam_center__';
 
@@ -135,7 +136,7 @@ export function ExamSchedulerDialog({
         
         const res = await fetch('/api/exam-scan', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
           body: JSON.stringify({ photoDataUri: base64 }),
         });
         const result = await res.json();
@@ -220,7 +221,7 @@ export function ExamSchedulerDialog({
         if (originAddress && finalExamCenter) {
             const res = await fetch('/api/travel-time', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
                 body: JSON.stringify({ origin: originAddress, destination: finalExamCenter }),
             });
             const result = await res.json();

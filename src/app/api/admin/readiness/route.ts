@@ -152,7 +152,8 @@ async function getReadinessItems(): Promise<ReadinessItem[]> {
     && hasEnv('STRIPE_PRICE_SCHOOL_EXTRA_SEAT_MONTHLY');
   const hasStripeWebhook = hasEnv('STRIPE_WEBHOOK_SECRET');
   const hasGoogleCalendar = hasEnv('GOOGLE_CALENDAR_CLIENT_ID')
-    && hasEnv('GOOGLE_CALENDAR_CLIENT_SECRET');
+    && hasEnv('GOOGLE_CALENDAR_CLIENT_SECRET')
+    && hasEnv('GOOGLE_CALENDAR_STATE_SECRET');
   const [emailPasswordCheck, googleCheck] = await Promise.all([
     checkEmailPasswordAuthProvider(),
     checkFederatedFirebaseAuthProvider('google.com', 'Google sign-in'),
@@ -225,8 +226,8 @@ async function getReadinessItems(): Promise<ReadinessItem[]> {
       'google-calendar',
       'Google Calendar',
       hasGoogleCalendar,
-      'Google Calendar OAuth client settings are present. Each user connects their own calendar.',
-      'Add GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET so each user can connect their own Google Calendar.'
+      'Google Calendar OAuth settings are present. Each user connects their own calendar.',
+      'Add GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, and a unique GOOGLE_CALENDAR_STATE_SECRET so each user can connect their own Google Calendar.'
     ),
   ];
 }

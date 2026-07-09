@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Building2, CheckCircle2, Loader2, Lock, TicketPercent, UserRound, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useFirestore, useSession, useUser } from '@/firebase';
+import { useSession, useUser } from '@/firebase';
 import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE, getBillingLocked, getPlanForTenantType } from '@/lib/billing';
-import type { BillingPlan, PromoCode } from '@/lib/billing';
+import type { BillingPlan } from '@/lib/billing';
 
 async function postBilling(path: string, token: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
@@ -38,12 +37,6 @@ function friendlyBillingError(error: unknown) {
   return message || 'Billing request failed.';
 }
 
-function addDays(date: Date, days: number) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
 function formatDate(value?: string | null) {
   if (!value) return '';
   return new Intl.DateTimeFormat('en-CA', {
@@ -58,8 +51,7 @@ function normalizePromoCode(value: string) {
 }
 
 export default function BillingPage() {
-  const firestore = useFirestore();
-  const { tenant, activeTenantId, canManageTenant } = useSession();
+  const { tenant, activeTenantId, isMainAdmin } = useSession();
   const { user } = useUser();
   const searchParams = useSearchParams();
   const [seatLimit, setSeatLimit] = useState(PLAN_DETAILS.school.includedSeats);
@@ -74,7 +66,8 @@ export default function BillingPage() {
   const status = tenant?.subscriptionStatus || 'not_started';
   const billingLocked = tenant?.billingLocked ?? getBillingLocked(status);
   const trialIsActive = status === 'trialing';
-  const canActivateTrialCheckout = canManageTenant && status !== 'active';
+  const isBillingOwner = Boolean(isMainAdmin || (user && tenant?.ownerUid === user.uid));
+  const canActivateTrialCheckout = isBillingOwner && status !== 'active';
 
   useEffect(() => {
     setSeatLimit(tenant?.seatLimit || (isSchool ? PLAN_DETAILS.school.includedSeats : PLAN_DETAILS.instructor.includedSeats));
@@ -90,7 +83,7 @@ export default function BillingPage() {
   }, [searchParams]);
 
   const applyPromoCode = async () => {
-    if (!activeTenantId || !tenant) return;
+    if (!activeTenantId || !tenant || !user) return;
     const code = normalizePromoCode(promoCodeInput);
     if (!code) return;
 
@@ -99,48 +92,10 @@ export default function BillingPage() {
     setMessage('');
 
     try {
-      const promoSnap = await getDoc(doc(firestore, 'promoCodes', code));
-      if (!promoSnap.exists()) {
-        throw new Error('This promo code was not found.');
-      }
-
-      const promo = { ...(promoSnap.data() as PromoCode), id: promoSnap.id };
-      if (!promo.active) {
-        throw new Error('This promo code is not active.');
-      }
-      if (promo.expiresAt && new Date(promo.expiresAt).getTime() < Date.now()) {
-        throw new Error('This promo code has expired.');
-      }
-
-      const now = new Date();
-
-      if (promo.kind === 'free') {
-        const freeAccessUntil = addDays(now, promo.freeDays || 30).toISOString();
-        await updateDoc(doc(firestore, 'tenants', activeTenantId), {
-          promoCodeApplied: promo.code,
-          updatedAt: now.toISOString(),
-          subscriptionStatus: 'active',
-          billingLocked: false,
-          freeAccessUntil,
-          freeAccessReason: `Promo code ${promo.code}`,
-        });
-        setMessage(`${promo.code} applied. Free access is active until ${formatDate(freeAccessUntil)}.`);
-      } else {
-        const update = {
-          promoCodeApplied: promo.code,
-          updatedAt: now.toISOString(),
-          promoPercentOff: promo.percentOff || 0,
-          ...(billingLocked
-            ? {
-                subscriptionStatus: 'trialing',
-                billingLocked: false,
-                trialEndsAt: tenant.trialEndsAt || addDays(now, PLAN_DETAILS[plan].trialDays).toISOString(),
-              }
-            : {}),
-        };
-        await updateDoc(doc(firestore, 'tenants', activeTenantId), update);
-        setMessage(`${promo.code} applied. ${promo.percentOff || 0}% discount is saved for this workspace.`);
-      }
+      const data = await postBilling('/api/billing/promo', await user.getIdToken(), { tenantId: activeTenantId, code });
+      setMessage(data.kind === 'free'
+        ? `${data.code} applied. Free access is active until ${formatDate(data.freeAccessUntil)}.`
+        : `${data.code} applied. ${data.percentOff}% discount will apply when you activate your trial.`);
 
       setPromoCodeInput('');
     } catch (promoError) {
@@ -265,7 +220,7 @@ export default function BillingPage() {
               </Alert>
             )}
 
-            {canManageTenant ? (
+            {isBillingOwner ? (
               <div className="space-y-4">
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <Label htmlFor="promoCode">Promo code</Label>
@@ -326,7 +281,7 @@ export default function BillingPage() {
                   value={seatLimit}
                   onChange={(event) => setSeatLimit(Number(event.target.value))}
                   className="h-12 rounded-lg"
-                  disabled={!canManageTenant}
+                  disabled={!isBillingOwner}
                 />
               </div>
               <p className="text-sm text-muted-foreground">
@@ -335,7 +290,7 @@ export default function BillingPage() {
               <Button
                 variant="outline"
                 onClick={() => runBillingAction('seats')}
-                disabled={!canManageTenant || Boolean(isLoading) || !tenant.stripeSubscriptionId}
+                disabled={!isBillingOwner || Boolean(isLoading) || !tenant.stripeSubscriptionId}
                 className="w-full rounded-lg"
               >
                 {isLoading === 'seats' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

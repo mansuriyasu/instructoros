@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRateLimitedUser, requestSecurityErrorResponse } from '@/lib/server/request-security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,6 +8,7 @@ const MAX_DATA_URI_LENGTH = 9_500_000;
 
 export async function POST(request: NextRequest) {
   try {
+    await requireRateLimitedUser(request, 'receipt-scan', 12);
     const { receiptFile } = (await request.json()) as { receiptFile?: unknown };
 
     if (typeof receiptFile !== 'string' || !receiptFile.startsWith('data:')) {
@@ -29,6 +31,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: result.ok ? 200 : 422 });
   } catch (error) {
     console.error('Receipt scan API failed:', error);
+    if (error instanceof Error && error.name === 'RequestSecurityError') {
+      return requestSecurityErrorResponse(error, 'Could not scan the receipt.');
+    }
     return NextResponse.json(
       {
         ok: false,

@@ -80,6 +80,26 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    function canEditTenantProfile(tenantId) {
+      return isTenantAdmin(tenantId)
+        && onlyChanges([
+          "name",
+          "receiptBusinessName",
+          "receiptLogoDataUrl",
+          "receiptPhone",
+          "receiptEmail",
+          "receiptWebsite",
+          "receiptAddress",
+          "messageSenderName",
+          "hstNumber",
+          "taxLabel",
+          "taxRate",
+          "taxEnabledByDefault",
+          "profileSetupCompletedAt",
+          "updatedAt"
+        ]);
+    }
+
     match /users/{uid} {
       allow get: if isMainAdmin() || (signedIn() && request.auth.uid == uid);
       allow list: if isMainAdmin();
@@ -103,8 +123,13 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.ownerEmail == email()
         && request.resource.data.status == "active"
-        && request.resource.data.type in ["school", "solo"];
-      allow update: if isMainAdmin() || (isActiveMember(tenantId) && role(tenantId) in ["schoolAdmin", "soloInstructor"]);
+        && request.resource.data.type in ["school", "solo"]
+        && request.resource.data.plan == (request.resource.data.type == "school" ? "school" : "instructor")
+        && request.resource.data.subscriptionStatus == "not_started"
+        && request.resource.data.billingLocked == true
+        && request.resource.data.extraSeats == 0
+        && request.resource.data.seatLimit == (request.resource.data.type == "school" ? 10 : 1);
+      allow update: if isMainAdmin() || canEditTenantProfile(tenantId);
       allow delete: if isMainAdmin();
 
       match /members/{uid} {
@@ -134,13 +159,12 @@ service cloud.firestore {
           );
         allow update: if isMainAdmin()
           || (isTenantAdmin(tenantId)
-            && (
-              billingWritable(tenantId)
-              || (
-                request.resource.data.status == "disabled"
-                && onlyChanges(["status", "disabledAt", "updatedAt"])
-              )
-            ));
+            && resource.data.role == "schoolInstructor"
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.tenantId == resource.data.tenantId
+            && onlyChanges(["status", "disabledAt", "updatedAt", "displayName"]));
         allow delete: if isMainAdmin() || (isTenantAdmin(tenantId) && billingWritable(tenantId));
       }
 
@@ -149,28 +173,18 @@ service cloud.firestore {
           || isTenantAdmin(tenantId)
           || (signedIn() && resource.data.email == email() && resource.data.status == "pending");
         allow list: if isMainAdmin() || isTenantAdmin(tenantId);
-        allow create: if isMainAdmin()
-          || (isTenantAdmin(tenantId)
-            && billingWritable(tenantId)
-            && request.resource.data.email is string
-            && request.resource.data.role == "schoolInstructor"
-            && request.resource.data.status == "pending"
-            && request.resource.data.tenantId == tenantId);
+        allow create: if isMainAdmin();
         allow update: if isMainAdmin()
           || (isTenantAdmin(tenantId)
-            && (
-              billingWritable(tenantId)
-              || (
-                request.resource.data.status == "revoked"
-                && onlyChanges(["status", "updatedAt"])
-              )
-            ))
+            && request.resource.data.status == "revoked"
+            && onlyChanges(["status", "updatedAt"]))
           || (signedIn()
             && billingWritable(tenantId)
             && resource.data.email == email()
             && resource.data.status == "pending"
             && request.resource.data.status == "accepted"
-            && request.resource.data.acceptedByUid == request.auth.uid);
+            && request.resource.data.acceptedByUid == request.auth.uid
+            && onlyChanges(["status", "acceptedAt", "acceptedByUid", "updatedAt"]));
         allow delete: if isMainAdmin() || (isTenantAdmin(tenantId) && billingWritable(tenantId));
       }
 

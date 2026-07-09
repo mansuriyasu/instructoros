@@ -59,9 +59,6 @@ export function getGoogleCalendarConfig(): CalendarConfig {
 
 function getStateSecret() {
   return process.env.GOOGLE_CALENDAR_STATE_SECRET
-    || process.env.GOOGLE_CALENDAR_SETUP_SECRET
-    || process.env.GOOGLE_CALENDAR_CLIENT_SECRET
-    || process.env.STRIPE_WEBHOOK_SECRET
     || '';
 }
 
@@ -140,7 +137,7 @@ export function createUserGoogleCalendarAuthUrl(params: {
 }
 
 export function assertSetupSecret(secret: string | null) {
-  const expectedSecret = process.env.GOOGLE_CALENDAR_SETUP_SECRET || process.env.SHORTCUT_SECRET;
+  const expectedSecret = process.env.GOOGLE_CALENDAR_SETUP_SECRET;
   if (!expectedSecret || secret !== expectedSecret) {
     throw new Error('Google Calendar setup is locked.');
   }

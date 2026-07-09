@@ -38,6 +38,7 @@ import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { CalendarDays, Car, MessageSquare, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 import { createPaymentTransaction } from '@/lib/payment-utils';
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { Student } from '@/lib/types';
@@ -513,7 +514,7 @@ export function ScheduleView() {
     try {
       const response = await fetch('/api/optimize-route', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
         body: JSON.stringify({
           events: dayEvents.map(e => ({
             id: e.id,
@@ -765,7 +766,7 @@ export function ScheduleView() {
     try {
       const response = await fetch('/api/travel-time', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
         body: JSON.stringify({ origin, destination }),
       });
       const result = await response.json();
