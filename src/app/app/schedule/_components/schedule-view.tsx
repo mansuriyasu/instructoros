@@ -162,8 +162,10 @@ export function ScheduleView() {
   const { sendAndLogWhatsApp } = useWhatsAppLogs();
 
   const membersQuery = useMemoFirebase(
-    () => (firestore && activeTenantId ? query(collection(firestore, 'tenants', activeTenantId, 'members'), where('status', '==', 'active')) : null),
-    [firestore, activeTenantId]
+    () => (firestore && activeTenantId && canManageTenant
+      ? query(collection(firestore, 'tenants', activeTenantId, 'members'), where('status', '==', 'active'))
+      : null),
+    [firestore, activeTenantId, canManageTenant]
   );
   const { data: activeMembers } = useCollection<TenantMember>(membersQuery);
 

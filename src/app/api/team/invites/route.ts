@@ -3,6 +3,7 @@ import { MAIN_ADMIN_EMAIL, normalizeEmail, type Tenant, type TenantMember } from
 import { PLAN_DETAILS } from '@/lib/billing';
 import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { RequestSecurityError, requireRateLimitedUser } from '@/lib/server/request-security';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
 
@@ -17,52 +18,63 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getAdminFirestore();
-    const tenantRef = db.collection('tenants').doc(tenantId);
-    const tenantSnap = await tenantRef.get();
-    if (!tenantSnap.exists) return NextResponse.json({ error: 'School workspace was not found.' }, { status: 404 });
-
-    const tenant = tenantSnap.data() as Tenant;
     const isMainAdmin = normalizeEmail(actor.email) === MAIN_ADMIN_EMAIL;
-    const actorMember = await tenantRef.collection('members').doc(actor.uid).get();
-    const canInvite = isMainAdmin || (actorMember.exists && (actorMember.data() as TenantMember).role === 'schoolAdmin' && (actorMember.data() as TenantMember).status === 'active');
-    if (!canInvite || tenant.type !== 'school' || tenant.status !== 'active') {
-      return NextResponse.json({ error: 'Only an active school admin can invite instructors.' }, { status: 403 });
-    }
-    if (tenant.billingLocked === true) {
-      return NextResponse.json({ error: 'Activate billing before inviting another instructor.' }, { status: 403 });
-    }
+    const tenantRef = db.collection('tenants').doc(tenantId);
+    const inviteRef = tenantRef.collection('invites').doc();
+    const result = await db.runTransaction(async transaction => {
+      const [tenantSnap, actorMemberSnap, membersSnap, invitesSnap] = await Promise.all([
+        transaction.get(tenantRef),
+        transaction.get(tenantRef.collection('members').doc(actor.uid)),
+        transaction.get(tenantRef.collection('members').where('status', '==', 'active')),
+        transaction.get(tenantRef.collection('invites').where('status', '==', 'pending')),
+      ]);
+      if (!tenantSnap.exists) return { error: 'School workspace was not found.', status: 404 };
 
-    const [membersSnap, invitesSnap] = await Promise.all([
-      tenantRef.collection('members').where('status', '==', 'active').get(),
-      tenantRef.collection('invites').where('status', '==', 'pending').get(),
-    ]);
-    const activeEmails = new Set(membersSnap.docs.map(item => normalizeEmail(item.data().email)));
-    if (activeEmails.has(email)) {
-      return NextResponse.json({ error: 'This person is already an active team member.' }, { status: 409 });
-    }
+      const tenant = tenantSnap.data() as Tenant;
+      const actorMember = actorMemberSnap.exists ? actorMemberSnap.data() as TenantMember : null;
+      const canInvite = isMainAdmin || (actorMember?.role === 'schoolAdmin' && actorMember.status === 'active');
+      if (!canInvite || tenant.type !== 'school' || tenant.status !== 'active') {
+        return { error: 'Only an active school admin can invite instructors.', status: 403 };
+      }
+      if (tenant.billingLocked === true) {
+        return { error: 'Activate billing before inviting another instructor.', status: 403 };
+      }
 
-    const existingInvite = invitesSnap.docs.find(item => normalizeEmail(item.data().email) === email);
-    if (existingInvite) {
-      return NextResponse.json({ inviteId: existingInvite.id, existing: true });
-    }
+      const now = Date.now();
+      const activeEmails = new Set(membersSnap.docs.map(item => normalizeEmail(item.data().email)));
+      if (activeEmails.has(email)) {
+        return { error: 'This person is already an active team member.', status: 409 };
+      }
 
-    const pendingInvites = invitesSnap.docs.filter(item => !activeEmails.has(normalizeEmail(item.data().email)));
-    const seatLimit = Math.max(PLAN_DETAILS.school.includedSeats, Number(tenant.seatLimit || 0));
-    if (membersSnap.size + pendingInvites.length >= seatLimit) {
-      return NextResponse.json({ error: `Seat limit reached: ${membersSnap.size} of ${seatLimit} seats are already active or invited.` }, { status: 409 });
-    }
+      const validPendingInvites = invitesSnap.docs.filter(item => {
+        const expiresAt = item.data().expiresAt as { toMillis?: () => number } | undefined;
+        return !expiresAt?.toMillis || expiresAt.toMillis() > now;
+      });
+      const existingInvite = validPendingInvites.find(item => normalizeEmail(item.data().email) === email);
+      if (existingInvite) return { inviteId: existingInvite.id, existing: true };
 
-    const now = new Date().toISOString();
-    const inviteRef = await tenantRef.collection('invites').add({
-      email,
-      role: 'schoolInstructor',
-      status: 'pending',
-      tenantId,
-      createdByUid: actor.uid,
-      createdAt: now,
-      updatedAt: now,
+      const pendingInvites = validPendingInvites.filter(item => !activeEmails.has(normalizeEmail(item.data().email)));
+      const seatLimit = Math.max(PLAN_DETAILS.school.includedSeats, Number(tenant.seatLimit || 0));
+      if (membersSnap.size + pendingInvites.length >= seatLimit) {
+        return { error: `Seat limit reached: ${membersSnap.size} of ${seatLimit} seats are already active or invited.`, status: 409 };
+      }
+
+      const createdAt = new Date(now).toISOString();
+      transaction.set(inviteRef, {
+        email,
+        role: 'schoolInstructor',
+        status: 'pending',
+        tenantId,
+        createdByUid: actor.uid,
+        createdAt,
+        expiresAt: Timestamp.fromMillis(now + 7 * 24 * 60 * 60 * 1000),
+        updatedAt: createdAt,
+      });
+      return { inviteId: inviteRef.id, existing: false };
     });
-    return NextResponse.json({ inviteId: inviteRef.id, existing: false });
+
+    if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not create the invite.';
     const status = error instanceof RequestSecurityError ? error.status : 500;

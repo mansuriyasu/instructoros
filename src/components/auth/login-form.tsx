@@ -79,6 +79,11 @@ function safeNextUrl(rawNextUrl: string | null) {
   return nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/app';
 }
 
+function inviteExpiryTime(value: TenantInvite['expiresAt']) {
+  if (typeof value === 'string') return new Date(value).getTime();
+  return value?.toMillis?.() || null;
+}
+
 function getAuthAttemptId(mode: AuthMode, email: string) {
   return `${mode}:${normalizeEmail(email) || 'unknown'}`;
 }
@@ -323,6 +328,10 @@ export function LoginForm() {
     const invite = { ...(inviteSnap.data() as TenantInvite), id: inviteSnap.id };
     if (invite.status !== 'pending') {
       throw new Error('This invite is no longer available.');
+    }
+    const expiresAt = inviteExpiryTime(invite.expiresAt);
+    if (expiresAt && expiresAt <= Date.now()) {
+      throw new Error('This invite link has expired. Ask your school admin to send a new one.');
     }
     if (normalizeEmail(invite.email) !== inviteEmail) {
       throw new Error('This invite is for a different email address.');

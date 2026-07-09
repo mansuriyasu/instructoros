@@ -80,6 +80,11 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    function inviteNotExpired(tenantId, inviteId) {
+      return !get(invitePath(tenantId, inviteId)).data.keys().hasAll(["expiresAt"])
+        || get(invitePath(tenantId, inviteId)).data.expiresAt > request.time;
+    }
+
     function canEditTenantProfile(tenantId) {
       return isTenantAdmin(tenantId)
         && onlyChanges([
@@ -154,6 +159,7 @@ service cloud.firestore {
                 && exists(invitePath(tenantId, request.resource.data.inviteId))
                 && get(invitePath(tenantId, request.resource.data.inviteId)).data.email == email()
                 && get(invitePath(tenantId, request.resource.data.inviteId)).data.status == "pending"
+                && inviteNotExpired(tenantId, request.resource.data.inviteId)
               )
             )
           );
@@ -164,14 +170,18 @@ service cloud.firestore {
             && request.resource.data.uid == resource.data.uid
             && request.resource.data.email == resource.data.email
             && request.resource.data.tenantId == resource.data.tenantId
+            && request.resource.data.status == "disabled"
             && onlyChanges(["status", "disabledAt", "updatedAt", "displayName"]));
         allow delete: if isMainAdmin() || (isTenantAdmin(tenantId) && billingWritable(tenantId));
       }
 
       match /invites/{inviteId} {
-        allow get: if isMainAdmin()
+          allow get: if isMainAdmin()
           || isTenantAdmin(tenantId)
-          || (signedIn() && resource.data.email == email() && resource.data.status == "pending");
+          || (signedIn()
+            && resource.data.email == email()
+            && resource.data.status == "pending"
+            && (!resource.data.keys().hasAll(["expiresAt"]) || resource.data.expiresAt > request.time));
         allow list: if isMainAdmin() || isTenantAdmin(tenantId);
         allow create: if isMainAdmin();
         allow update: if isMainAdmin()
@@ -182,6 +192,7 @@ service cloud.firestore {
             && billingWritable(tenantId)
             && resource.data.email == email()
             && resource.data.status == "pending"
+            && (!resource.data.keys().hasAll(["expiresAt"]) || resource.data.expiresAt > request.time)
             && request.resource.data.status == "accepted"
             && request.resource.data.acceptedByUid == request.auth.uid
             && onlyChanges(["status", "acceptedAt", "acceptedByUid", "updatedAt"]));

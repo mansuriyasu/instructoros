@@ -73,6 +73,7 @@ export type TenantInvite = {
   tenantId: string;
   createdByUid: string;
   createdAt: string;
+  expiresAt?: string | { toMillis?: () => number };
   updatedAt?: string;
   acceptedAt?: string;
   acceptedByUid?: string;

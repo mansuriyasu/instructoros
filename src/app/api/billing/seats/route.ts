@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PLAN_DETAILS } from '@/lib/billing';
+import { normalizeEmail } from '@/lib/auth-config';
 import { getBillingActor } from '@/lib/server/billing-auth';
 import { normalizeSeatLimit, seatLimitToExtraSeats, syncSubscriptionToTenant } from '@/lib/server/billing-sync';
 import { getStripe, publicBillingError, requireEnv } from '@/lib/server/stripe';
@@ -22,6 +23,22 @@ export async function POST(request: NextRequest) {
     }
     if (!tenant.stripeSubscriptionId) {
       return NextResponse.json({ error: 'Start the school subscription before adding seats.' }, { status: 400 });
+    }
+
+    const [activeMembersSnap, pendingInvitesSnap] = await Promise.all([
+      tenantRef.collection('members').where('status', '==', 'active').get(),
+      tenantRef.collection('invites').where('status', '==', 'pending').get(),
+    ]);
+    const activeEmails = new Set(activeMembersSnap.docs.map(item => normalizeEmail(item.data().email)));
+    const now = Date.now();
+    const pendingSeatCount = pendingInvitesSnap.docs.filter(item => {
+      const expiresAt = item.data().expiresAt as { toMillis?: () => number } | undefined;
+      return (!expiresAt?.toMillis || expiresAt.toMillis() > now)
+        && !activeEmails.has(normalizeEmail(item.data().email));
+    }).length;
+    const usedSeats = activeMembersSnap.size + pendingSeatCount;
+    if (requestedSeatLimit < usedSeats) {
+      return NextResponse.json({ error: `You have ${usedSeats} active or invited users. Remove or revoke users before reducing seats.` }, { status: 400 });
     }
 
     const stripe = getStripe();

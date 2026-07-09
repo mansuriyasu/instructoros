@@ -15,6 +15,13 @@ import { normalizeEmail, type TenantInvite, type TenantMember } from '@/lib/auth
 import { Student } from '@/lib/types';
 import { PLAN_DETAILS } from '@/lib/billing';
 
+function inviteHasExpired(invite: TenantInvite) {
+  const expiry = typeof invite.expiresAt === 'string'
+    ? new Date(invite.expiresAt).getTime()
+    : invite.expiresAt?.toMillis?.();
+  return Boolean(expiry && expiry <= Date.now());
+}
+
 export default function TeamPage() {
   const firestore = useFirestore();
   const { activeTenantId, canManageTenant, tenant, user } = useSession();
@@ -58,7 +65,11 @@ export default function TeamPage() {
   const pendingInvites = useMemo(
     () => {
       const activeEmails = new Set(activeMembers.map(member => normalizeEmail(member.email)));
-      return (invites || []).filter(invite => invite.status === 'pending' && !activeEmails.has(normalizeEmail(invite.email)));
+      return (invites || []).filter(invite => (
+        invite.status === 'pending'
+        && !inviteHasExpired(invite)
+        && !activeEmails.has(normalizeEmail(invite.email))
+      ));
     },
     [activeMembers, invites]
   );
@@ -162,14 +173,27 @@ export default function TeamPage() {
   };
 
   const handleReactivate = async (member: TenantMember) => {
-    if (!activeTenantId) return;
+    if (!activeTenantId || !user) return;
     setError('');
     setMessage('');
-    await updateDoc(doc(firestore, 'tenants', activeTenantId, 'members', member.uid), {
-      status: 'active',
-      updatedAt: new Date().toISOString(),
-    });
-    setMessage(`${member.displayName || member.email} is active again.`);
+    setIsBusy(true);
+    try {
+      const response = await fetch('/api/team/members/reactivate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({ tenantId: activeTenantId, memberUid: member.uid }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not reactivate this instructor.');
+      setMessage(`${member.displayName || member.email} is active again.`);
+    } catch (reactivateError) {
+      setError(reactivateError instanceof Error ? reactivateError.message : 'Could not reactivate this instructor.');
+    } finally {
+      setIsBusy(false);
+    }
   };
 
   const handleRevokeInvite = async (invite: TenantInvite) => {
@@ -370,7 +394,7 @@ export default function TeamPage() {
                   <div className="font-medium">{member.displayName || member.email}</div>
                   <div className="text-xs text-muted-foreground">{member.email} · {member.role} · removed</div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => handleReactivate(member)}>
+                <Button variant="outline" size="sm" onClick={() => handleReactivate(member)} disabled={isBusy}>
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Reactivate
                 </Button>

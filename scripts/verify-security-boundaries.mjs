@@ -24,7 +24,12 @@ assert.match(shortcut, /tenantId !== configuredTenantId/);
 const inviteRoute = read('src/app/api/team/invites/route.ts');
 assert.match(inviteRoute, /seatLimit/);
 assert.match(inviteRoute, /membersSnap\.size \+ pendingInvites\.length >= seatLimit/);
+assert.match(inviteRoute, /runTransaction/);
+assert.match(inviteRoute, /expiresAt: Timestamp\.fromMillis/);
 assert.match(rules, /match \/invites\/\{inviteId\} \{[\s\S]*allow create: if isMainAdmin\(\);/);
+assert.match(rules, /function inviteNotExpired/);
+assert.match(read('src/app/api/team/members/reactivate/route.ts'), /runTransaction/);
+assert.match(read('src/app/app/schedule/_components/schedule-view.tsx'), /activeTenantId && canManageTenant/);
 
 for (const path of [
   'src/app/api/license-scan/route.ts',
