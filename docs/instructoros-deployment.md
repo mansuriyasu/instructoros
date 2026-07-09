@@ -55,6 +55,7 @@ Create fresh values for this project. Do not reuse production secrets from the o
 GEMINI_API_KEY=
 SHORTCUT_SECRET=
 GOOGLE_CALENDAR_SETUP_SECRET=
+GOOGLE_CALENDAR_STATE_SECRET=
 GOOGLE_CALENDAR_CLIENT_ID=
 GOOGLE_CALENDAR_CLIENT_SECRET=
 GOOGLE_CALENDAR_REFRESH_TOKEN=
@@ -85,7 +86,7 @@ npm run build
 npm run start
 ```
 
-The app expects Node 22.x in production.
+The app expects Node 20.x in production.
 
 Set all environment variables in the hosting provider before the first production start.
 
