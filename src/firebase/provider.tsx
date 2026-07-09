@@ -99,6 +99,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [member, setMember] = useState<TenantMember | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isTenantLoading, setIsTenantLoading] = useState(false);
+  const [resolvedProfileUid, setResolvedProfileUid] = useState<string | null>(null);
+  const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(null);
+  const [resolvedMemberKey, setResolvedMemberKey] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<Error | null>(null);
 
   // Effect to subscribe to Firebase auth state changes
@@ -129,6 +132,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     setProfile(null);
     setTenant(null);
     setMember(null);
+    setResolvedProfileUid(null);
+    setResolvedTenantId(null);
+    setResolvedMemberKey(null);
     setSessionError(null);
 
     if (!firebaseUser) {
@@ -143,10 +149,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       profileRef,
       (snapshot) => {
         setProfile(snapshot.exists() ? ({ ...(snapshot.data() as AppUserProfile), id: snapshot.id } as AppUserProfile) : null);
+        setResolvedProfileUid(firebaseUser.uid);
         setIsProfileLoading(false);
       },
       (error) => {
         setProfile(null);
+        setResolvedProfileUid(firebaseUser.uid);
         setIsProfileLoading(false);
         setSessionError(error);
       }
@@ -158,6 +166,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const activeTenantId = profile?.activeTenantId || null;
     setTenant(null);
     setMember(null);
+    setResolvedTenantId(null);
+    setResolvedMemberKey(null);
     setSessionError(null);
 
     if (!firebaseUser || !activeTenantId) {
@@ -179,11 +189,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       tenantRef,
       (snapshot) => {
         setTenant(snapshot.exists() ? ({ ...(snapshot.data() as Tenant), id: snapshot.id } as Tenant) : null);
+        setResolvedTenantId(activeTenantId);
         tenantDone = true;
         finish();
       },
       (error) => {
         setTenant(null);
+        setResolvedTenantId(activeTenantId);
         tenantDone = true;
         setSessionError(error);
         finish();
@@ -193,11 +205,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       memberRef,
       (snapshot) => {
         setMember(snapshot.exists() ? ({ ...(snapshot.data() as TenantMember), id: snapshot.id } as TenantMember) : null);
+        setResolvedMemberKey(`${activeTenantId}:${firebaseUser.uid}`);
         memberDone = true;
         finish();
       },
       (error) => {
         setMember(null);
+        setResolvedMemberKey(`${activeTenantId}:${firebaseUser.uid}`);
         memberDone = true;
         setSessionError(error);
         finish();
@@ -214,6 +228,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
     const activeTenantId = profile?.activeTenantId || null;
+    const profileResolved = !userAuthState.user || resolvedProfileUid === userAuthState.user.uid;
+    const tenantResolved = !userAuthState.user
+      || !activeTenantId
+      || (resolvedTenantId === activeTenantId && resolvedMemberKey === `${activeTenantId}:${userAuthState.user.uid}`);
     const role: AppRole | null = isMainAdminEmail(userAuthState.user?.email)
       ? 'mainAdmin'
       : member?.status === 'active'
@@ -233,10 +251,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       member,
       role,
       activeTenantId,
-      isSessionLoading: userAuthState.isUserLoading || isProfileLoading || isTenantLoading,
+      isSessionLoading: userAuthState.isUserLoading || isProfileLoading || isTenantLoading || !profileResolved || !tenantResolved,
       sessionError,
     };
-  }, [firebaseApp, firestore, auth, userAuthState, profile, tenant, member, isProfileLoading, isTenantLoading, sessionError]);
+  }, [firebaseApp, firestore, auth, userAuthState, profile, tenant, member, isProfileLoading, isTenantLoading, resolvedProfileUid, resolvedTenantId, resolvedMemberKey, sessionError]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>

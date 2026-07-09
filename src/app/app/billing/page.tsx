@@ -212,7 +212,7 @@ export default function BillingPage() {
         </Alert>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className={isSchool ? "grid gap-5 lg:grid-cols-[1.1fr_0.9fr]" : "grid gap-5"}>
         <Card className="rounded-lg">
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
@@ -303,53 +303,47 @@ export default function BillingPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-lg">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-xl">School seats</CardTitle>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  School includes 10 users. Extra users are ${SCHOOL_EXTRA_SEAT_PRICE} CAD/month each.
-                </p>
-              </div>
-              <UsersRound className="h-6 w-6" />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isSchool ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="seatLimit">Total school users</Label>
-                  <Input
-                    id="seatLimit"
-                    type="number"
-                    min={PLAN_DETAILS.school.includedSeats}
-                    value={seatLimit}
-                    onChange={(event) => setSeatLimit(Number(event.target.value))}
-                    className="h-12 rounded-lg"
-                    disabled={!canManageTenant}
-                  />
+        {isSchool && (
+          <Card className="rounded-lg">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-xl">School seats</CardTitle>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    School includes 10 users. Extra users are ${SCHOOL_EXTRA_SEAT_PRICE} CAD/month each.
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Extra seats: {Math.max(0, seatLimit - PLAN_DETAILS.school.includedSeats)}.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => runBillingAction('seats')}
-                  disabled={!canManageTenant || Boolean(isLoading) || !tenant.stripeSubscriptionId}
-                  className="w-full rounded-lg"
-                >
-                  {isLoading === 'seats' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Update seats
-                </Button>
-              </>
-            ) : (
+                <UsersRound className="h-6 w-6" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="seatLimit">Total school users</Label>
+                <Input
+                  id="seatLimit"
+                  type="number"
+                  min={PLAN_DETAILS.school.includedSeats}
+                  value={seatLimit}
+                  onChange={(event) => setSeatLimit(Number(event.target.value))}
+                  className="h-12 rounded-lg"
+                  disabled={!canManageTenant}
+                />
+              </div>
               <p className="text-sm text-muted-foreground">
-                Seat billing is only needed for school workspaces. Individual instructor accounts include one user.
+                Extra seats: {Math.max(0, seatLimit - PLAN_DETAILS.school.includedSeats)}.
               </p>
-            )}
-          </CardContent>
-        </Card>
+              <Button
+                variant="outline"
+                onClick={() => runBillingAction('seats')}
+                disabled={!canManageTenant || Boolean(isLoading) || !tenant.stripeSubscriptionId}
+                className="w-full rounded-lg"
+              >
+                {isLoading === 'seats' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update seats
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
