@@ -183,32 +183,97 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
   return (
     <>
       <div className="space-y-3 md:hidden">
+        <div className="rounded-2xl border bg-card px-4 py-3 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {format(currentDate, 'EEEE')}
+              </p>
+              <h2 className="text-lg font-bold">{format(currentDate, 'MMMM d')}</h2>
+            </div>
+            <div className="rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground">
+              {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
+            </div>
+          </div>
+        </div>
+
         {dayEvents.length === 0 ? (
-          <div className="rounded-lg border border-dashed bg-muted/20 px-5 py-12 text-center">
-            <h3 className="font-semibold">No appointments today</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Tap Add to create one.</p>
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <div className="border-b px-4 py-4">
+              <h3 className="font-semibold">No appointments today</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Tap a time below to add a lesson.</p>
+            </div>
+            <div className="divide-y">
+              {hours.slice(0, 10).map(hour => {
+                const slotDate = setHours(currentDate, hour);
+
+                return (
+                  <button
+                    key={hour}
+                    type="button"
+                    onClick={() => onSlotClick(slotDate)}
+                    className="grid w-full grid-cols-[4.25rem_1fr] items-center gap-3 px-4 py-3 text-left active:bg-muted/70"
+                  >
+                    <span className="text-xs font-semibold text-muted-foreground">{format(slotDate, 'h a')}</span>
+                    <span className="rounded-xl border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                      Add appointment
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : (
-          dayEvents.map(event => (
-            <div
-              key={event.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => onEventClick(event)}
-              onKeyDown={(keyboardEvent) => {
-                if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-                  keyboardEvent.preventDefault();
-                  onEventClick(event);
-                }
-              }}
-              className={cn(
-                "w-full rounded-lg border-l-4 p-4 text-left shadow-sm transition active:scale-[0.99]",
-                eventColorClass(event)
-              )}
-            >
-              {renderEventContent(event)}
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+            <div className="divide-y">
+              {dayEvents.map((event, index) => {
+                const start = new Date(event.start);
+                const previousEvent = dayEvents[index - 1];
+                const showTime = !previousEvent || !isSameDay(new Date(previousEvent.start), start) || format(new Date(previousEvent.start), 'h:mm a') !== format(start, 'h:mm a');
+
+                return (
+                  <div key={event.id} className="grid grid-cols-[4.25rem_1fr] gap-3 px-4 py-3">
+                    <div className="pt-1 text-right">
+                      {showTime && (
+                        <>
+                          <p className="text-sm font-bold">{format(start, 'h:mm')}</p>
+                          <p className="text-[11px] font-semibold uppercase text-muted-foreground">{format(start, 'a')}</p>
+                        </>
+                      )}
+                    </div>
+                    <div className="relative pl-4">
+                      <span className="absolute bottom-0 left-0 top-0 w-px bg-border" />
+                      <span className="absolute left-[-4px] top-4 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onEventClick(event)}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+                            keyboardEvent.preventDefault();
+                            onEventClick(event);
+                          }
+                        }}
+                        className={cn(
+                          "w-full rounded-2xl border-l-4 p-3 text-left shadow-sm transition active:scale-[0.99]",
+                          eventColorClass(event)
+                        )}
+                      >
+                        {renderEventContent(event)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))
+            <button
+              type="button"
+              onClick={() => onSlotClick(new Date(currentDate))}
+              className="flex w-full items-center justify-center gap-2 border-t bg-muted/20 px-4 py-4 text-sm font-semibold text-primary active:bg-muted"
+            >
+              Add another appointment
+            </button>
+          </div>
         )}
       </div>
 

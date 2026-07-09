@@ -11,6 +11,8 @@ import {
   subWeeks,
   startOfWeek,
   endOfWeek,
+  eachDayOfInterval,
+  isSameDay,
   addMinutes,
 } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -49,6 +51,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, query, where } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase, useSession } from '@/firebase';
@@ -94,7 +102,7 @@ const toGoogleLocalDateTime = (dateValue: string) => {
 
 export function ScheduleView() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<ViewMode>('list');
+  const [view, setView] = useState<ViewMode>('day');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstructorId, setSelectedInstructorId] = useState('all');
 
@@ -102,6 +110,7 @@ export function ScheduleView() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isExamDialogOpen, setIsExamDialogOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isMobileCalendarOpen, setIsMobileCalendarOpen] = useState(false);
 
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [conflictData, setConflictData] = useState<{
@@ -185,6 +194,24 @@ export function ScheduleView() {
       return acc;
     }, {});
   }, [instructorOptions]);
+
+  const mobileWeekDays = useMemo(() => {
+    return eachDayOfInterval({
+      start: startOfWeek(currentDate),
+      end: endOfWeek(currentDate),
+    });
+  }, [currentDate]);
+
+  const mobileEventCountByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    allEvents.forEach(event => {
+      if (selectedInstructorId !== 'all' && event.instructorId !== selectedInstructorId) return;
+
+      const key = format(new Date(event.start), 'yyyy-MM-dd');
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return map;
+  }, [allEvents, selectedInstructorId]);
 
   useEffect(() => {
     if (!canManageTenant && selectedInstructorId !== 'all') {
@@ -1086,7 +1113,7 @@ export function ScheduleView() {
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0">
-        <div className="rounded-lg border bg-card p-3 shadow-sm md:p-4">
+        <div className="rounded-2xl border bg-card p-3 shadow-sm md:rounded-lg md:p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -1094,14 +1121,14 @@ export function ScheduleView() {
               </p>
               <h1 className="truncate text-xl font-semibold md:text-2xl">{headerTitle()}</h1>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleGoogleSync}
                 disabled={!isClientLoaded || isSyncingGoogle}
                 className={cn(
-                  "h-10 w-10",
+                  "h-10 w-10 rounded-xl",
                   isConnected && "border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
                   isGoogleConfigured && !isConnected && "border-amber-500 bg-amber-50 text-amber-800 hover:bg-amber-100"
                 )}
@@ -1132,12 +1159,12 @@ export function ScheduleView() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsExamDialogOpen(true)}
-                className="h-10 gap-2 border-primary/20 text-primary hover:bg-primary/5"
+                className="h-10 gap-2 rounded-xl border-primary/20 text-primary hover:bg-primary/5"
               >
                 <Car className="h-4 w-4" />
                 <span className="hidden sm:inline">Schedule Exam</span>
               </Button>
-              <Button onClick={handleAddNewClick} className="h-10 gap-2">
+              <Button onClick={handleAddNewClick} className="h-10 gap-2 rounded-xl">
                 <Plus className="h-4 w-4" />
                 <span>Add</span>
               </Button>
@@ -1145,20 +1172,20 @@ export function ScheduleView() {
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-[auto_1fr_auto] lg:grid-cols-[auto_minmax(13rem,18rem)_1fr_auto] md:items-center">
-            <div className="flex items-center justify-between rounded-lg border bg-background p-1 md:w-fit">
-              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handlePrev} aria-label="Previous date">
+            <div className="flex items-center justify-between rounded-xl border bg-background p-1 md:w-fit">
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={handlePrev} aria-label="Previous date">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" className="h-9 px-4 text-sm font-semibold" onClick={handleToday}>
+              <Button variant="ghost" className="h-9 rounded-lg px-4 text-sm font-semibold" onClick={handleToday}>
                 Today
               </Button>
               <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Button variant="ghost" size="icon" className="hidden h-9 w-9 rounded-lg md:inline-flex">
                     <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="center">
+                <PopoverContent className="w-auto rounded-2xl p-0" align="center">
                   <Calendar
                     mode="single"
                     selected={currentDate}
@@ -1172,7 +1199,16 @@ export function ScheduleView() {
                   />
                 </PopoverContent>
               </Popover>
-              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleNext} aria-label="Next date">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg md:hidden"
+                onClick={() => setIsMobileCalendarOpen(true)}
+                aria-label="Choose date"
+              >
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={handleNext} aria-label="Next date">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -1229,12 +1265,76 @@ export function ScheduleView() {
                   : 'Google setup missing'}
             </div>
           </div>
+
+          <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden">
+            {mobileWeekDays.map(day => {
+              const selected = isSameDay(day, currentDate);
+              const eventCount = mobileEventCountByDay.get(format(day, 'yyyy-MM-dd')) || 0;
+
+              return (
+                <button
+                  key={day.toISOString()}
+                  type="button"
+                  onClick={() => {
+                    setCurrentDate(day);
+                    setView('day');
+                  }}
+                  className={cn(
+                    "flex min-w-14 flex-col items-center rounded-2xl border px-3 py-2 text-sm transition active:scale-[0.98]",
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-background text-foreground"
+                  )}
+                  aria-pressed={selected}
+                >
+                  <span className={cn("text-[11px] font-semibold uppercase", selected ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                    {format(day, 'EEE')}
+                  </span>
+                  <span className="mt-1 text-lg font-bold leading-none">{format(day, 'd')}</span>
+                  <span className={cn(
+                    "mt-1 h-1.5 w-1.5 rounded-full",
+                    eventCount > 0 ? (selected ? "bg-primary-foreground" : "bg-primary") : "bg-transparent"
+                  )} />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       <div className="flex-1">
         {renderView()}
       </div>
+
+      <Dialog open={isMobileCalendarOpen} onOpenChange={setIsMobileCalendarOpen}>
+        <DialogContent className="bottom-0 top-auto max-h-[86vh] translate-y-0 gap-3 rounded-t-3xl border-x-0 border-b-0 p-4 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom sm:hidden">
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle>Choose date</DialogTitle>
+          </DialogHeader>
+          <Calendar
+            mode="single"
+            selected={currentDate}
+            onSelect={(date) => {
+              if (date) {
+                setCurrentDate(date);
+                setView('day');
+                setIsMobileCalendarOpen(false);
+              }
+            }}
+            initialFocus
+            className="w-full p-0"
+            classNames={{
+              month: "w-full space-y-4",
+              table: "w-full border-collapse",
+              head_row: "grid grid-cols-7",
+              head_cell: "flex h-9 items-center justify-center rounded-md text-xs font-semibold text-muted-foreground",
+              row: "grid grid-cols-7 gap-1 mt-1",
+              cell: "relative flex aspect-square items-center justify-center p-0",
+              day: "h-full w-full rounded-2xl p-0 text-sm font-semibold",
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <EventDetailsDialog
         isOpen={isDetailsDialogOpen}

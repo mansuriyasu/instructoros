@@ -108,7 +108,84 @@ export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, 
   const currentTimePosition = (currentTime.getHours() - 8 + currentTime.getMinutes() / 60) * HOUR_HEIGHT_IN_PIXELS;
 
   return (
-    <div className="overflow-auto rounded-lg border bg-background">
+    <>
+      <div className="space-y-3 md:hidden">
+        {weekDays.map(day => {
+          const dayKey = format(day, 'yyyy-MM-dd');
+          const dayEvents = eventsByDay.get(dayKey) || [];
+
+          return (
+            <section key={day.toISOString()} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+              <div className={cn(
+                "flex items-center justify-between border-b px-4 py-3",
+                isSameDay(day, new Date()) && "bg-primary text-primary-foreground"
+              )}>
+                <div>
+                  <p className={cn("text-xs font-semibold uppercase tracking-wide", isSameDay(day, new Date()) ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                    {format(day, 'EEEE')}
+                  </p>
+                  <h3 className="text-lg font-bold">{format(day, 'MMM d')}</h3>
+                </div>
+                <span className={cn("rounded-full px-3 py-1 text-sm font-semibold", isSameDay(day, new Date()) ? "bg-white/15" : "bg-muted text-muted-foreground")}>
+                  {dayEvents.length}
+                </span>
+              </div>
+
+              {dayEvents.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => onSlotClick(setHours(day, 9))}
+                  className="w-full px-4 py-5 text-left text-sm text-muted-foreground active:bg-muted/70"
+                >
+                  No appointments. Tap to add one.
+                </button>
+              ) : (
+                <div className="divide-y">
+                  {dayEvents.map(event => {
+                    const start = new Date(event.start);
+                    const end = new Date(event.end);
+                    const isBlocked = !event.studentId;
+                    const colorName = getServiceColorName(event.services?.[0]?.id);
+
+                    return (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={() => onEventClick(event)}
+                        className="grid w-full grid-cols-[4.25rem_1fr] gap-3 px-4 py-3 text-left active:bg-muted/70"
+                      >
+                        <span className="pt-1 text-sm font-bold">{format(start, 'h:mm a')}</span>
+                        <span
+                          className={cn(
+                            "min-w-0 rounded-2xl border-l-4 px-3 py-2 shadow-sm",
+                            isBlocked
+                              ? 'border-slate-300 bg-slate-100 text-slate-700'
+                              : {
+                                'border-chart-1 bg-chart-1/10 text-chart-1': colorName === 'chart-1',
+                                'border-chart-2 bg-chart-2/10 text-chart-2': colorName === 'chart-2',
+                                'border-chart-3 bg-chart-3/10 text-chart-3': colorName === 'chart-3',
+                                'border-chart-4 bg-chart-4/10 text-chart-4': colorName === 'chart-4',
+                                'border-chart-5 bg-chart-5/10 text-chart-5': colorName === 'chart-5',
+                              }
+                          )}
+                        >
+                          <span className="block truncate font-semibold">{event.studentName !== 'N/A' ? event.studentName : event.title}</span>
+                          <span className="mt-1 block truncate text-xs opacity-75">{format(start, 'h:mm a')} - {format(end, 'h:mm a')}</span>
+                          {event.instructorId && instructorNameById[event.instructorId] && (
+                            <span className="mt-1 block truncate text-xs opacity-75">{instructorNameById[event.instructorId]}</span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-auto rounded-lg border bg-background md:block">
       <div className="grid min-w-[920px] grid-cols-[4.5rem_1fr] h-full bg-background">
         <div className="border-r sticky top-0 bg-background z-20">
           <div className="h-24"></div> {/* Spacer for header */}
@@ -209,5 +286,6 @@ export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, 
         </div>
       </div>
     </div>
+    </>
   );
 }

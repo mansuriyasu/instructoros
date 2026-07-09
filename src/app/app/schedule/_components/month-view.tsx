@@ -69,7 +69,7 @@ export function MonthView({ currentDate, onEventClick, onDayClick, searchQuery, 
 
   if (loading) {
       return (
-        <div className="grid min-w-[760px] flex-1 grid-cols-7 overflow-hidden rounded-lg border-l border-t">
+        <div className="grid flex-1 grid-cols-7 overflow-hidden rounded-2xl border-l border-t md:min-w-[760px] md:rounded-lg">
             {Array.from({length: 35}).map((_, i) => (
                 <div key={i} className="border-b border-r p-1.5 min-h-[120px]">
                     <Skeleton className="h-full w-full" />
@@ -80,7 +80,108 @@ export function MonthView({ currentDate, onEventClick, onDayClick, searchQuery, 
   }
 
   return (
-    <div className="overflow-auto rounded-lg border-l border-t bg-background">
+    <>
+    <div className="overflow-hidden rounded-2xl border-l border-t bg-background md:hidden">
+      <div className="grid grid-cols-7">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+          <div key={`${day}-${index}`} className="border-b border-r bg-muted/50 p-2 text-center text-[11px] font-bold text-muted-foreground">
+            {day}
+          </div>
+        ))}
+        {daysInMonth.map(day => {
+          const dayKey = format(day, 'yyyy-MM-dd');
+          const dayEvents = eventsByDay.get(dayKey) || [];
+          const isCurrentMonth = isSameMonth(day, currentDate);
+
+          return (
+            <button
+              key={day.toString()}
+              type="button"
+              className={cn(
+                'flex min-h-[76px] flex-col border-b border-r p-1.5 text-left transition-colors active:bg-muted/70',
+                !isCurrentMonth && 'bg-muted/25 text-muted-foreground'
+              )}
+              onClick={() => onDayClick(day)}
+            >
+              <span
+                className={cn(
+                  'mb-1 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold',
+                  isSameDay(day, new Date()) && 'bg-primary text-primary-foreground',
+                )}
+              >
+                {format(day, 'd')}
+              </span>
+              <div className="mt-auto flex flex-wrap gap-1">
+                {dayEvents.slice(0, 3).map(event => {
+                  const isBlocked = !event.studentId;
+                  const colorName = getServiceColorName(event.services?.[0]?.id);
+
+                  return (
+                    <span
+                      key={event.id}
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        isBlocked
+                          ? 'bg-slate-400'
+                          : {
+                            'bg-chart-1': colorName === 'chart-1',
+                            'bg-chart-2': colorName === 'chart-2',
+                            'bg-chart-3': colorName === 'chart-3',
+                            'bg-chart-4': colorName === 'chart-4',
+                            'bg-chart-5': colorName === 'chart-5',
+                          }
+                      )}
+                    />
+                  );
+                })}
+                {dayEvents.length > 3 && (
+                  <span className="text-[10px] font-semibold text-muted-foreground">+{dayEvents.length - 3}</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    <div className="mt-3 space-y-2 md:hidden">
+      {daysInMonth
+        .filter(day => isSameMonth(day, currentDate) && (eventsByDay.get(format(day, 'yyyy-MM-dd')) || []).length > 0)
+        .map(day => {
+          const dayEvents = eventsByDay.get(format(day, 'yyyy-MM-dd')) || [];
+
+          return (
+            <section key={day.toISOString()} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+              <button
+                type="button"
+                onClick={() => onDayClick(day)}
+                className="flex w-full items-center justify-between border-b px-4 py-3 text-left active:bg-muted/70"
+              >
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{format(day, 'EEEE')}</p>
+                  <h3 className="font-bold">{format(day, 'MMMM d')}</h3>
+                </div>
+                <span className="rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground">{dayEvents.length}</span>
+              </button>
+              <div className="divide-y">
+                {dayEvents.slice(0, 4).map(event => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => onEventClick(event)}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-muted/70"
+                  >
+                    <span className="w-16 shrink-0 text-sm font-semibold text-muted-foreground">{format(new Date(event.start), 'h:mm a')}</span>
+                    <span className="min-w-0 flex-1 truncate font-semibold">{event.studentName !== 'N/A' ? event.studentName : event.title}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+    </div>
+
+    <div className="hidden overflow-auto rounded-lg border-l border-t bg-background md:block">
       <div className="grid min-w-[760px] flex-1 grid-cols-7">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} className="border-b border-r bg-muted/50 p-2 text-center text-sm font-semibold">
@@ -145,5 +246,6 @@ export function MonthView({ currentDate, onEventClick, onDayClick, searchQuery, 
         })}
       </div>
     </div>
+    </>
   );
 }
