@@ -1,9 +1,12 @@
 import type { GoogleCalendarEvent } from '@/hooks/use-google-calendar';
+import crypto from 'crypto';
+import { getAdminFirestore } from '@/lib/server/firebase-admin';
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars';
 const SPARKON_EVENT_ID_PROPERTY = 'sparkonEventId';
 const SPARKON_DESCRIPTION_MARKER = 'Synced from InstructorOS.';
+const GOOGLE_CALENDAR_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
 type TokenResponse = {
   access_token?: string;
@@ -19,7 +22,20 @@ type CalendarConfig = {
   calendarId: string;
 };
 
-let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+type UserCalendarState = {
+  uid: string;
+  email?: string;
+  returnTo?: string;
+  createdAt: number;
+};
+
+type UserCalendarConnection = {
+  refreshToken?: string;
+  calendarId?: string;
+  connectedEmail?: string;
+};
+
+const cachedAccessTokens = new Map<string, { token: string; expiresAt: number }>();
 
 export class GoogleCalendarTokenError extends Error {
   constructor(message: string) {
@@ -41,6 +57,45 @@ export function getGoogleCalendarConfig(): CalendarConfig {
   };
 }
 
+function getStateSecret() {
+  return process.env.GOOGLE_CALENDAR_STATE_SECRET
+    || process.env.GOOGLE_CALENDAR_SETUP_SECRET
+    || process.env.GOOGLE_CALENDAR_CLIENT_SECRET
+    || process.env.STRIPE_WEBHOOK_SECRET
+    || '';
+}
+
+function base64UrlEncode(value: string) {
+  return Buffer.from(value, 'utf8').toString('base64url');
+}
+
+function base64UrlDecode(value: string) {
+  return Buffer.from(value, 'base64url').toString('utf8');
+}
+
+function signState(payload: string) {
+  const secret = getStateSecret();
+  if (!secret) {
+    throw new Error('Google Calendar state secret is not configured.');
+  }
+  return crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+}
+
+export function createUserCalendarState(state: Omit<UserCalendarState, 'createdAt'>) {
+  const payload = base64UrlEncode(JSON.stringify({ ...state, createdAt: Date.now() }));
+  return `${payload}.${signState(payload)}`;
+}
+
+export function parseUserCalendarState(rawState: string | null): UserCalendarState | null {
+  if (!rawState || !rawState.includes('.')) return null;
+  const [payload, signature] = rawState.split('.');
+  if (!payload || !signature || signState(payload) !== signature) return null;
+
+  const state = JSON.parse(base64UrlDecode(payload)) as UserCalendarState;
+  const isFresh = Date.now() - state.createdAt < 15 * 60 * 1000;
+  return state.uid && isFresh ? state : null;
+}
+
 export function getGoogleCalendarStatus() {
   const config = getGoogleCalendarConfig();
   return {
@@ -54,6 +109,34 @@ export function getGoogleCalendarStatus() {
 
 export function getGoogleCalendarRedirectUri(origin: string) {
   return `${origin}/api/google-calendar/callback`;
+}
+
+export function createUserGoogleCalendarAuthUrl(params: {
+  uid: string;
+  email?: string;
+  origin: string;
+  returnTo?: string;
+}) {
+  const config = getGoogleCalendarConfig();
+  if (!config.clientId || !config.clientSecret) {
+    throw new Error('Google Calendar client ID or secret is missing.');
+  }
+
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authUrl.searchParams.set('client_id', config.clientId);
+  authUrl.searchParams.set('redirect_uri', getGoogleCalendarRedirectUri(params.origin));
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', GOOGLE_CALENDAR_SCOPES);
+  authUrl.searchParams.set('access_type', 'offline');
+  authUrl.searchParams.set('prompt', 'consent');
+  authUrl.searchParams.set('include_granted_scopes', 'true');
+  authUrl.searchParams.set('state', createUserCalendarState({
+    uid: params.uid,
+    email: params.email,
+    returnTo: params.returnTo || '/app/schedule',
+  }));
+
+  return authUrl.toString();
 }
 
 export function assertSetupSecret(secret: string | null) {
@@ -89,12 +172,96 @@ export async function exchangeCodeForRefreshToken(code: string, origin: string) 
   return data.refresh_token as string;
 }
 
-async function getAccessToken() {
+export async function saveUserGoogleCalendarConnection(uid: string, connection: UserCalendarConnection) {
+  await getAdminFirestore()
+    .collection('users')
+    .doc(uid)
+    .collection('integrations')
+    .doc('googleCalendar')
+    .set({
+      refreshToken: connection.refreshToken,
+      calendarId: connection.calendarId || 'primary',
+      connectedEmail: connection.connectedEmail || '',
+      connectedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+}
+
+export async function getUserGoogleCalendarConnection(uid: string): Promise<CalendarConfig | null> {
   const config = getGoogleCalendarConfig();
+  if (!config.clientId || !config.clientSecret) return null;
+
+  const snapshot = await getAdminFirestore()
+    .collection('users')
+    .doc(uid)
+    .collection('integrations')
+    .doc('googleCalendar')
+    .get();
+
+  if (!snapshot.exists) return null;
+
+  const connection = snapshot.data() as UserCalendarConnection;
+  if (!connection.refreshToken) return null;
+
+  return {
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    refreshToken: connection.refreshToken,
+    calendarId: connection.calendarId || 'primary',
+  };
+}
+
+export async function checkUserGoogleCalendarConnection(uid: string) {
+  const baseStatus = getGoogleCalendarStatus();
+  if (!baseStatus.clientIdConfigured || !baseStatus.clientSecretConfigured) {
+    return {
+      ...baseStatus,
+      configured: false,
+      connected: false,
+      error: 'Google Calendar OAuth client ID or secret is not configured on the server.',
+    };
+  }
+
+  const connection = await getUserGoogleCalendarConnection(uid);
+  if (!connection) {
+    return {
+      ...baseStatus,
+      configured: true,
+      refreshTokenConfigured: false,
+      connected: false,
+      error: 'Connect your Google Calendar before syncing.',
+    };
+  }
+
+  try {
+    await getAccessToken(connection);
+    return {
+      ...baseStatus,
+      configured: true,
+      refreshTokenConfigured: true,
+      calendarId: connection.calendarId,
+      connected: true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ...baseStatus,
+      configured: true,
+      refreshTokenConfigured: true,
+      calendarId: connection.calendarId,
+      connected: false,
+      error: error instanceof Error ? error.message : 'Google Calendar connection failed.',
+    };
+  }
+}
+
+async function getAccessToken(config = getGoogleCalendarConfig()) {
   if (!config.clientId || !config.clientSecret || !config.refreshToken) {
     throw new Error('Google Calendar permanent connection is not configured.');
   }
 
+  const cacheKey = config.refreshToken;
+  const cachedAccessToken = cachedAccessTokens.get(cacheKey);
   if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now()) {
     return cachedAccessToken.token;
   }
@@ -112,19 +279,19 @@ async function getAccessToken() {
 
   const data = await response.json() as TokenResponse;
   if (!response.ok || !data.access_token) {
-    cachedAccessToken = null;
+    cachedAccessTokens.delete(cacheKey);
     if (isInvalidRefreshTokenError(data)) {
       throw new GoogleCalendarTokenError('Google Calendar connection expired or was revoked. Reconnect Google Calendar and replace GOOGLE_CALENDAR_REFRESH_TOKEN on the server.');
     }
     throw new Error(data.error_description || data.error || 'Could not refresh Google Calendar access.');
   }
 
-  cachedAccessToken = {
+  cachedAccessTokens.set(cacheKey, {
     token: data.access_token,
     expiresAt: Date.now() + Math.max((data.expires_in || 3600) - 60, 60) * 1000,
-  };
+  });
 
-  return cachedAccessToken.token;
+  return data.access_token;
 }
 
 export async function checkGoogleCalendarConnection() {
@@ -153,9 +320,8 @@ export async function checkGoogleCalendarConnection() {
   }
 }
 
-async function googleCalendarRequest<T>(path: string, init: RequestInit = {}) {
-  const config = getGoogleCalendarConfig();
-  const accessToken = await getAccessToken();
+async function googleCalendarRequest<T>(path: string, init: RequestInit = {}, config = getGoogleCalendarConfig()) {
+  const accessToken = await getAccessToken(config);
   const response = await fetch(`${GOOGLE_EVENTS_URL}/${encodeURIComponent(config.calendarId)}${path}`, {
     ...init,
     headers: {
@@ -175,9 +341,8 @@ async function googleCalendarRequest<T>(path: string, init: RequestInit = {}) {
   return data as T;
 }
 
-async function googleCalendarDelete(path: string) {
-  const config = getGoogleCalendarConfig();
-  const accessToken = await getAccessToken();
+async function googleCalendarDelete(path: string, config = getGoogleCalendarConfig()) {
+  const accessToken = await getAccessToken(config);
   const response = await fetch(`${GOOGLE_EVENTS_URL}/${encodeURIComponent(config.calendarId)}${path}`, {
     method: 'DELETE',
     headers: {
@@ -193,7 +358,7 @@ async function googleCalendarDelete(path: string) {
   throw new Error(data.error?.message || 'Google Calendar request failed.');
 }
 
-export async function fetchGoogleCalendarEvents() {
+export async function fetchGoogleCalendarEvents(config?: CalendarConfig) {
   const timeMin = new Date();
   timeMin.setMonth(timeMin.getMonth() - 1);
   const params = new URLSearchParams({
@@ -202,7 +367,7 @@ export async function fetchGoogleCalendarEvents() {
     orderBy: 'startTime',
   });
 
-  const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[] }>(`/events?${params.toString()}`);
+  const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[] }>(`/events?${params.toString()}`, {}, config);
   return data.items || [];
 }
 
@@ -240,7 +405,8 @@ function getFallbackSearchWindow(fallbackEvent?: Partial<GoogleCalendarEvent>) {
 
 export async function findGoogleCalendarEvent(
   sparkonEventId?: string,
-  fallbackEvent?: Partial<GoogleCalendarEvent>
+  fallbackEvent?: Partial<GoogleCalendarEvent>,
+  config?: CalendarConfig
 ) {
   if (sparkonEventId) {
     const params = new URLSearchParams({
@@ -248,7 +414,7 @@ export async function findGoogleCalendarEvent(
       singleEvents: 'true',
       maxResults: '10',
     });
-    const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[] }>(`/events?${params.toString()}`);
+    const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[] }>(`/events?${params.toString()}`, {}, config);
     const activeMatches = (data.items || []).filter(isActiveGoogleEvent);
     const timeMatch = activeMatches.find(event => googleEventMatchesFallback(event, fallbackEvent));
     const exactMatch = timeMatch || activeMatches[0];
@@ -270,7 +436,7 @@ export async function findGoogleCalendarEvent(
     params.set('q', fallbackEvent.summary);
   }
 
-  const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[] }>(`/events?${params.toString()}`);
+  const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[] }>(`/events?${params.toString()}`, {}, config);
   const fallbackMatch = (data.items || []).find(event => (
     isActiveGoogleEvent(event)
     && isSparkonGeneratedEvent(event)
@@ -280,21 +446,21 @@ export async function findGoogleCalendarEvent(
   return fallbackMatch?.id || null;
 }
 
-export async function createGoogleCalendarEvent(event: Partial<GoogleCalendarEvent>) {
+export async function createGoogleCalendarEvent(event: Partial<GoogleCalendarEvent>, config?: CalendarConfig) {
   const data = await googleCalendarRequest<GoogleCalendarEvent>('/events', {
     method: 'POST',
     body: JSON.stringify(event),
-  });
+  }, config);
   return data.id;
 }
 
-export async function updateGoogleCalendarEvent(eventId: string, event: Partial<GoogleCalendarEvent>) {
+export async function updateGoogleCalendarEvent(eventId: string, event: Partial<GoogleCalendarEvent>, config?: CalendarConfig) {
   await googleCalendarRequest<GoogleCalendarEvent>(`/events/${encodeURIComponent(eventId)}`, {
     method: 'PATCH',
     body: JSON.stringify(event),
-  });
+  }, config);
 }
 
-export async function deleteGoogleCalendarEvent(eventId: string) {
-  await googleCalendarDelete(`/events/${encodeURIComponent(eventId)}`);
+export async function deleteGoogleCalendarEvent(eventId: string, config?: CalendarConfig) {
+  await googleCalendarDelete(`/events/${encodeURIComponent(eventId)}`, config);
 }

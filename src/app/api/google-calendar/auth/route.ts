@@ -1,11 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   assertSetupSecret,
+  createUserGoogleCalendarAuthUrl,
   getGoogleCalendarConfig,
   getGoogleCalendarRedirectUri,
 } from '@/lib/google-calendar-server';
+import { getAdminAuth } from '@/lib/server/firebase-admin';
 
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+
+function getBearerToken(request: NextRequest) {
+  const header = request.headers.get('authorization') || '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] || '';
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const token = getBearerToken(request);
+    if (!token) {
+      return NextResponse.json({ error: 'Please sign in before connecting Google Calendar.' }, { status: 401 });
+    }
+
+    const decoded = await getAdminAuth().verifyIdToken(token);
+    const body = await request.json().catch(() => ({}));
+    const url = createUserGoogleCalendarAuthUrl({
+      uid: decoded.uid,
+      email: decoded.email,
+      origin: request.nextUrl.origin,
+      returnTo: typeof body.returnTo === 'string' ? body.returnTo : '/app/schedule',
+    });
+
+    return NextResponse.json({ url });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Google Calendar setup failed.' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {

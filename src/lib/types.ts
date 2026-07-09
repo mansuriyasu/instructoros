@@ -90,6 +90,7 @@ export interface CalendarEvent {
   services: { id: string; name: string; price?: number; cost?: number; discount?: number; }[];
   notes?: string;
   googleEventId?: string;
+  googleEventIds?: Record<string, string>;
   paymentId?: string;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod;

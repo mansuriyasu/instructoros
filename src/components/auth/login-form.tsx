@@ -25,7 +25,6 @@ import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useSession } from '@/firebase';
 import { MAIN_ADMIN_EMAIL, normalizeEmail, type AppUserProfile, type TenantInvite, type TenantMember } from '@/lib/auth-config';
 import { getIncludedSeats, getPlanForTenantType } from '@/lib/billing';
-import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 
 type AuthMode = 'login' | 'school' | 'solo' | 'invite';
@@ -531,9 +530,10 @@ export function LoginForm() {
       icon: UserPlus,
     },
   ] as const;
+  const signupOptions = modeOptions.filter(option => option.value !== 'login');
   const selectedMode = modeOptions.find(option => option.value === mode) || modeOptions[0];
   const SelectedModeIcon = selectedMode.icon;
-  const title = mode === 'login' ? 'Welcome back' : mode === 'school' ? 'Create school workspace' : mode === 'solo' ? 'Create instructor workspace' : 'Accept school invite';
+  const title = mode === 'login' ? 'Sign in to InstructorOS' : mode === 'school' ? 'Create school owner account' : mode === 'solo' ? 'Create instructor account' : 'Join your school team';
   const subtitle = mode === 'login'
     ? 'Sign in to manage your students, schedules, payments, and team.'
     : mode === 'school'
@@ -582,39 +582,32 @@ export function LoginForm() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <p className="text-sm font-bold text-foreground">Choose what you want to do</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {modeOptions.map(({ value, label, description, icon: Icon }) => (
-                <Button
-                  key={value}
-                  type="button"
-                  variant="ghost"
-                  className={cn(
-                    'h-auto justify-start gap-3 rounded-2xl border bg-background px-3 py-3 text-left shadow-sm transition',
-                    mode === value
-                      ? 'border-[#F4C430] bg-[#FFF8D8] ring-2 ring-[#F4C430]/35'
-                      : 'border-border hover:bg-muted/70'
-                  )}
-                  onClick={() => {
-                    setMode(value);
-                    setError('');
-                  }}
-                >
-                  <span className={cn(
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                    mode === value ? 'bg-[#F4C430] text-[#0D1B2A]' : 'bg-muted text-muted-foreground'
-                  )}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-bold leading-tight">{label}</span>
-                    <span className="mt-0.5 block text-xs font-medium leading-tight text-muted-foreground">{description}</span>
-                  </span>
-                </Button>
-                ))}
+            {mode === 'login' ? (
+              <div className="rounded-2xl border border-[#F4C430]/50 bg-[#FFF8D8] px-4 py-3 text-sm">
+                <p className="font-bold">Already have an account?</p>
+                <p className="mt-1 text-muted-foreground">Enter your email and password below, or use Google.</p>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-2xl border bg-muted/30 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F4C430] text-[#0D1B2A]">
+                    <SelectedModeIcon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">{selectedMode.label}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{selectedMode.description}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <Button type="button" variant="outline" className="rounded-xl" onClick={() => setMode('login')}>
+                    I already have an account
+                  </Button>
+                  <Button type="button" variant="ghost" className="rounded-xl" onClick={() => setMode('login')}>
+                    Change account type
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {mode === 'invite' && (!inviteTenantId || !inviteId) && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -757,6 +750,37 @@ export function LoginForm() {
             <Button type="button" variant="link" className="h-auto w-full p-0 text-sm text-muted-foreground" onClick={handleResetPassword}>
               Forgot password?
             </Button>
+
+            {mode === 'login' && (
+              <div className="space-y-3 rounded-2xl border bg-muted/20 p-4">
+                <div>
+                  <p className="text-sm font-bold">New to InstructorOS?</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Choose the account type that matches why you are here.</p>
+                </div>
+                <div className="grid gap-2">
+                  {signupOptions.map(({ value, label, description, icon: Icon }) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant="outline"
+                      className="h-auto justify-start gap-3 rounded-2xl bg-background px-3 py-3 text-left"
+                      onClick={() => {
+                        setMode(value);
+                        setError('');
+                      }}
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold leading-tight">{label}</span>
+                        <span className="mt-0.5 block text-xs font-medium leading-tight text-muted-foreground">{description}</span>
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

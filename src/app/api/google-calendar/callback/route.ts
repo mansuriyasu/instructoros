@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { assertSetupSecret, exchangeCodeForRefreshToken } from '@/lib/google-calendar-server';
+import {
+  assertSetupSecret,
+  exchangeCodeForRefreshToken,
+  parseUserCalendarState,
+  saveUserGoogleCalendarConnection,
+} from '@/lib/google-calendar-server';
 
 function html(content: string, status = 200) {
   return new NextResponse(`<!doctype html>
@@ -33,10 +38,23 @@ export async function GET(request: NextRequest) {
       return html(`<h1>Google Calendar was not connected</h1><p>${error}</p>`, 400);
     }
 
-    assertSetupSecret(state);
     if (!code) throw new Error('Google did not return an authorization code.');
 
     const refreshToken = await exchangeCodeForRefreshToken(code, request.nextUrl.origin);
+    const userState = parseUserCalendarState(state);
+
+    if (userState) {
+      await saveUserGoogleCalendarConnection(userState.uid, {
+        refreshToken,
+        calendarId: 'primary',
+        connectedEmail: userState.email || '',
+      });
+
+      const returnTo = userState.returnTo && userState.returnTo.startsWith('/') ? userState.returnTo : '/app/schedule';
+      return NextResponse.redirect(new URL(`${returnTo}${returnTo.includes('?') ? '&' : '?'}calendar=connected`, request.nextUrl.origin));
+    }
+
+    assertSetupSecret(state);
 
     return html(`
       <h1>Google Calendar is ready</h1>

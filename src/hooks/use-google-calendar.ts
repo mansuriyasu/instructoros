@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
 
 const GOOGLE_CALENDAR_API = '/api/google-calendar/events';
 const GOOGLE_CALENDAR_STATUS_API = '/api/google-calendar/status?check=1';
@@ -57,10 +58,23 @@ export function useGoogleCalendar() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [gEvents, setGEvents] = useState<GoogleCalendarEvent[]>([]);
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
 
   const refreshStatus = useCallback(async () => {
     try {
-      const response = await fetch(GOOGLE_CALENDAR_STATUS_API, { cache: 'no-store' });
+      if (!user) {
+        setIsServerConfigured(false);
+        setIsServerConnected(false);
+        setConnectionError(isUserLoading ? null : 'Sign in before connecting Google Calendar.');
+        return { configured: false, connected: false, error: null } satisfies GoogleCalendarStatus;
+      }
+
+      const response = await fetch(GOOGLE_CALENDAR_STATUS_API, {
+        cache: 'no-store',
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+      });
       const status = await response.json() as GoogleCalendarStatus;
       setIsServerConfigured(Boolean(status.configured));
       setIsServerConnected(Boolean(status.connected));
@@ -75,7 +89,7 @@ export function useGoogleCalendar() {
     } finally {
       setIsClientLoaded(true);
     }
-  }, []);
+  }, [isUserLoading, user]);
 
   useEffect(() => {
     void refreshStatus();
@@ -88,7 +102,10 @@ export function useGoogleCalendar() {
     try {
       const response = await fetch(GOOGLE_CALENDAR_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user ? { Authorization: `Bearer ${await user.getIdToken()}` } : {}),
+        },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -137,25 +154,48 @@ export function useGoogleCalendar() {
     if (!status.configured) {
       toast({
         title: "Google Calendar is not configured",
-        description: status.error || "Add the permanent Google Calendar environment variables on the server.",
+        description: status.error || "Add the Google Calendar OAuth client ID and secret on the server.",
         variant: "destructive"
       });
       return false;
     }
 
     if (!status.connected) {
-      toast({
-        title: "Google Calendar reconnect required",
-        description: getCalendarErrorMessage(status.error),
-        variant: "destructive"
+      if (!user) {
+        toast({
+          title: "Sign in required",
+          description: "Sign in before connecting Google Calendar.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      const response = await fetch('/api/google-calendar/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({ returnTo: '/app/schedule' }),
       });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) {
+        toast({
+          title: "Google Calendar connect failed",
+          description: data.error || getCalendarErrorMessage(status.error),
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      window.location.assign(data.url);
       return false;
     }
 
     await fetchEvents();
     toast({ title: "Google Calendar Connected", description: "Your permanent calendar sync is ready." });
     return true;
-  }, [refreshStatus, toast]);
+  }, [refreshStatus, toast, user]);
 
   const createEvent = async (event: Partial<GoogleCalendarEvent>) => {
     try {

@@ -223,12 +223,28 @@ export function ScheduleView() {
   }, []);
 
   const googleDateTimeMinute = (dateTime?: string) => dateTime?.slice(0, 16) || '';
+  const getUserGoogleEventId = useCallback((event?: Partial<CalendarEvent> | null) => {
+    if (!event) return undefined;
+    return (user?.uid ? event.googleEventIds?.[user.uid] : undefined) || event.googleEventId;
+  }, [user?.uid]);
+
+  const buildGoogleEventIdUpdate = useCallback((eventId: string, googleEventId: string) => {
+    return user?.uid
+      ? ({ id: eventId, [`googleEventIds.${user.uid}`]: googleEventId } as Partial<CalendarEvent> & { id: string })
+      : ({ id: eventId, googleEventId } as Partial<CalendarEvent> & { id: string });
+  }, [user?.uid]);
+
+  const withUserGoogleEventId = useCallback((event: CalendarEvent, googleEventId: string) => {
+    return user?.uid
+      ? { ...event, googleEventIds: { ...(event.googleEventIds || {}), [user.uid]: googleEventId } }
+      : { ...event, googleEventId };
+  }, [user?.uid]);
 
   const googleEventMatchesLocalEvent = useCallback((
     googleEvent: { id?: string; summary?: string; description?: string; start?: { dateTime?: string }; end?: { dateTime?: string }; extendedProperties?: { private?: Record<string, string> } },
     localEvent: CalendarEvent
   ) => {
-    if (googleEvent.id && localEvent.googleEventId === googleEvent.id) return true;
+    if (googleEvent.id && getUserGoogleEventId(localEvent) === googleEvent.id) return true;
 
     const googleSparkonEventId = googleEvent.extendedProperties?.private?.[SPARKON_GOOGLE_EVENT_ID_PROPERTY];
     const localGoogleEvent = toGoogleEvent(localEvent);
@@ -242,7 +258,7 @@ export function ScheduleView() {
     return googleEvent.description?.includes(SPARKON_GOOGLE_DESCRIPTION_MARKER)
       && googleEvent.summary === localGoogleEvent.summary
       && timeMatches;
-  }, [toGoogleEvent]);
+  }, [getUserGoogleEventId, toGoogleEvent]);
 
   const cleanupOrphanedGoogleEvents = useCallback(async (localEvents: CalendarEvent[]) => {
     if (!isConnected) return;
@@ -272,18 +288,18 @@ export function ScheduleView() {
 
     const eventWithId = { ...eventData, id: savedEventId } as CalendarEvent;
     const googleEvent = toGoogleEvent(eventWithId);
-    const existingGoogleEventId = ('id' in eventData ? eventData.googleEventId : undefined) || previousEvent?.googleEventId;
+    const existingGoogleEventId = getUserGoogleEventId('id' in eventData ? eventData : previousEvent) || getUserGoogleEventId(previousEvent);
 
     if (existingGoogleEventId) {
       const updated = await updateGEvent(existingGoogleEventId, googleEvent);
-      if (updated && 'id' in eventData && eventData.googleEventId !== existingGoogleEventId) {
-        await updateEventFirestore({ id: savedEventId, googleEventId: existingGoogleEventId });
+      if (updated && getUserGoogleEventId(eventData) !== existingGoogleEventId) {
+        await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, existingGoogleEventId));
       }
       if (updated && localEventsAfterSave) {
         await cleanupOrphanedGoogleEvents(
           localEventsAfterSave.map(localEvent => (
             localEvent.id === savedEventId
-              ? { ...localEvent, googleEventId: existingGoogleEventId }
+              ? withUserGoogleEventId(localEvent, existingGoogleEventId)
               : localEvent
           ))
         );
@@ -295,12 +311,12 @@ export function ScheduleView() {
     if (matchedGoogleEventId) {
       const updated = await updateGEvent(matchedGoogleEventId, googleEvent);
       if (updated) {
-        await updateEventFirestore({ id: savedEventId, googleEventId: matchedGoogleEventId });
+        await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, matchedGoogleEventId));
         if (localEventsAfterSave) {
           await cleanupOrphanedGoogleEvents(
             localEventsAfterSave.map(localEvent => (
               localEvent.id === savedEventId
-                ? { ...localEvent, googleEventId: matchedGoogleEventId }
+                ? withUserGoogleEventId(localEvent, matchedGoogleEventId)
                 : localEvent
             ))
           );
@@ -311,18 +327,18 @@ export function ScheduleView() {
 
     const googleEventId = await createGEvent(googleEvent);
     if (googleEventId) {
-      await updateEventFirestore({ id: savedEventId, googleEventId });
+      await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, googleEventId));
       if (localEventsAfterSave) {
         await cleanupOrphanedGoogleEvents(
           localEventsAfterSave.map(localEvent => (
             localEvent.id === savedEventId
-              ? { ...localEvent, googleEventId }
+              ? withUserGoogleEventId(localEvent, googleEventId)
               : localEvent
           ))
         );
       }
     }
-  }, [cleanupOrphanedGoogleEvents, createGEvent, findGEvent, isConnected, toGoogleEvent, updateEventFirestore, updateGEvent]);
+  }, [buildGoogleEventIdUpdate, cleanupOrphanedGoogleEvents, createGEvent, findGEvent, getUserGoogleEventId, isConnected, toGoogleEvent, updateEventFirestore, updateGEvent, withUserGoogleEventId]);
 
   const isScheduleOverlayOpen = isFormDialogOpen
     || isDetailsDialogOpen
@@ -919,21 +935,22 @@ export function ScheduleView() {
 
       for (const event of allEvents) {
         const googleEvent = toGoogleEvent(event);
-        if (event.googleEventId) {
-          const didUpdate = await updateGEvent(event.googleEventId, googleEvent);
+        const userGoogleEventId = getUserGoogleEventId(event);
+        if (userGoogleEventId) {
+          const didUpdate = await updateGEvent(userGoogleEventId, googleEvent);
           if (didUpdate) updated += 1;
         } else {
           const matchedGoogleEventId = await findGEvent(event.id, googleEvent);
           if (matchedGoogleEventId) {
             const didUpdate = await updateGEvent(matchedGoogleEventId, googleEvent);
             if (didUpdate) {
-              await updateEventFirestore({ id: event.id, googleEventId: matchedGoogleEventId });
+              await updateEventFirestore(buildGoogleEventIdUpdate(event.id, matchedGoogleEventId));
               updated += 1;
             }
           } else {
             const googleEventId = await createGEvent(googleEvent);
             if (googleEventId) {
-              await updateEventFirestore({ id: event.id, googleEventId });
+              await updateEventFirestore(buildGoogleEventIdUpdate(event.id, googleEventId));
               created += 1;
             }
           }
@@ -951,9 +968,11 @@ export function ScheduleView() {
     }
   }, [
     allEvents,
+    buildGoogleEventIdUpdate,
     cleanupOrphanedGoogleEvents,
     createGEvent,
     findGEvent,
+    getUserGoogleEventId,
     toGoogleEvent,
     toast,
     updateEventFirestore,
@@ -1005,7 +1024,7 @@ export function ScheduleView() {
 
   const handleDeleteEvent = async (eventId: string) => {
     const eventToDelete = allEvents.find(event => event.id === eventId) || selectedEvent;
-    const googleEventId = eventToDelete?.googleEventId
+    const googleEventId = getUserGoogleEventId(eventToDelete)
       || (eventToDelete && isConnected ? await findGEvent(eventToDelete.id, toGoogleEvent(eventToDelete)) : null);
 
     await deleteEventFirestore(eventId);
@@ -1086,8 +1105,8 @@ export function ScheduleView() {
                   isConnected && "border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
                   isGoogleConfigured && !isConnected && "border-amber-500 bg-amber-50 text-amber-800 hover:bg-amber-100"
                 )}
-                aria-label={isConnected ? "Sync Google Calendar" : "Check Google Calendar connection"}
-                title={googleConnectionError || (isConnected ? "Sync Google Calendar" : "Check Google Calendar connection")}
+                aria-label={isConnected ? "Sync Google Calendar" : "Connect Google Calendar"}
+                title={googleConnectionError || (isConnected ? "Sync Google Calendar" : "Connect your Google Calendar")}
               >
                 {isSyncingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
               </Button>
@@ -1206,8 +1225,8 @@ export function ScheduleView() {
               {isConnected
                 ? 'Google connected'
                 : isGoogleConfigured
-                  ? 'Google reconnect required'
-                  : 'Google not configured'}
+                  ? 'Connect your Google Calendar'
+                  : 'Google setup missing'}
             </div>
           </div>
         </div>
