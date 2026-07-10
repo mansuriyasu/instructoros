@@ -9,10 +9,10 @@ import {
   GraduationCap,
   MessageSquareText,
   ShieldCheck,
-  Sparkles,
   UserRound,
   UsersRound,
 } from 'lucide-react';
+import { Logo } from '@/components/logo';
 
 const features = [
   {
@@ -138,11 +138,8 @@ export default function MarketingHomePage() {
     <main className="min-h-screen bg-[#f8fafc] text-[#111827]">
       <section className="relative overflow-hidden border-b border-slate-200 bg-[linear-gradient(135deg,#fffaf0_0%,#f8fafc_38%,#eef6ff_100%)]">
         <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="InstructorOS home">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#111827] text-[#facc15]">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <span className="text-xl font-black tracking-normal">InstructorOS</span>
+          <Link href="/" aria-label="InstructorOS home">
+            <Logo imageClassName="w-[168px]" />
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-600 md:flex">
             <a href="#who">Who it helps</a>

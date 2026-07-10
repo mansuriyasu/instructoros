@@ -45,6 +45,10 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        highlight: {
+          DEFAULT: 'hsl(var(--highlight))',
+          foreground: 'hsl(var(--highlight-foreground))',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -70,6 +74,15 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+      },
+      boxShadow: {
+        glow: '0 0 0 1px hsl(var(--primary) / 0.35), 0 8px 24px -12px hsl(var(--primary) / 0.65)',
+        elevated: '0 8px 24px -18px hsl(214 45% 18% / 0.35)',
+      },
+      backgroundImage: {
+        'gradient-primary': 'linear-gradient(135deg, hsl(var(--highlight)), hsl(var(--primary)))',
+        'gradient-radial-hero':
+          'linear-gradient(135deg, hsl(var(--background)), hsl(42 100% 97%))',
       },
       keyframes: {
         'accordion-down': {
