@@ -40,8 +40,8 @@ function getCalendarErrorMessage(error: unknown) {
     return 'Google Calendar needs to be reconnected. The saved permanent token expired or was revoked.';
   }
 
-  if (/not configured/i.test(message)) {
-    return 'Google Calendar permanent connection is not configured on the server.';
+  if (/not configured|OAuth client ID|GOOGLE_CALENDAR_CLIENT_ID|GOOGLE_CALENDAR_CLIENT_SECRET/i.test(message)) {
+    return 'Google Calendar is not configured on the server. Add GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET, and GOOGLE_CALENDAR_STATE_SECRET in Hostinger, then redeploy.';
   }
 
   if (/abort|timeout|timed out|did not respond/i.test(message)) {

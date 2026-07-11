@@ -58,9 +58,27 @@ GOOGLE_CALENDAR_SETUP_SECRET=
 GOOGLE_CALENDAR_STATE_SECRET=
 GOOGLE_CALENDAR_CLIENT_ID=
 GOOGLE_CALENDAR_CLIENT_SECRET=
-GOOGLE_CALENDAR_REFRESH_TOKEN=
-GOOGLE_CALENDAR_ID=
+GOOGLE_CALENDAR_ID=primary
 ```
+
+`GOOGLE_CALENDAR_REFRESH_TOKEN` is optional for the current per-user connection flow. Each user authorizes their own Google Calendar from Schedule; do not use one shared refresh token for all customers.
+
+### Billing server setup
+
+Free trials are activated without collecting payment details. Subscription management and later paid activation run through protected server routes. Public Firebase web configuration is not enough. Add the following variables to the new hosting app before testing billing:
+
+```bash
+FIREBASE_PROJECT_ID=instructoros
+FIREBASE_CLIENT_EMAIL=your-firebase-service-account-email
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_INSTRUCTOR_MONTHLY=price_...
+STRIPE_PRICE_SCHOOL_MONTHLY=price_...
+STRIPE_PRICE_SCHOOL_EXTRA_SEAT_MONTHLY=price_...
+```
+
+In Stripe, enable the Customer Portal and add a webhook endpoint at `https://instructoros.ca/api/billing/webhook` for checkout, subscription, and invoice events. Never commit these values or paste live keys into source files.
 
 For Google Calendar, configure the OAuth redirect URI as:
 

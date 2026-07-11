@@ -96,7 +96,10 @@ export function parseUserCalendarState(rawState: string | null): UserCalendarSta
 export function getGoogleCalendarStatus() {
   const config = getGoogleCalendarConfig();
   return {
-    configured: Boolean(config.clientId && config.clientSecret && config.refreshToken),
+    // The production flow stores one OAuth refresh token per signed-in user.
+    // A server-wide refresh token is optional legacy configuration and must not
+    // prevent users from connecting their own Google Calendar.
+    configured: Boolean(config.clientId && config.clientSecret),
     clientIdConfigured: Boolean(config.clientId),
     clientSecretConfigured: Boolean(config.clientSecret),
     refreshTokenConfigured: Boolean(config.refreshToken),
@@ -293,11 +296,19 @@ async function getAccessToken(config = getGoogleCalendarConfig()) {
 
 export async function checkGoogleCalendarConnection() {
   const status = getGoogleCalendarStatus();
-  if (!status.configured) {
+  if (!status.clientIdConfigured || !status.clientSecretConfigured) {
     return {
       ...status,
       connected: false,
-      error: 'Google Calendar permanent connection is not configured.',
+      error: 'Google Calendar OAuth client ID or secret is not configured on the server.',
+    };
+  }
+
+  if (!status.refreshTokenConfigured) {
+    return {
+      ...status,
+      connected: false,
+      error: 'Per-user Google Calendar connection is configured. Connect a user account before syncing.',
     };
   }
 
