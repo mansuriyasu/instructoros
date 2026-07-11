@@ -6,214 +6,220 @@ import {
   CalendarDays,
   Check,
   CreditCard,
-  GraduationCap,
   MessageSquareText,
+  Rocket,
   ShieldCheck,
+  TrendingUp,
+  UserPlus,
   UserRound,
   UsersRound,
+  Wallet,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE } from '@/lib/billing';
+
+const navLinks = [
+  { href: '#features', label: 'Features' },
+  { href: '#how-it-works', label: 'How it works' },
+  { href: '#pricing', label: 'Pricing' },
+  { href: '#faq', label: 'FAQ' },
+];
 
 const features = [
   {
     icon: UsersRound,
-    title: 'Student pipeline',
-    text: 'Keep every lead, active student, license detail, note, balance, and lesson history organized in one place.',
+    title: 'Student Management',
+    text: 'Profiles, license details, notes, tags, and status for every lead and active student in one place.',
   },
   {
     icon: CalendarDays,
-    title: 'Scheduling',
-    text: 'Plan lessons, road tests, instructor assignments, and daily work without jumping between calendars and spreadsheets.',
+    title: 'Lesson Scheduling',
+    text: 'Book lessons and road tests with instructor assignments, pickup details, and day/week/month views.',
   },
   {
     icon: CreditCard,
-    title: 'Payments and receipts',
-    text: 'Record lesson payments, track balances, create receipts, and see what is paid or still outstanding.',
+    title: 'Payments & Receipts',
+    text: 'Track balances, record payments, and generate professional receipts with HST where needed.',
   },
   {
     icon: MessageSquareText,
-    title: 'Communication',
-    text: 'Send reminders, payment messages, birthday notes, and school updates with a cleaner record of what happened.',
-  },
-];
-
-const audiences = [
-  {
-    icon: UserRound,
-    title: 'Individual instructors',
-    text: 'Run your own student list, bookings, payments, services, and records from one simple workspace.',
+    title: 'Student Communication',
+    text: 'Send lesson reminders, payment messages, and exam updates straight from the student record.',
   },
   {
     icon: Building2,
-    title: 'Driving schools',
-    text: 'Manage instructors, assign students, see team activity, and keep operations consistent across the school.',
-  },
-  {
-    icon: GraduationCap,
-    title: 'School instructors',
-    text: 'See assigned students and lessons clearly, without getting access to private owner-only business tools.',
-  },
-];
-
-const schoolBenefits = ['10 users included', '$5 CAD/month per extra user', 'Team management', 'Instructor assignments'];
-const instructorBenefits = ['One instructor workspace', 'Students and lessons', 'Payments and receipts', 'First month free'];
-
-const detailedFeatures = [
-  {
-    icon: UsersRound,
-    title: 'Student and lead management',
-    summary:
-      'Keep every learner organized from first contact to road test, with the details instructors need before each lesson.',
-    items: [
-      'Student profiles with phone, email, address, license details, notes, tags, and status',
-      'Track leads, active students, completed students, and archived records without losing history',
-      'Assign students to instructors so school owners can see who is responsible for each learner',
-      'Store lesson history, balances, payment notes, and important updates in one profile',
-    ],
-  },
-  {
-    icon: CalendarDays,
-    title: 'Lessons, schedules, and road tests',
-    summary:
-      'Plan the teaching day with a calendar built around driving school work, not a generic appointment tool.',
-    items: [
-      'Book lessons, choose instructors, set pickup/drop-off details, and update lesson status',
-      'Use day, week, month, and list views to understand what is happening across the school',
-      'Schedule road tests with pickup time, lesson time, arrival time, test time, and return time',
-      'Choose whether to send a schedule message when an exam is booked',
-    ],
-  },
-  {
-    icon: CreditCard,
-    title: 'Payments, receipts, and tax',
-    summary:
-      'Record payments clearly and give students professional receipts that match your school information.',
-    items: [
-      'Track payments, advances, remaining balances, discounts, services, and payment history',
-      'Generate receipts with school name, logo, contact details, receipt notes, and HST where needed',
-      'Use Ontario-ready HST defaults while keeping tax labels and rates configurable per workspace',
-      'Review unpaid balances quickly so missed payments do not hide in message threads',
-    ],
-  },
-  {
-    icon: Building2,
-    title: 'School and team workspace',
-    summary:
-      'Give a school one shared operating system while keeping access separated by role.',
-    items: [
-      'Support school owners, main admins, instructors, and individual instructor accounts',
-      'Manage school profile details, branding, billing information, and subscription plan',
-      'Add instructors, assign work, and keep each instructor focused on their own students and lessons',
-      'Separate school workspaces so each school manages its own students, payments, and settings',
-    ],
-  },
-  {
-    icon: MessageSquareText,
-    title: 'Student communication',
-    summary:
-      'Send clearer messages for lessons, payments, exams, birthdays, and updates without rebuilding the same text.',
-    items: [
-      'Prepare lesson reminders, payment messages, road test details, and student updates',
-      'Open ready-to-send WhatsApp messages from student, schedule, and payment workflows',
-      'Keep communication connected to the student record so the school has context later',
-      'Avoid accidental exam messages with an explicit send-message checkbox on scheduling',
-    ],
+    title: 'School & Team Workspace',
+    text: 'Add instructors, assign students, and keep each workspace scoped to its own school.',
   },
   {
     icon: ShieldCheck,
-    title: 'Admin control and reporting',
-    summary:
-      'Help owners understand the business while protecting operational data for each workspace.',
-    items: [
-      'Main admin area for users, workspaces, plans, schools, and operational oversight',
-      'Reports for payments, expenses, lesson activity, service sales, and school performance',
-      'Backup, import, and export tools for moving records safely when the business grows',
-      'Role-based access so instructors do not see owner-only settings or private billing tools',
-    ],
+    title: 'Admin Control & Reporting',
+    text: 'Role-based access plus reports on payments, lesson activity, and school performance.',
+  },
+];
+
+const steps = [
+  { icon: UserPlus, title: 'Add Students', text: 'Import or add your students in seconds.' },
+  { icon: CalendarDays, title: 'Schedule Lessons', text: 'Create lessons and assign instructors.' },
+  { icon: Check, title: 'Conduct Lessons', text: 'Track progress and mark lessons complete.' },
+  { icon: Wallet, title: 'Receive Payments', text: 'Get paid and keep receipts organized.' },
+  { icon: TrendingUp, title: 'Grow Your Business', text: 'Use reports to manage and scale your school.' },
+];
+
+const instructorBenefits = ['1 instructor workspace', 'Students and lessons', 'Payments and receipts', 'First month free'];
+const schoolBenefits = [
+  `${PLAN_DETAILS.school.includedSeats} users included`,
+  `$${SCHOOL_EXTRA_SEAT_PRICE} CAD/month per extra user`,
+  'Team management',
+  'Instructor assignments',
+];
+
+const faqs = [
+  {
+    q: 'What is InstructorOS?',
+    a: 'InstructorOS is a workspace for driving instructors and driving schools to manage students, lessons, schedules, payments, and receipts in one place.',
+  },
+  {
+    q: 'Is there a free trial?',
+    a: 'Yes. Every new workspace starts with a 30-day free trial on either the Individual Instructor or School plan.',
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. Billing is month to month in CAD with no long-term contract, so you can cancel whenever you need to.',
+  },
+  {
+    q: 'Do you offer support?',
+    a: 'Yes. Reach out from inside your workspace and we will help you with setup, billing, or anything else you run into.',
+  },
+  {
+    q: 'Is my data secure?',
+    a: 'Each school and instructor workspace is kept separate, with role-based access so instructors only see what they need to.',
   },
 ];
 
 export default function MarketingHomePage() {
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#111827]">
-      <section className="relative overflow-hidden border-b border-slate-200 bg-[linear-gradient(135deg,#fffaf0_0%,#f8fafc_38%,#eef6ff_100%)]">
-        <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
+    <main className="min-h-screen overflow-x-hidden bg-white text-[#102033]">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
           <Link href="/" aria-label="InstructorOS home">
-            <Logo imageClassName="w-[168px]" />
+            <Logo imageClassName="w-[150px]" />
           </Link>
-          <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-600 md:flex">
-            <a href="#who">Who it helps</a>
-            <a href="#features">Features</a>
-            <a href="#modules">Modules</a>
-            <a href="#pricing">Pricing</a>
+          <nav className="hidden items-center gap-7 text-sm font-bold text-[#102033]/70 md:flex">
+            {navLinks.map(link => (
+              <a key={link.href} href={link.href} className="hover:text-[#102033]">
+                {link.label}
+              </a>
+            ))}
           </nav>
-          <Link
-            href="/login"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-50"
-          >
-            Login
-          </Link>
-        </header>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="hidden text-sm font-black text-[#102033]/70 hover:text-[#102033] sm:inline"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/login?next=/app"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-[#facc15] px-5 text-sm font-black text-[#102033] shadow-sm hover:bg-[#eab308]"
+            >
+              Start Free Trial
+            </Link>
+          </div>
+        </div>
+      </header>
 
-        <div className="mx-auto grid min-h-[calc(100vh-82px)] w-full max-w-7xl items-center gap-10 px-5 pb-14 pt-6 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:pb-16">
-          <div className="max-w-2xl">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-white/80 px-3 py-2 text-sm font-bold text-amber-800 shadow-sm">
+      <section className="bg-gradient-to-b from-[#f5f7f9] to-white py-16 sm:py-20">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_1fr]">
+          <div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-black text-amber-700">
               <ShieldCheck className="h-4 w-4" />
-              For instructors, made by an instructor
+              All-in-One Platform for Driving Schools
             </div>
-            <h1 className="text-5xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-6xl lg:text-7xl">
-              InstructorOS
+            <h1 className="max-w-xl text-4xl font-black leading-[1.05] tracking-normal text-[#102033] sm:text-5xl lg:text-6xl">
+              Run Your Driving School
+              <br />
+              <span className="text-[#f59e0b]">Smarter, Not Harder.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg font-medium leading-8 text-slate-700 sm:text-xl">
-              Built from real instructor workflows: one place for driving instructors, schools, and teams to manage students, lessons, payments, schedules, and daily work.
+            <p className="mt-6 max-w-lg text-lg leading-8 text-slate-600">
+              InstructorOS is the workspace built to help driving instructors and schools manage
+              students, lessons, schedules, and payments — all in one place.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/login?mode=solo&next=/app"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#111827] px-6 text-sm font-black text-white shadow-lg shadow-slate-900/15 hover:bg-slate-800"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#facc15] px-6 text-sm font-black text-[#102033] shadow-lg shadow-amber-900/10 hover:bg-[#eab308]"
               >
                 Start as instructor
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/login?mode=school&next=/app"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-6 text-sm font-black text-slate-950 shadow-sm hover:bg-slate-50"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-6 text-sm font-black text-[#102033] hover:bg-slate-50"
               >
                 Start as school
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
-            <p className="mt-5 text-sm font-semibold text-slate-500">
-              No charge for the first month. Plans continue monthly after the trial.
-            </p>
+            <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm">
+              <div>
+                <p className="font-black text-[#102033]">First Month Free</p>
+                <p className="text-slate-500">Then billed monthly</p>
+              </div>
+              <div>
+                <p className="font-black text-[#102033]">Cancel Anytime</p>
+                <p className="text-slate-500">No long-term contracts</p>
+              </div>
+              <div>
+                <p className="font-black text-[#102033]">Canadian Built</p>
+                <p className="text-slate-500">CAD billing, Ontario tax-ready</p>
+              </div>
+            </div>
           </div>
 
           <div className="relative">
-            <Image
-              src="/assets/instructoros-dashboard-preview.png"
-              alt="InstructorOS dashboard preview showing lessons, payments, instructors, and student pipeline"
-              width={1400}
-              height={900}
-              priority
-              className="w-full rounded-xl border border-white/80 shadow-2xl shadow-slate-900/20"
-            />
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+              <div className="flex items-center gap-1.5 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+              </div>
+              <Image
+                src="/assets/instructoros-dashboard-preview.png"
+                alt="InstructorOS dashboard showing students, lessons, and payments"
+                width={1400}
+                height={900}
+                priority
+                className="h-auto w-full"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="who" className="bg-white py-20">
+      <section id="features" className="border-y border-slate-200 bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="max-w-3xl">
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-600">Who can use it</p>
-            <h2 className="mt-3 text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
-              For instructors, made by an instructor.
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
+              Everything You Need to <span className="text-[#f59e0b]">Succeed</span>
             </h2>
+            <p className="mt-3 text-base leading-7 text-slate-600">
+              Built specifically for the way driving schools and instructors work.
+            </p>
           </div>
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {audiences.map(({ icon: Icon, title, text }) => (
-              <article key={title} className="rounded-lg border border-slate-200 bg-slate-50 p-6">
-                <Icon className="h-7 w-7 text-slate-950" />
-                <h3 className="mt-5 text-xl font-black">{title}</h3>
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map(({ icon: Icon, title, text }) => (
+              <article key={title} className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-amber-50 text-amber-600">
+                  <Icon className="h-6 w-6" />
+                </div>
+                <h3 className="mt-5 text-lg font-black">{title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-600">{text}</p>
               </article>
             ))}
@@ -221,92 +227,52 @@ export default function MarketingHomePage() {
         </div>
       </section>
 
-      <section id="features" className="border-y border-slate-200 bg-[#f8fafc] py-20">
+      <section id="how-it-works" className="bg-[#f5f7f9] py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">How it helps</p>
-              <h2 className="mt-3 text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
-                Less admin work, clearer school operations.
-              </h2>
-              <p className="mt-5 text-base leading-7 text-slate-600">
-                InstructorOS replaces scattered notebooks, spreadsheets, payment notes, and chat threads with one workspace that keeps every student and lesson connected.
-              </p>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2">
-              {features.map(({ icon: Icon, title, text }) => (
-                <article key={title} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                  <Icon className="h-6 w-6 text-sky-700" />
-                  <h3 className="mt-4 text-lg font-black">{title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{text}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="modules" className="bg-white py-20">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-end">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-600">App features</p>
-              <h2 className="mt-3 text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
-                Everything a driving instructor or school needs to run the day.
-              </h2>
-            </div>
-            <p className="max-w-3xl text-base leading-7 text-slate-600 lg:justify-self-end">
-              InstructorOS is built for the full driving-school workflow: finding students, booking lessons, preparing
-              for road tests, collecting payments, keeping receipts professional, and giving schools a clear view of
-              instructor activity.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {detailedFeatures.map(({ icon: Icon, title, summary, items }) => (
-              <article key={title} className="rounded-lg border border-slate-200 bg-slate-50 p-6">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white text-slate-950 shadow-sm">
-                  <Icon className="h-6 w-6" />
+          <h2 className="text-center text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
+            How InstructorOS Works
+          </h2>
+          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+            {steps.map(({ icon: Icon, title, text }, index) => (
+              <div key={title} className="relative text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#facc15] text-sm font-black text-[#102033] shadow-sm">
+                  {index + 1}
                 </div>
-                <h3 className="mt-5 text-xl font-black text-slate-950">{title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-600">{summary}</p>
-                <ul className="mt-5 space-y-3 text-sm font-semibold leading-6 text-slate-700">
-                  {items.map(item => (
-                    <li key={item} className="flex gap-3">
-                      <Check className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
+                <div className="mx-auto mt-3 flex h-10 w-10 items-center justify-center rounded-md bg-white text-[#102033] shadow-sm ring-1 ring-slate-200">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 text-base font-black">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="pricing" className="bg-white py-20">
+      <section id="pricing" className="border-t border-slate-200 bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="max-w-3xl">
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Pricing</p>
-            <h2 className="mt-3 text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
-              Start free, then pay monthly.
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
+              Choose the <span className="text-[#f59e0b]">Perfect Plan</span>
             </h2>
-            <p className="mt-4 text-base leading-7 text-slate-600">
-              Every new workspace gets the first month free. After that, billing continues month to month in CAD.
+            <p className="mt-3 text-base leading-7 text-slate-600">
+              Start with a 30-day free trial, then pay monthly in CAD.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-2">
-            <article className="rounded-lg border border-slate-200 bg-slate-50 p-7">
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+            <article className="rounded-md border border-slate-200 bg-white p-7 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-2xl font-black">Individual Instructor</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">For independent instructors managing their own students and schedule.</p>
+                  <h3 className="text-2xl font-black">{PLAN_DETAILS.instructor.label}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    For independent instructors managing their own students and schedule.
+                  </p>
                 </div>
                 <UserRound className="h-7 w-7 text-slate-950" />
               </div>
               <div className="mt-7 flex items-end gap-2">
-                <span className="text-5xl font-black">$7</span>
+                <span className="text-5xl font-black">${PLAN_DETAILS.instructor.monthlyPrice}</span>
                 <span className="pb-2 text-sm font-bold text-slate-500">CAD/month after trial</span>
               </div>
               <ul className="mt-7 space-y-3 text-sm font-semibold text-slate-700">
@@ -319,25 +285,29 @@ export default function MarketingHomePage() {
               </ul>
               <Link
                 href="/login?mode=solo&next=/app"
-                className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-lg bg-[#111827] text-sm font-black text-white hover:bg-slate-800"
+                className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-md border border-slate-300 text-sm font-black text-[#102033] hover:bg-slate-50"
               >
-                Start free month
+                Start Free Trial
               </Link>
             </article>
 
-            <article className="rounded-lg border-2 border-slate-950 bg-white p-7 shadow-xl shadow-slate-900/10">
+            <article className="relative rounded-md border-2 border-[#facc15] bg-white p-7 shadow-xl shadow-amber-900/10">
+              <span className="absolute -top-3 left-7 rounded-full bg-[#facc15] px-3 py-1 text-xs font-black text-[#102033]">
+                Most Popular
+              </span>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-2xl font-black">School</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">For schools that need team access, instructor assignment, and shared operations.</p>
+                  <h3 className="text-2xl font-black">{PLAN_DETAILS.school.label}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    For schools that need team access, instructor assignment, and shared operations.
+                  </p>
                 </div>
                 <Building2 className="h-7 w-7 text-slate-950" />
               </div>
               <div className="mt-7 flex items-end gap-2">
-                <span className="text-5xl font-black">$50</span>
+                <span className="text-5xl font-black">${PLAN_DETAILS.school.monthlyPrice}</span>
                 <span className="pb-2 text-sm font-bold text-slate-500">CAD/month after trial</span>
               </div>
-              <p className="mt-2 text-sm font-bold text-slate-600">Includes 10 users, then $5 CAD/month per extra user.</p>
               <ul className="mt-7 space-y-3 text-sm font-semibold text-slate-700">
                 {schoolBenefits.map(item => (
                   <li key={item} className="flex items-center gap-3">
@@ -348,14 +318,68 @@ export default function MarketingHomePage() {
               </ul>
               <Link
                 href="/login?mode=school&next=/app"
-                className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-lg bg-[#facc15] text-sm font-black text-slate-950 hover:bg-[#eab308]"
+                className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-md bg-[#facc15] text-sm font-black text-[#102033] hover:bg-[#eab308]"
               >
-                Start school trial
+                Start Free Trial
               </Link>
             </article>
           </div>
+
+          <div id="faq" className="mx-auto mt-20 max-w-3xl">
+            <h2 className="text-center text-3xl font-black tracking-normal text-slate-950 sm:text-4xl">
+              Frequently Asked <span className="text-[#f59e0b]">Questions</span>
+            </h2>
+            <Accordion type="single" collapsible className="mt-8">
+              {faqs.map(({ q, a }) => (
+                <AccordionItem key={q} value={q}>
+                  <AccordionTrigger className="text-left text-base font-black text-[#102033]">
+                    {q}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-sm leading-6 text-slate-600">{a}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
         </div>
       </section>
+
+      <section className="bg-[#102033] py-14">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-5 text-center sm:flex-row sm:justify-between sm:text-left sm:px-8">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[#facc15] text-[#102033]">
+              <Rocket className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-white">Ready to Transform Your Driving School?</h2>
+              <p className="mt-1 text-sm font-semibold text-white/65">
+                Start your 30-day free trial today — no long-term contract.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/login?next=/app"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-md bg-[#facc15] px-6 text-sm font-black text-[#102033] hover:bg-[#eab308]"
+          >
+            Start Free Trial
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      <footer className="bg-white px-5 py-10 text-[#102033] sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
+          <Logo imageClassName="w-[140px]" />
+          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-bold text-slate-500">
+            {navLinks.map(link => (
+              <a key={link.href} href={link.href} className="hover:text-[#102033]">
+                {link.label}
+              </a>
+            ))}
+            <Link href="/login" className="hover:text-[#102033]">Log in</Link>
+          </nav>
+          <p className="text-sm font-semibold text-slate-500">© 2026 InstructorOS. All rights reserved.</p>
+        </div>
+      </footer>
     </main>
   );
 }
