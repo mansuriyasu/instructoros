@@ -18,12 +18,16 @@ function getAdminApp() {
     });
   }
 
-  if (projectId && clientEmail && (privateKey || encodedPrivateKey)) {
+  const resolvedPrivateKey = encodedPrivateKey
+    ? Buffer.from(encodedPrivateKey, 'base64').toString('utf8')
+    : privateKey;
+
+  if (projectId && clientEmail && resolvedPrivateKey) {
     return initializeApp({
       credential: cert({
         projectId,
         clientEmail,
-        privateKey: privateKey || Buffer.from(encodedPrivateKey!, 'base64').toString('utf8'),
+        privateKey: resolvedPrivateKey,
       }),
       projectId,
     });
