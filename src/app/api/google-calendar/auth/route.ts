@@ -3,6 +3,7 @@ import {
   assertSetupSecret,
   createUserGoogleCalendarAuthUrl,
   getGoogleCalendarConfig,
+  getGoogleCalendarAppOrigin,
   getGoogleCalendarRedirectUri,
 } from '@/lib/google-calendar-server';
 import { getAdminAuth } from '@/lib/server/firebase-admin';
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     const url = createUserGoogleCalendarAuthUrl({
       uid: decoded.uid,
       email: decoded.email,
-      origin: request.nextUrl.origin,
+      origin: getGoogleCalendarAppOrigin(request.nextUrl.origin),
       returnTo: typeof body.returnTo === 'string' ? body.returnTo : '/app/schedule',
     });
 
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', config.clientId);
-    authUrl.searchParams.set('redirect_uri', getGoogleCalendarRedirectUri(request.nextUrl.origin));
+    authUrl.searchParams.set('redirect_uri', getGoogleCalendarRedirectUri(getGoogleCalendarAppOrigin(request.nextUrl.origin)));
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', SCOPES);
     authUrl.searchParams.set('access_type', 'offline');

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   assertSetupSecret,
   exchangeCodeForRefreshToken,
+  getGoogleCalendarAppOrigin,
   parseUserCalendarState,
   saveUserGoogleCalendarConnection,
 } from '@/lib/google-calendar-server';
@@ -40,7 +41,8 @@ export async function GET(request: NextRequest) {
 
     if (!code) throw new Error('Google did not return an authorization code.');
 
-    const refreshToken = await exchangeCodeForRefreshToken(code, request.nextUrl.origin);
+    const origin = getGoogleCalendarAppOrigin(request.nextUrl.origin);
+    const refreshToken = await exchangeCodeForRefreshToken(code, origin);
     const userState = parseUserCalendarState(state);
 
     if (userState) {
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
       });
 
       const returnTo = userState.returnTo && userState.returnTo.startsWith('/') ? userState.returnTo : '/app/schedule';
-      return NextResponse.redirect(new URL(`${returnTo}${returnTo.includes('?') ? '&' : '?'}calendar=connected`, request.nextUrl.origin));
+      return NextResponse.redirect(new URL(`${returnTo}${returnTo.includes('?') ? '&' : '?'}calendar=connected`, origin));
     }
 
     assertSetupSecret(state);

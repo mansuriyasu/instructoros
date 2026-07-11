@@ -111,6 +111,10 @@ export function getGoogleCalendarRedirectUri(origin: string) {
   return `${origin}/api/google-calendar/callback`;
 }
 
+export function getGoogleCalendarAppOrigin(fallbackOrigin: string) {
+  return (process.env.NEXT_PUBLIC_APP_URL || fallbackOrigin).replace(/\/$/, '');
+}
+
 export function createUserGoogleCalendarAuthUrl(params: {
   uid: string;
   email?: string;
