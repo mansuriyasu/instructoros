@@ -9,6 +9,7 @@ import {
   MessageSquareText,
   Rocket,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
   UserPlus,
   UserRound,
@@ -61,6 +62,11 @@ const features = [
     icon: ShieldCheck,
     title: 'Admin Control & Reporting',
     text: 'Role-based access plus reports on payments, lesson activity, and school performance.',
+  },
+  {
+    icon: Sparkles,
+    title: 'AI Timing Assistant',
+    text: 'Estimate travel between lessons, add a practical buffer, and keep the day realistic for every instructor.',
   },
 ];
 
@@ -140,16 +146,16 @@ export default function MarketingHomePage() {
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-black text-amber-700">
               <ShieldCheck className="h-4 w-4" />
-              All-in-One Platform for Driving Schools
+              The AI-powered workspace for driving schools
             </div>
             <h1 className="max-w-xl text-4xl font-black leading-[1.05] tracking-normal text-[#102033] sm:text-5xl lg:text-6xl">
-              Run Your Driving School
+              The AI app built for
               <br />
-              <span className="text-[#f59e0b]">Smarter, Not Harder.</span>
+              <span className="text-[#f59e0b]">driving schools.</span>
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-8 text-slate-600">
-              InstructorOS is the workspace built to help driving instructors and schools manage
-              students, lessons, schedules, and payments — all in one place.
+              InstructorOS brings students, lessons, schedules, payments, team operations, and
+              intelligent travel planning into one calm, focused workspace.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -282,7 +288,8 @@ export default function MarketingHomePage() {
               Everything You Need to <span className="text-[#f59e0b]">Succeed</span>
             </h2>
             <p className="mt-3 text-base leading-7 text-slate-600">
-              Built specifically for the way driving schools and instructors work.
+              Built specifically for the way driving schools and instructors work, with AI helping
+              you make better decisions in the moments that matter.
             </p>
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

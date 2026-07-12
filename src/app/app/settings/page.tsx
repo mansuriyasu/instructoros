@@ -3,7 +3,7 @@ import { SettingsClientPage } from './_components/settings-client-page';
 
 export const metadata: Metadata = {
   title: 'Settings',
-  description: 'Manage app settings, view WhatsApp activity, and import/export data.',
+  description: 'Manage workspace settings and import or export your data.',
 };
 
 export default function SettingsPage() {

@@ -2,25 +2,20 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { WhatsAppLogsTable } from './whatsapp-logs-table';
 import { ImportExportClientPage } from './import-export-client-page';
 import { WorkspaceProfileSettings } from './workspace-profile-settings';
-import { ServiceList } from '../../services/_components/service-list';
-import { BriefcaseBusiness, Database, MessageSquare, Settings2 } from 'lucide-react';
+import { Database, Settings2 } from 'lucide-react';
 import { useSession } from '@/firebase';
 
 export function SettingsClientPage() {
   const { role } = useSession();
   const [tab, setTab] = useState('workspace');
-  const canManageServices = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
   const canImportExport = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
   const canManageWorkspace = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
   const visibleTabs = useMemo(() => [
     { value: 'workspace', label: 'Workspace', icon: Settings2, visible: canManageWorkspace },
-    { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, visible: role !== 'schoolInstructor' },
-    { value: 'services', label: 'Services', icon: BriefcaseBusiness, visible: canManageServices },
     { value: 'import-export', label: 'Import / Export', icon: Database, visible: canImportExport },
-  ].filter(item => item.visible), [canImportExport, canManageServices, canManageWorkspace, role]);
+  ].filter(item => item.visible), [canImportExport, canManageWorkspace]);
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
@@ -39,7 +34,7 @@ export function SettingsClientPage() {
             Settings & Data
           </h1>
           <p className="text-muted-foreground mt-2 max-w-xl">
-            Manage workspace settings, services, WhatsApp activity, and backup or restore your data securely.
+            Manage your workspace details and securely back up or restore your data.
           </p>
         </div>
       </div>
@@ -60,14 +55,8 @@ export function SettingsClientPage() {
           ))}
         </TabsList>
         <div className="mt-6">
-            <TabsContent value="whatsapp">
-                <WhatsAppLogsTable />
-            </TabsContent>
             <TabsContent value="workspace">
                 {canManageWorkspace ? <WorkspaceProfileSettings /> : null}
-            </TabsContent>
-            <TabsContent value="services">
-                {canManageServices ? <ServiceList /> : null}
             </TabsContent>
             <TabsContent value="import-export">
                 {canImportExport ? <ImportExportClientPage /> : null}
