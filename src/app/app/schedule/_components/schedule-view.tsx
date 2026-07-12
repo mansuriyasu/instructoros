@@ -35,7 +35,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { ExamSchedulerDialog } from './exam-scheduler-dialog';
 import { ListView } from './list-view';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
-import { CalendarDays, Car, MessageSquare, Sparkles } from 'lucide-react';
+import { CalendarDays, Car, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
@@ -130,15 +130,10 @@ export function ScheduleView() {
   const [missingPhoneStudent, setMissingPhoneStudent] = useState<Student | null>(null);
   const [pendingSmsData, setPendingSmsData] = useState<{ finalData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean } | null>(null);
 
-  const [isBulkMessageDialogOpen, setIsBulkMessageDialogOpen] = useState(false);
-  const [bulkMessageStudents, setBulkMessageStudents] = useState<{ studentId: string, name: string, phone: string, event: CalendarEvent }[]>([]);
-  const [isSendingBulkMessage, setIsSendingBulkMessage] = useState(false);
-
   const [isOptimizerDialogOpen, setIsOptimizerDialogOpen] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
   const [eventsToOptimize, setEventsToOptimize] = useState<CalendarEvent[]>([]);
-  const [isAskNotifyDialogOpen, setIsAskNotifyDialogOpen] = useState(false);
 
   const firestore = useFirestore();
   const { activeTenantId, canManageTenant, tenant, user } = useSession();
@@ -412,77 +407,12 @@ export function ScheduleView() {
 
   const handleAddNewClick = () => {
     setSelectedEvent(null);
-    setSelectedDateTime(new Date());
+    setSelectedDateTime(new Date(currentDate));
     setIsFormDialogOpen(true);
   }
 
   const matchesSelectedInstructor = (event: CalendarEvent) => {
     return selectedInstructorId === 'all' || event.instructorId === selectedInstructorId;
-  };
-
-  const handleOpenBulkMessageDialog = () => {
-    const now = new Date();
-    // Events for the currently selected currentDate that are strictly after `now`
-    const upcomingToday = (allEvents || []).filter((e: CalendarEvent) => {
-      const eStart = new Date(e.start);
-      return matchesSelectedInstructor(e)
-        && eStart.toDateString() === currentDate.toDateString()
-        && eStart.getTime() > now.getTime();
-    });
-
-    // Deduplicate by studentId, keeping their earliest upcoming event today
-    const uniqueStudentsMap = new Map<string, { studentId: string, name: string, phone: string, event: CalendarEvent }>();
-
-    upcomingToday.forEach((e: CalendarEvent) => {
-      if (!e.studentId) return;
-      if (uniqueStudentsMap.has(e.studentId)) return;
-      const student = allStudents?.find(s => s.id === e.studentId);
-      if (student && student.mobileNumber) {
-        uniqueStudentsMap.set(e.studentId, {
-          studentId: e.studentId,
-          name: student.name || e.studentName,
-          phone: student.mobileNumber,
-          event: e,
-        });
-      }
-    });
-
-    const studentsToMessage = Array.from(uniqueStudentsMap.values());
-    if (studentsToMessage.length === 0) {
-      toast({
-        title: 'No upcoming students',
-        description: 'There are no upcoming students scheduled for the rest of this day with valid phone numbers.',
-      });
-      return;
-    }
-
-    setBulkMessageStudents(studentsToMessage);
-    setIsBulkMessageDialogOpen(true);
-  };
-
-  const handleSendBulkMessage = async () => {
-    setIsSendingBulkMessage(true);
-    let sentCount = 0;
-    
-    for (const item of bulkMessageStudents) {
-      const startTime = format(new Date(item.event.start), 'h:mm a');
-      const body = `Hi ${item.name}, just a friendly reminder that you have a driving lesson scheduled today at ${startTime}. See you soon!`;
-      
-      const result = await sendAndLogWhatsApp(item.phone, body, {
-        templateKey: 'schedule',
-        variables: buildScheduleWhatsappVariables(item.event, false)
-      });
-      if (result.ok) {
-        sentCount++;
-      }
-    }
-    
-    setIsSendingBulkMessage(false);
-    setIsBulkMessageDialogOpen(false);
-    toast({
-      title: 'WhatsApp reminders opened',
-      description: `Opened ${sentCount} reminder message(s). Send them in WhatsApp to deliver.`,
-    });
   };
 
   const handleOptimizeRoute = async () => {
@@ -561,7 +491,6 @@ export function ScheduleView() {
     
     setIsOptimizerDialogOpen(false);
     toast({ title: 'Schedule Updated', description: 'The optimized route has been applied to your calendar.' });
-    setIsAskNotifyDialogOpen(true);
   };
 
   useEffect(() => {
@@ -1143,20 +1072,11 @@ export function ScheduleView() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleOpenBulkMessageDialog}
-                className="h-10 gap-2 border-primary/20 text-primary hover:bg-primary/5 hidden sm:flex"
-              >
-                <MessageSquare className="h-4 w-4" />
-                <span className="hidden md:inline">Message Today</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
                 onClick={handleOptimizeRoute}
                 className="h-10 gap-2 border-primary/20 text-primary hover:bg-primary/5 hidden sm:flex"
               >
                 <Sparkles className="h-4 w-4 text-purple-500" />
-                <span className="hidden md:inline">AI Optimize</span>
+                <span className="hidden md:inline">Optimize Timing</span>
               </Button>
               <Button
                 variant="outline"
@@ -1368,6 +1288,7 @@ export function ScheduleView() {
         onOpenChange={setIsExamDialogOpen}
         onSave={handleSaveEvent}
         initialStudentId={examStudentIdForDialog}
+        initialDate={currentDate}
         instructors={instructorOptions}
         canManageInstructorSchedules={canManageTenant}
       />
@@ -1452,51 +1373,21 @@ export function ScheduleView() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={isBulkMessageDialogOpen} onOpenChange={setIsBulkMessageDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Send Reminders</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div>
-                You are about to send a reminder message to <strong>{bulkMessageStudents.length}</strong> student(s) scheduled for later today.
-                <br /><br />
-                The message will say: <em>"Hi [Name], just a friendly reminder that you have a driving lesson scheduled today at [Time]. See you soon!"</em>
-                <br /><br />
-                This will be sent silently in the background. Do you want to continue?
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSendingBulkMessage}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSendBulkMessage} disabled={isSendingBulkMessage}>
-              {isSendingBulkMessage ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                'Send Reminders'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AlertDialog open={isOptimizerDialogOpen} onOpenChange={setIsOptimizerDialogOpen}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>AI Route Optimizer</AlertDialogTitle>
+            <AlertDialogTitle>Optimize Lesson Timing</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
                 {isOptimizing ? (
                   <div className="flex flex-col items-center justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                    <p>Analyzing {eventsToOptimize.length} lessons and optimizing travel times...</p>
-                    <p className="text-xs text-muted-foreground mt-2">This usually takes 10-15 seconds.</p>
+                    <p>Checking the ETA between each student address and adding a five-minute buffer...</p>
+                    <p className="text-xs text-muted-foreground mt-2">Lesson order stays the same.</p>
                   </div>
                 ) : optimizationResult ? (
                   <div>
-                    <p className="mb-4 text-foreground">Here is the optimized schedule for today based on driving distances:</p>
+                    <p className="mb-4 text-foreground">Here are the adjusted times for {format(currentDate, 'MMMM d')} using estimated travel time plus a five-minute buffer:</p>
                     <div className="max-h-[300px] overflow-y-auto space-y-3">
                       {optimizationResult.optimizedOrder.map((opt: any, index: number) => {
                         const originalEvent = eventsToOptimize.find(e => e.id === opt.eventId);
@@ -1532,31 +1423,12 @@ export function ScheduleView() {
               disabled={isOptimizing || !optimizationResult}
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
-              Apply Optimization
+              Apply Timing Changes
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={isAskNotifyDialogOpen} onOpenChange={setIsAskNotifyDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Notify Students?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your schedule has been successfully updated! Would you like to send an automated message to today's students to let them know about their new lesson times?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Skip</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              setIsAskNotifyDialogOpen(false);
-              setTimeout(() => handleOpenBulkMessageDialog(), 200);
-            }}>
-              Yes, send messages
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

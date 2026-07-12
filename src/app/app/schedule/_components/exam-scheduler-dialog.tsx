@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ interface ExamSchedulerDialogProps {
   initialStudentId?: string;
   instructors?: InstructorOption[];
   canManageInstructorSchedules?: boolean;
+  initialDate?: Date;
 }
 
 export function ExamSchedulerDialog({
@@ -38,6 +40,7 @@ export function ExamSchedulerDialog({
   initialStudentId,
   instructors = [],
   canManageInstructorSchedules = false,
+  initialDate,
 }: ExamSchedulerDialogProps) {
   const { students, addStudent, updateStudent } = useStudents();
   const { services } = useServices();
@@ -250,6 +253,7 @@ export function ExamSchedulerDialog({
       if (initialStudent?.name) setStudentName(initialStudent.name);
       setIsCreatingStudent(false);
     }
+    setExamDate(format(initialDate || new Date(), 'yyyy-MM-dd'));
     onOpenChange(open);
   };
 

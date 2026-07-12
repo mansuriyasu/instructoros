@@ -1,19 +1,16 @@
 'use server';
 
-import { googleAI } from '@genkit-ai/google-genai';
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-
-const RouteOptimizationSchema = z.object({
-  optimizedOrder: z.array(z.object({
-    eventId: z.string().describe('The unique ID of the event.'),
-    suggestedStartTime: z.string().describe('The new suggested start time in ISO format (e.g. 2026-06-22T10:00:00.000Z).'),
-    suggestedEndTime: z.string().describe('The new suggested end time in ISO format.'),
-    explanation: z.string().describe('A brief explanation of why this time/order was chosen (e.g. "Closer to previous student").')
-  })).describe('The fully optimized ordered list of events.')
-});
-
-export type RouteOptimization = z.infer<typeof RouteOptimizationSchema>;
+import { estimateTravelTimeSafe } from './estimate-travel-time';
+export type RouteOptimization = {
+  optimizedOrder: Array<{
+    eventId: string;
+    suggestedStartTime: string;
+    suggestedEndTime: string;
+    travelMinutes: number;
+    bufferMinutes: number;
+    explanation: string;
+  }>;
+};
 
 export type OptimizeRouteResult = 
   | { ok: true; details: RouteOptimization }
@@ -23,31 +20,48 @@ export async function optimizeDailyRoute(
   events: Array<{ id: string; studentName: string; address: string; originalStart: string; originalEnd: string; durationMinutes: number }>,
   startAddress?: string
 ): Promise<RouteOptimization> {
-  const llmResponse = await ai.generate({
-    model: googleAI.model('gemini-2.5-flash'),
-    output: { schema: RouteOptimizationSchema },
-    prompt: `You are an expert mapping and logistics AI for a driving school.
-Your goal is to optimize a daily schedule of driving lessons to minimize the driving travel time between student pickup locations.
+  const orderedEvents = [...events].sort(
+    (a, b) => new Date(a.originalStart).getTime() - new Date(b.originalStart).getTime()
+  );
+  const bufferMinutes = 5;
+  const optimizedOrder: RouteOptimization['optimizedOrder'] = [];
+  let previousAddress = startAddress?.trim() || '';
+  let previousEnd = new Date(orderedEvents[0]?.originalStart || Date.now());
 
-Here are the lessons scheduled for today:
-${JSON.stringify(events, null, 2)}
+  for (const [index, event] of orderedEvents.entries()) {
+    const durationMinutes = Math.max(1, Math.round(event.durationMinutes));
+    let travelMinutes = 0;
 
-${startAddress ? `The instructor will start their day from: ${startAddress}` : 'Assume the instructor starts from the first scheduled student.'}
+    if (index > 0 || previousAddress) {
+      const origin = previousAddress || orderedEvents[index - 1]?.address || event.address;
+      const estimate = await estimateTravelTimeSafe(origin, event.address);
+      travelMinutes = estimate.ok && Number.isFinite(estimate.details.travelTimeMinutes)
+        ? Math.max(0, Math.round(estimate.details.travelTimeMinutes))
+        : 30;
+    }
 
-Instructions:
-1. Re-order the lessons to form the shortest possible driving route.
-2. Keep the original duration of each lesson intact.
-3. Suggest realistic start and end times for the new order, leaving reasonable 15-30 minute gaps for driving between different addresses.
-4. Try to keep the first lesson of the day roughly around the same time it was originally scheduled.
-5. Return the newly ordered list with the calculated start and end times.
-`,
-  });
+    const originalStart = new Date(event.originalStart);
+    const suggestedStart = index === 0
+      ? originalStart
+      : new Date(previousEnd.getTime() + (travelMinutes + bufferMinutes) * 60000);
+    const suggestedEnd = new Date(suggestedStart.getTime() + durationMinutes * 60000);
 
-  const output = llmResponse.output;
-  if (!output) {
-    throw new Error('The AI model could not optimize the route.');
+    optimizedOrder.push({
+      eventId: event.id,
+      suggestedStartTime: suggestedStart.toISOString(),
+      suggestedEndTime: suggestedEnd.toISOString(),
+      travelMinutes,
+      bufferMinutes,
+      explanation: index === 0
+        ? 'First lesson keeps its original start time.'
+        : `${travelMinutes} min estimated drive from the previous address + ${bufferMinutes} min buffer.`,
+    });
+
+    previousAddress = event.address;
+    previousEnd = suggestedEnd;
   }
-  return output;
+
+  return { optimizedOrder };
 }
 
 export async function optimizeDailyRouteSafe(
