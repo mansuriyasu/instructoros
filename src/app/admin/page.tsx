@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
-import { Activity, AlertTriangle, Building2, CheckCircle2, ExternalLink, Gift, Receipt, RefreshCw, Shield, TicketPercent, UserRound, XCircle } from 'lucide-react';
+import { Activity, AlertTriangle, Building2, CheckCircle2, ExternalLink, Gift, Receipt, RefreshCw, Shield, TicketPercent, Trash2, UserRound, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,11 +31,14 @@ type ReadinessResponse = {
   reminders?: string[];
 };
 
-function addDays(date: Date, days: number) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
+type ActivityRecord = {
+  id: string;
+  tenantName: string;
+  actorEmail?: string;
+  actorRole?: string;
+  action: string;
+  createdAt: string;
+};
 
 function formatDate(value?: string | null) {
   if (!value) return '';
@@ -56,6 +59,8 @@ export default function AdminPage() {
   const router = useRouter();
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
+  const [activities, setActivities] = useState<ActivityRecord[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoKind, setPromoKind] = useState<PromoCodeKind>('free');
   const [promoFreeDays, setPromoFreeDays] = useState(30);
@@ -63,6 +68,7 @@ export default function AdminPage() {
   const [promoExpiresAt, setPromoExpiresAt] = useState('');
   const [adminMessage, setAdminMessage] = useState('');
   const [promoSaving, setPromoSaving] = useState(false);
+  const [deletingTenantId, setDeletingTenantId] = useState<string | null>(null);
 
   const tenantsQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'tenants'), orderBy('createdAt', 'desc')) : null),
@@ -78,7 +84,7 @@ export default function AdminPage() {
   );
 
   const { data: tenants, isLoading: tenantsLoading } = useCollection<Tenant>(tenantsQuery);
-  const { data: users } = useCollection<{ email: string; activeTenantId?: string }>(usersQuery);
+  const { data: users } = useCollection<{ uid: string; email: string; displayName?: string; activeTenantId?: string }>(usersQuery);
   const { data: promoCodes, isLoading: promoCodesLoading } = useCollection<PromoCode>(promoCodesQuery);
   const userCountByTenant = useMemo(() => {
     return (users || []).reduce<Record<string, number>>((counts, profile) => {
@@ -111,6 +117,24 @@ export default function AdminPage() {
     void loadReadiness();
   }, [loadReadiness]);
 
+  const loadActivity = useCallback(async () => {
+    if (!user || !isMainAdmin) return;
+    setActivityLoading(true);
+    try {
+      const response = await fetch('/api/admin/activity?limit=50', {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) setActivities(data.activities || []);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [isMainAdmin, user]);
+
+  useEffect(() => {
+    void loadActivity();
+  }, [loadActivity]);
+
   const openTenant = async (tenant: Tenant) => {
     if (!user) return;
     const now = new Date().toISOString();
@@ -133,19 +157,69 @@ export default function AdminPage() {
     });
   };
 
-  const grantFreeAccess = async (tenant: Tenant, days: number) => {
-    const now = new Date();
-    const freeAccessUntil = addDays(now, days).toISOString();
+  const deleteTenant = async (tenant: Tenant) => {
+    if (!user) return;
+    const confirmation = window.prompt(`This permanently deletes ${tenant.name}, all workspace data, and the owner's account if they have no other workspace. Type DELETE TENANT ${tenant.id} to continue.`);
+    if (confirmation !== `DELETE TENANT ${tenant.id}`) return;
 
-    await updateDoc(doc(firestore, 'tenants', tenant.id), {
-      status: 'active',
-      subscriptionStatus: 'active',
-      billingLocked: false,
-      freeAccessUntil,
-      freeAccessReason: `Admin granted ${days} days free access`,
-      updatedAt: now.toISOString(),
+    setDeletingTenantId(tenant.id);
+    try {
+      const response = await fetch('/api/account/delete-workspace', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({ tenantId: tenant.id, confirmationText: confirmation }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Could not delete the workspace.');
+      setAdminMessage(`${tenant.name} and its workspace data were permanently deleted.`);
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : 'Could not delete the workspace.');
+    } finally {
+      setDeletingTenantId(null);
+    }
+  };
+
+  const deleteUser = async (profile: { uid: string; email: string }) => {
+    if (!user || profile.uid === user.uid) return;
+    const confirmation = window.prompt(`This permanently deletes ${profile.email}, every workspace they own, and all of their memberships. Type DELETE USER ${profile.uid} to continue.`);
+    if (confirmation !== `DELETE USER ${profile.uid}`) return;
+
+    setDeletingTenantId(`user:${profile.uid}`);
+    try {
+      const response = await fetch('/api/account/delete-workspace', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({ userId: profile.uid, confirmationText: confirmation }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Could not delete the account.');
+      setAdminMessage(`${profile.email} and their account data were permanently deleted.`);
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : 'Could not delete the account.');
+    } finally {
+      setDeletingTenantId(null);
+    }
+  };
+
+  const grantFreeAccess = async (tenant: Tenant, days: number) => {
+    if (!user) return;
+    const response = await fetch('/api/admin/access/grant', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({ tenantId: tenant.id, days }),
     });
-    setAdminMessage(`${tenant.name} has free access until ${formatDate(freeAccessUntil)}.`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not grant free access.');
+    setAdminMessage(`${tenant.name} has free access until ${formatDate(data.freeAccessUntil)}.`);
   };
 
   const handlePromoSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -266,6 +340,38 @@ export default function AdminPage() {
                 Utility Tracker
               </Link>
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" /> Recent activity</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">Login, invite, trial, and access changes across workspaces.</p>
+              </div>
+              <Button variant="outline" onClick={loadActivity} disabled={activityLoading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${activityLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {activities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No activity has been recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {activities.slice(0, 12).map(activity => (
+                  <div key={`${activity.tenantName}-${activity.id}`} className="flex flex-col gap-1 rounded-lg border p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <span className="font-semibold">{activity.action.replaceAll('_', ' ')}</span>
+                      <span className="text-muted-foreground"> · {activity.actorEmail || 'Unknown user'} · {activity.tenantName}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{formatDate(activity.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -467,9 +573,43 @@ export default function AdminPage() {
                     {tenant.status === 'active' ? 'Suspend' : 'Activate'}
                   </Button>
                   <Button onClick={() => openTenant(tenant)}>Open</Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => deleteTenant(tenant)}
+                    disabled={deletingTenantId === tenant.id}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {deletingTenantId === tenant.id ? 'Deleting...' : 'Delete'}
+                  </Button>
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Accounts</CardTitle>
+            <p className="text-sm text-muted-foreground">Delete an account, its memberships, and any workspaces it owns.</p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(users || []).map(profile => (
+              <div key={profile.uid} className="flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold">{profile.displayName || profile.email || 'Unnamed account'}</p>
+                  <p className="text-xs text-muted-foreground">{profile.email} · {profile.uid}</p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteUser(profile)}
+                  disabled={profile.uid === user?.uid || deletingTenantId === `user:${profile.uid}`}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {deletingTenantId === `user:${profile.uid}` ? 'Deleting...' : 'Delete account'}
+                </Button>
+              </div>
+            ))}
+            {(!users || users.length === 0) && <p className="text-sm text-muted-foreground">No user profiles found.</p>}
           </CardContent>
         </Card>
       </div>

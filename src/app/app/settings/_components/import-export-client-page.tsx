@@ -473,11 +473,11 @@ export function ImportExportClientPage() {
   };
 
   const studentCount = students?.length || 0;
-  const requiredDeleteText = tenant?.name ? `DELETE ${tenant.name}` : 'DELETE';
-  const canDeleteWorkspace = Boolean(activeTenantId && tenant && user && hasDownloadedBackup && deleteConfirmText === requiredDeleteText && !isDeleting);
+  const requiredDeleteText = 'DELETE MY ACCOUNT';
+  const canDeleteWorkspace = Boolean(user && hasDownloadedBackup && deleteConfirmText === requiredDeleteText && !isDeleting);
 
   const handleDeleteWorkspace = async () => {
-    if (!activeTenantId || !user || !tenant) return;
+    if (!user) return;
 
     setIsDeleting(true);
     try {
@@ -488,10 +488,7 @@ export function ImportExportClientPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          tenantId: activeTenantId,
-          confirmationText: deleteConfirmText,
-        }),
+        body: JSON.stringify({ confirmationText: deleteConfirmText }),
       });
       const data = await response.json().catch(() => ({}));
 
@@ -500,8 +497,8 @@ export function ImportExportClientPage() {
       }
 
       toast({
-        title: 'Workspace deleted',
-        description: data.authDeleted ? 'Your account and workspace data were deleted.' : 'Workspace data was deleted.',
+        title: 'Account deleted',
+        description: `Your profile, login, memberships, and ${data.deletedTenants?.length || 0} owned workspace(s) were deleted.`,
       });
       await signOut(auth).catch(() => undefined);
       window.location.assign('/');
@@ -650,7 +647,7 @@ export function ImportExportClientPage() {
             Delete Account and Data
           </CardTitle>
           <CardDescription>
-            Export your full backup first. Deleting removes this workspace, students, schedules, payments, services, logs, team records, and related app data.
+            Export your full backup first. Deleting removes your profile, Firebase login, memberships, and every workspace you own with its students, schedules, payments, services, logs, team records, and related app data.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -658,7 +655,7 @@ export function ImportExportClientPage() {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>This cannot be undone</AlertTitle>
             <AlertDescription>
-              If this is your only workspace, the app will also delete your Firebase login account. Stripe subscription cancellation is attempted during deletion when billing is connected.
+              This permanently deletes your Firebase login account. If you are an invited instructor, your school workspace remains intact and only your own account and memberships are removed. Stripe subscription cancellation is attempted for workspaces you own.
             </AlertDescription>
           </Alert>
 
@@ -687,9 +684,9 @@ export function ImportExportClientPage() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete {tenant?.name}?</AlertDialogTitle>
+                  <AlertDialogTitle>Delete your account and all owned data?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This permanently removes the selected workspace and its app data. Make sure your full JSON backup was downloaded successfully.
+                    This permanently removes your account and every workspace you own. A school you only joined as an instructor will not be deleted.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
