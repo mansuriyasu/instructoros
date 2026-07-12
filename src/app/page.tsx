@@ -191,14 +191,86 @@ export default function MarketingHomePage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
               </div>
               <Image
-                src="/assets/instructoros-dashboard-preview.png"
-                alt="InstructorOS dashboard showing students, lessons, and payments"
-                width={1400}
-                height={900}
+                src="/assets/instructoros-coaching-session.png"
+                alt="Driving instructor reviewing a lesson plan with a student"
+                width={1672}
+                height={941}
                 priority
-                className="h-auto w-full"
+                className="aspect-[16/9] h-auto w-full object-cover"
               />
             </div>
+            <div className="absolute -bottom-5 -left-4 max-w-[230px] rounded-md border border-slate-200 bg-white p-4 shadow-xl sm:-left-6">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-600">Made for the road</p>
+              <p className="mt-1 text-sm font-bold leading-5 text-[#102033]">Keep every lesson, student, and payment moving together.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-slate-200 bg-white py-16 sm:py-20">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-xl shadow-slate-900/10">
+            <Image
+              src="/assets/instructoros-school-team.png"
+              alt="Driving school team planning instructor schedules together"
+              width={1672}
+              height={941}
+              className="aspect-[16/9] h-auto w-full object-cover"
+            />
+          </div>
+          <div className="lg:pl-8">
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-600">For schools that grow</p>
+            <h2 className="mt-3 max-w-xl text-3xl font-black leading-tight text-slate-950 sm:text-4xl">
+              One clear view of your whole teaching team.
+            </h2>
+            <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
+              See instructor availability, assign students, coordinate road tests, and keep the office
+              in sync without chasing spreadsheets or group messages.
+            </p>
+            <div className="mt-7 grid gap-4 sm:grid-cols-2">
+              {[
+                ['Shared schedules', 'Know who is teaching what and when.'],
+                ['Assigned students', 'Give every instructor the right context.'],
+                ['Clear payments', 'Keep balances and receipts close to the lesson.'],
+                ['Room to grow', 'Add your team without losing the big picture.'],
+              ].map(([title, text]) => (
+                <div key={title} className="border-l-2 border-[#facc15] pl-4">
+                  <p className="text-sm font-black text-[#102033]">{title}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#102033] py-16 sm:py-20">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="text-white">
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#facc15]">Your day, organized</p>
+            <h2 className="mt-3 max-w-xl text-3xl font-black leading-tight sm:text-4xl">
+              From the first booking to the final receipt.
+            </h2>
+            <p className="mt-5 max-w-xl text-base leading-7 text-white/70">
+              InstructorOS brings the practical details of a driving business into one workspace so
+              you can spend less time on admin and more time teaching.
+            </p>
+            <Link
+              href="/login?next=/app"
+              className="mt-7 inline-flex h-11 items-center gap-2 rounded-md bg-[#facc15] px-5 text-sm font-black text-[#102033] hover:bg-[#eab308]"
+            >
+              See how it works
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white shadow-2xl">
+            <Image
+              src="/assets/instructoros-dashboard-preview.png"
+              alt="InstructorOS workspace dashboard with scheduling and business activity"
+              width={1400}
+              height={900}
+              className="h-auto w-full"
+            />
           </div>
         </div>
       </section>
