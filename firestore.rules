@@ -35,7 +35,14 @@ service cloud.firestore {
 
     function billingWritable(tenantId) {
       return isMainAdmin()
-        || (tenantExists(tenantId) && get(tenantPath(tenantId)).data.billingLocked != true);
+        || (tenantExists(tenantId)
+          && get(tenantPath(tenantId)).data.billingLocked != true
+          && (
+            !get(tenantPath(tenantId)).data.keys().hasAll(["freeAccessUntilAt"])
+            || !(get(tenantPath(tenantId)).data.freeAccessUntilAt is timestamp)
+            || get(tenantPath(tenantId)).data.freeAccessUntilAt > request.time
+            || get(tenantPath(tenantId)).data.stripeSubscriptionId is string
+          ));
     }
 
     function member(tenantId) {
@@ -260,6 +267,11 @@ service cloud.firestore {
       match /smsLogs/{docId} {
         allow read: if isTenantAdmin(tenantId);
         allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+
+      match /activity/{docId} {
+        allow read: if isTenantAdmin(tenantId);
+        allow write: if false;
       }
     }
 
