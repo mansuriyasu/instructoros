@@ -168,6 +168,7 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [schoolName, setSchoolName] = useState('');
+  const [inviteUseExistingAccount, setInviteUseExistingAccount] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [activateTrialOnSignup, setActivateTrialOnSignup] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -319,7 +320,7 @@ export function LoginForm() {
 
       if (canUseCurrentSessionForSignup && session.user) {
         user = session.user;
-      } else if (mode === 'login') {
+      } else if (mode === 'login' || (mode === 'invite' && inviteUseExistingAccount)) {
         const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
         user = credential.user;
       } else {
@@ -327,11 +328,10 @@ export function LoginForm() {
           const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
           user = credential.user;
         } catch (signupError) {
-          if (mode !== 'invite' || !/auth\/email-already-in-use/i.test(signupError instanceof Error ? signupError.message : String(signupError))) {
-            throw signupError;
+          if (mode === 'invite' && /auth\/email-already-in-use/i.test(signupError instanceof Error ? signupError.message : String(signupError))) {
+            throw new Error('This email already has an InstructorOS account. Choose “Use existing account” above and sign in with that account’s current password, or use Google if it is a Google account.');
           }
-          const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
-          user = credential.user;
+          throw signupError;
         }
       }
 
@@ -538,13 +538,36 @@ export function LoginForm() {
                   </div>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <Button type="button" variant="outline" className="rounded-xl" onClick={() => setMode('login')}>
-                    I already have an account
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => {
+                      if (mode === 'invite') setInviteUseExistingAccount(true);
+                      else setMode('login');
+                      setError('');
+                    }}
+                  >
+                    {mode === 'invite' ? 'Use existing account' : 'I already have an account'}
                   </Button>
-                  <Button type="button" variant="ghost" className="rounded-xl" onClick={() => setMode('login')}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="rounded-xl"
+                    onClick={() => {
+                      setMode('login');
+                      setInviteUseExistingAccount(false);
+                      setError('');
+                    }}
+                  >
                     Change account type
                   </Button>
                 </div>
+                {mode === 'invite' && inviteUseExistingAccount && (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Sign in with the password already connected to this email. Your invite will be accepted after login.
+                  </p>
+                )}
               </div>
             )}
 
@@ -611,7 +634,7 @@ export function LoginForm() {
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Enter password"
                     className="h-12 rounded-2xl pl-10 pr-11"
-                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    autoComplete={mode === 'login' || (mode === 'invite' && inviteUseExistingAccount) ? 'current-password' : 'new-password'}
                   />
                   <Button
                     type="button"
@@ -659,7 +682,7 @@ export function LoginForm() {
                 {mode === 'login'
                   ? 'Login'
                   : mode === 'invite'
-                    ? 'Accept Invite'
+                    ? inviteUseExistingAccount ? 'Sign in & Accept Invite' : 'Create Account & Accept Invite'
                     : activateTrialOnSignup
                       ? 'Create Workspace & Start Trial'
                       : 'Create Workspace'}
