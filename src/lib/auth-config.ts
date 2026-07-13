@@ -27,10 +27,12 @@ export type Tenant = {
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   subscriptionStatus?: BillingStatus;
+  trialStartedAt?: string | null;
   trialEndsAt?: string | null;
   currentPeriodEnd?: string | null;
   billingLocked?: boolean;
   freeAccessUntil?: string | null;
+  freeAccessUntilAt?: string | { toMillis: () => number } | null;
   freeAccessReason?: string;
   promoCodeApplied?: string;
   promoPercentOff?: number;
