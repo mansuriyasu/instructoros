@@ -15,7 +15,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth';
-import { arrayUnion, collection, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { Building2, Eye, EyeOff, Loader2, LockKeyhole, LogIn, Mail, UserPlus, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,8 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth, useFirestore, useSession } from '@/firebase';
-import { MAIN_ADMIN_EMAIL, normalizeEmail, type AppUserProfile, type TenantInvite, type TenantMember } from '@/lib/auth-config';
-import { getIncludedSeats, getPlanForTenantType } from '@/lib/billing';
+import { MAIN_ADMIN_EMAIL, normalizeEmail, type AppUserProfile, type TenantMember } from '@/lib/auth-config';
 import { Logo } from '@/components/logo';
 
 type AuthMode = 'login' | 'school' | 'solo' | 'invite';
@@ -77,11 +76,6 @@ function getAuthErrorMessage(error: unknown, attemptType: AuthAttemptType = 'ema
 function safeNextUrl(rawNextUrl: string | null) {
   const nextUrl = rawNextUrl || '/app';
   return nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/app';
-}
-
-function inviteExpiryTime(value: TenantInvite['expiresAt']) {
-  if (typeof value === 'string') return new Date(value).getTime();
-  return value?.toMillis?.() || null;
 }
 
 function getAuthAttemptId(mode: AuthMode, email: string) {
@@ -216,79 +210,33 @@ export function LoginForm() {
   }, [session.isSessionLoading, session.role, session.user]);
 
   const createTenantWorkspace = async (user: User, type: 'school' | 'solo') => {
-    const now = new Date().toISOString();
-    const tenantRef = doc(collection(firestore, 'tenants'));
-    const userRef = doc(firestore, 'users', user.uid);
-    const memberRef = doc(firestore, 'tenants', tenantRef.id, 'members', user.uid);
-    const ownerEmail = normalizeEmail(user.email || normalizedEmail);
-    const ownerDisplayName = displayName.trim() || user.displayName || ownerEmail;
-    const tenantName = type === 'school' ? schoolName.trim() : `${ownerDisplayName}'s Workspace`;
-    const role = type === 'school' ? 'schoolAdmin' : 'soloInstructor';
-    const customerBusinessName = type === 'school' ? tenantName : ownerDisplayName;
-    const plan = getPlanForTenantType(type);
-    const batch = writeBatch(firestore);
-
-    batch.set(tenantRef, {
-      name: tenantName,
-      type,
-      status: 'active',
-      plan,
-      seatLimit: getIncludedSeats(plan),
-      extraSeats: 0,
-      subscriptionStatus: 'not_started',
-      billingLocked: true,
-      receiptBusinessName: customerBusinessName,
-      receiptEmail: ownerEmail,
-      messageSenderName: customerBusinessName,
-      ownerUid: user.uid,
-      ownerEmail,
-      createdAt: now,
-      updatedAt: now,
+    const response = await fetch('/api/onboarding/workspace', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken(true)}`,
+      },
+      body: JSON.stringify({ type, displayName: displayName.trim() || user.displayName || normalizedEmail, schoolName }),
     });
-    batch.set(userRef, {
-      uid: user.uid,
-      email: ownerEmail,
-      displayName: ownerDisplayName,
-      activeTenantId: tenantRef.id,
-      tenantIds: arrayUnion(tenantRef.id),
-      createdAt: now,
-      updatedAt: now,
-    }, { merge: true });
-    batch.set(memberRef, {
-      uid: user.uid,
-      email: ownerEmail,
-      displayName: ownerDisplayName,
-      role,
-      status: 'active',
-      tenantId: tenantRef.id,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await batch.commit();
-    return tenantRef.id;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.tenantId) throw new Error(data.error || 'Could not create your workspace.');
+    return String(data.tenantId);
   };
 
-  const startBillingCheckout = async (user: User, tenantId: string, type: 'school' | 'solo') => {
-    const response = await fetch('/api/billing/checkout', {
+  const activateFreeTrial = async (user: User, tenantId: string) => {
+    const response = await fetch('/api/billing/trial', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${await user.getIdToken()}`,
       },
-      body: JSON.stringify({
-        tenantId,
-        plan: getPlanForTenantType(type),
-        seatLimit: getIncludedSeats(getPlanForTenantType(type)),
-      }),
+      body: JSON.stringify({ tenantId }),
     });
     const data = await response.json().catch(() => ({}));
 
-    if (!response.ok || !data.url) {
-      throw new Error(data.error || 'Workspace was created, but billing checkout could not start.');
+    if (!response.ok || data.status !== 'trialing') {
+      throw new Error(data.error || 'Workspace was created, but the free trial could not be activated.');
     }
-
-    window.location.assign(data.url);
   };
 
   const getExistingWorkspace = async (user: User) => {
@@ -313,63 +261,37 @@ export function LoginForm() {
     };
   };
 
+  const recordLoginActivity = async (user: User, provider: 'email' | 'google') => {
+    const activeTenantId = (await getExistingWorkspace(user))?.activeTenantId;
+    if (!activeTenantId) return;
+    await fetch('/api/activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({ tenantId: activeTenantId, action: 'login', provider }),
+    }).catch(() => undefined);
+  };
+
   const acceptInvite = async (user: User, emailOverride?: string) => {
     if (!inviteTenantId || !inviteId) {
       throw new Error('This invite link is missing school information.');
     }
-
-    const inviteEmail = normalizeEmail(emailOverride || user.email || normalizedEmail);
-    const inviteRef = doc(firestore, 'tenants', inviteTenantId, 'invites', inviteId);
-    const inviteSnap = await getDoc(inviteRef);
-    if (!inviteSnap.exists()) {
-      throw new Error('This invite was not found.');
-    }
-
-    const invite = { ...(inviteSnap.data() as TenantInvite), id: inviteSnap.id };
-    if (invite.status !== 'pending') {
-      throw new Error('This invite is no longer available.');
-    }
-    const expiresAt = inviteExpiryTime(invite.expiresAt);
-    if (expiresAt && expiresAt <= Date.now()) {
-      throw new Error('This invite link has expired. Ask your school admin to send a new one.');
-    }
-    if (normalizeEmail(invite.email) !== inviteEmail) {
-      throw new Error('This invite is for a different email address.');
-    }
-
-    const now = new Date().toISOString();
-    const userRef = doc(firestore, 'users', user.uid);
-    const memberRef = doc(firestore, 'tenants', inviteTenantId, 'members', user.uid);
-    const batch = writeBatch(firestore);
-
-    batch.set(userRef, {
-      uid: user.uid,
-      email: inviteEmail,
-      displayName: displayName.trim() || user.displayName || inviteEmail,
-      activeTenantId: inviteTenantId,
-      tenantIds: arrayUnion(inviteTenantId),
-      createdAt: now,
-      updatedAt: now,
-    }, { merge: true });
-    batch.set(memberRef, {
-      uid: user.uid,
-      email: inviteEmail,
-      displayName: displayName.trim() || user.displayName || inviteEmail,
-      role: 'schoolInstructor',
-      status: 'active',
-      tenantId: inviteTenantId,
-      inviteId,
-      createdAt: now,
-      updatedAt: now,
-    }, { merge: true });
-    batch.update(inviteRef, {
-      status: 'accepted',
-      acceptedAt: now,
-      acceptedByUid: user.uid,
-      updatedAt: serverTimestamp(),
+    const response = await fetch('/api/team/invites/accept', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({
+        tenantId: inviteTenantId,
+        inviteId,
+        displayName: displayName.trim() || user.displayName || emailOverride || user.email || normalizedEmail,
+      }),
     });
-
-    await batch.commit();
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not accept this invite.');
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -420,23 +342,28 @@ export function LoginForm() {
       if (mode === 'school') {
         const tenantId = await createTenantWorkspace(user, 'school');
         if (activateTrialOnSignup) {
-          await startBillingCheckout(user, tenantId, 'school');
-          return;
+          await activateFreeTrial(user, tenantId).catch(trialError => {
+            setNotice(trialError instanceof Error ? trialError.message : 'Workspace created. You can activate the trial from Billing.');
+          });
         }
-        router.replace('/app/billing');
+        await recordLoginActivity(user, 'email');
+        router.replace(nextUrl || '/app');
         return;
       } else if (mode === 'solo') {
         const tenantId = await createTenantWorkspace(user, 'solo');
         if (activateTrialOnSignup) {
-          await startBillingCheckout(user, tenantId, 'solo');
-          return;
+          await activateFreeTrial(user, tenantId).catch(trialError => {
+            setNotice(trialError instanceof Error ? trialError.message : 'Workspace created. You can activate the trial from Billing.');
+          });
         }
-        router.replace('/app/billing');
+        await recordLoginActivity(user, 'email');
+        router.replace(nextUrl || '/app');
         return;
       } else if (mode === 'invite') {
         await acceptInvite(user);
       }
 
+      await recordLoginActivity(user, 'email');
       clearAuthAttempts(attemptId);
       router.replace(normalizedEmail === MAIN_ADMIN_EMAIL && mode === 'login' ? '/admin' : nextUrl);
     } catch (submitError) {
@@ -463,6 +390,7 @@ export function LoginForm() {
 
       if (mode === 'invite') {
         await acceptInvite(user, googleEmail);
+        await recordLoginActivity(user, 'google');
         router.replace(nextUrl);
         return;
       }
@@ -481,10 +409,12 @@ export function LoginForm() {
 
         const tenantId = await createTenantWorkspace(user, mode === 'school' ? 'school' : 'solo');
         if (activateTrialOnSignup) {
-          await startBillingCheckout(user, tenantId, mode === 'school' ? 'school' : 'solo');
-          return;
+          await activateFreeTrial(user, tenantId).catch(trialError => {
+            setNotice(trialError instanceof Error ? trialError.message : 'Workspace created. You can activate the trial from Billing.');
+          });
         }
-        router.replace('/app/billing');
+        await recordLoginActivity(user, 'google');
+        router.replace(nextUrl || '/app');
         return;
       }
 
@@ -714,7 +644,7 @@ export function LoginForm() {
                   <span>
                     <span className="block font-bold">Activate my 1 month free trial now</span>
                     <span className="mt-1 block text-emerald-900/80">
-                      If selected, Stripe will ask for payment details now and will charge only after the free trial.
+                      No payment details are required. Add payment later if you want to continue after the trial.
                     </span>
                   </span>
                 </label>
