@@ -209,17 +209,21 @@ export default function AdminPage() {
 
   const grantFreeAccess = async (tenant: Tenant, days: number) => {
     if (!user) return;
-    const response = await fetch('/api/admin/access/grant', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${await user.getIdToken()}`,
-      },
-      body: JSON.stringify({ tenantId: tenant.id, days }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Could not grant free access.');
-    setAdminMessage(`${tenant.name} has free access until ${formatDate(data.freeAccessUntil)}.`);
+    try {
+      const response = await fetch('/api/admin/access/grant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken(true)}`,
+        },
+        body: JSON.stringify({ tenantId: tenant.id, days }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Could not grant free access (${response.status}).`);
+      setAdminMessage(`${tenant.name} has free access until ${formatDate(data.freeAccessUntil)}.`);
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : 'Could not grant free access.');
+    }
   };
 
   const handlePromoSubmit = async (event: FormEvent<HTMLFormElement>) => {
