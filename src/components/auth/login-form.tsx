@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   browserLocalPersistence,
@@ -173,9 +173,11 @@ export function LoginForm() {
   const [activateTrialOnSignup, setActivateTrialOnSignup] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isJoiningInvite, setIsJoiningInvite] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [authLockMessage, setAuthLockMessage] = useState('');
+  const inviteAutoJoinAttempted = useRef(false);
 
   const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
   const sessionEmail = normalizeEmail(session.user?.email);
@@ -188,7 +190,7 @@ export function LoginForm() {
     (!requiresName || displayName.trim().length >= 2) &&
     (mode !== 'school' || schoolName.trim().length >= 2) &&
     (mode !== 'invite' || Boolean(inviteTenantId && inviteId)) &&
-    !isSubmitting;
+    !isSubmitting && !isJoiningInvite;
 
   useEffect(() => {
     const attemptId = getAuthAttemptId(mode, normalizedEmail);
@@ -275,7 +277,7 @@ export function LoginForm() {
     }).catch(() => undefined);
   };
 
-  const acceptInvite = async (user: User, emailOverride?: string) => {
+  const acceptInvite = useCallback(async (user: User, emailOverride?: string) => {
     if (!inviteTenantId || !inviteId) {
       throw new Error('This invite link is missing school information.');
     }
@@ -293,7 +295,32 @@ export function LoginForm() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || 'Could not accept this invite.');
-  };
+  }, [displayName, inviteId, inviteTenantId, normalizedEmail]);
+
+  useEffect(() => {
+    if (
+      mode !== 'invite'
+      || !inviteTenantId
+      || !inviteId
+      || session.isSessionLoading
+      || !session.user
+      || session.role
+      || inviteAutoJoinAttempted.current
+    ) return;
+
+    inviteAutoJoinAttempted.current = true;
+    setIsJoiningInvite(true);
+    setError('');
+    void acceptInvite(session.user)
+      .then(() => router.replace(nextUrl))
+      .catch((joinError: unknown) => {
+        const message = joinError instanceof Error ? joinError.message : 'Could not join this school invite.';
+        setError(message.includes('different email')
+          ? 'This invite belongs to a different email address. Sign out, then open the invite link again with the invited email.'
+          : message);
+      })
+      .finally(() => setIsJoiningInvite(false));
+  }, [acceptInvite, inviteId, inviteTenantId, mode, nextUrl, router, session.isSessionLoading, session.role, session.user]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -506,7 +533,7 @@ export function LoginForm() {
             </p>
           </CardHeader>
           <CardContent className="space-y-5 p-5 sm:p-6">
-            {hasUnconnectedSession && (
+            {hasUnconnectedSession && mode !== 'invite' && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 <p className="font-semibold">Signed in as {session.user?.email}</p>
                 <p className="mt-1">This account is not connected to a workspace yet. Logout first if you want to create a new school or instructor account with a different email.</p>
@@ -518,6 +545,13 @@ export function LoginForm() {
                 >
                   Logout current account
                 </Button>
+              </div>
+            )}
+
+            {mode === 'invite' && isJoiningInvite && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                <p className="font-semibold">Joining your school workspace...</p>
+                <p className="mt-1">Your signed-in account matches the invite. We are connecting it now.</p>
               </div>
             )}
 
