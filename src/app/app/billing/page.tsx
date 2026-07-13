@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Building2, CheckCircle2, Loader2, Lock, TicketPercent, UserRound, UsersRound } from 'lucide-react';
+import { Building2, CheckCircle2, CreditCard, Loader2, Lock, TicketPercent, UserRound, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSession, useUser } from '@/firebase';
 import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE, getBillingLocked, getPlanForTenantType } from '@/lib/billing';
 import type { BillingPlan } from '@/lib/billing';
+import { getWorkspaceAccess } from '@/lib/workspace-access';
 
 async function postBilling(path: string, token: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
@@ -31,7 +32,11 @@ function friendlyBillingError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
   if (/default credentials|application default credentials|GOOGLE_APPLICATION_CREDENTIALS|Firebase Admin/i.test(message)) {
-    return 'Paid billing setup is not fully connected yet. You can still start the 1 month free trial now.';
+    return 'The server cannot verify your Firebase account yet. Add Firebase Admin credentials to the production hosting environment, restart the app, and then try activating the free trial again.';
+  }
+
+  if (/publishable API key|publishable key|STRIPE_SECRET_KEY.*publishable|starting with sk_/i.test(message)) {
+    return 'Stripe is configured with the publishable key in the server environment. The server must use the secret key that starts with sk_, then the app must be redeployed.';
   }
 
   return message || 'Billing request failed.';
@@ -55,7 +60,7 @@ export default function BillingPage() {
   const { user } = useUser();
   const searchParams = useSearchParams();
   const [seatLimit, setSeatLimit] = useState(PLAN_DETAILS.school.includedSeats);
-  const [isLoading, setIsLoading] = useState<'trial' | 'checkout' | 'portal' | 'seats' | null>(null);
+  const [isLoading, setIsLoading] = useState<'trial' | 'checkout' | 'portal' | 'seats' | 'refresh' | null>(null);
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -65,9 +70,11 @@ export default function BillingPage() {
   const isSchool = tenant?.type === 'school';
   const status = tenant?.subscriptionStatus || 'not_started';
   const billingLocked = tenant?.billingLocked ?? getBillingLocked(status);
-  const trialIsActive = status === 'trialing';
   const isBillingOwner = Boolean(isMainAdmin || (user && tenant?.ownerUid === user.uid));
-  const canActivateTrialCheckout = isBillingOwner && status !== 'active';
+  const access = getWorkspaceAccess(tenant);
+  const hasAdminGrantedFreeAccess = access.source === 'admin_grant';
+  const canActivateTrial = isBillingOwner && access.source === 'billing_locked' && !tenant?.trialEndsAt && !tenant?.freeAccessUntil;
+  const canAddPaymentMethod = isBillingOwner && status === 'trialing' && !tenant?.stripeSubscriptionId;
 
   useEffect(() => {
     setSeatLimit(tenant?.seatLimit || (isSchool ? PLAN_DETAILS.school.includedSeats : PLAN_DETAILS.instructor.includedSeats));
@@ -81,6 +88,37 @@ export default function BillingPage() {
       setError('Checkout was cancelled. You can still start the 1 month free trial from this page.');
     }
   }, [searchParams]);
+
+  const refreshBillingStatus = useCallback(async (showMessage = true) => {
+    if (!user || !activeTenantId) return;
+    setIsLoading('refresh');
+    setError('');
+    try {
+      const data = await postBilling('/api/billing/status', await user.getIdToken(), { tenantId: activeTenantId });
+      if (showMessage) {
+        setMessage(data.status === 'trialing'
+          ? 'Your 1 month free trial is active.'
+          : `Billing status refreshed: ${data.status}.`);
+      }
+    } catch (billingError) {
+      setError(friendlyBillingError(billingError));
+    } finally {
+      setIsLoading(null);
+    }
+  }, [activeTenantId, user]);
+
+  useEffect(() => {
+    if (searchParams.get('checkout') !== 'success' || !user || !activeTenantId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt += 1) {
+        await refreshBillingStatus(false);
+        if (attempt < 2) await new Promise(resolve => window.setTimeout(resolve, 1500));
+      }
+    };
+    void refresh();
+    return () => { cancelled = true; };
+  }, [activeTenantId, refreshBillingStatus, searchParams, user]);
 
   const applyPromoCode = async () => {
     if (!activeTenantId || !tenant || !user) return;
@@ -105,7 +143,7 @@ export default function BillingPage() {
     }
   };
 
-  const runBillingAction = async (action: 'checkout' | 'portal' | 'seats') => {
+  const runBillingAction = async (action: 'trial' | 'checkout' | 'portal' | 'seats') => {
     if (!user || !activeTenantId || !tenant) return;
     setIsLoading(action);
     setError('');
@@ -113,6 +151,11 @@ export default function BillingPage() {
 
     try {
       const token = await user.getIdToken();
+      if (action === 'trial') {
+        const data = await postBilling('/api/billing/trial', token, { tenantId: activeTenantId });
+        setMessage(`Your 1 month free trial is active until ${formatDate(data.trialEndsAt)}. No payment was taken.`);
+        return;
+      }
       if (action === 'checkout') {
         const data = await postBilling('/api/billing/checkout', token, {
           tenantId: activeTenantId,
@@ -174,7 +217,7 @@ export default function BillingPage() {
               <div>
                 <CardTitle className="text-xl">Subscription</CardTitle>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Start with 1 month free. Stripe collects payment details now, then charges monthly only after the trial.
+                  Start with 1 month free with no payment required. Add payment later if you want to continue after the trial.
                 </p>
               </div>
               {isSchool ? <Building2 className="h-6 w-6" /> : <UserRound className="h-6 w-6" />}
@@ -204,10 +247,16 @@ export default function BillingPage() {
 
             {(tenant.freeAccessUntil || tenant.promoCodeApplied || tenant.promoPercentOff) && (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                {tenant.freeAccessUntil && <p className="font-semibold">Free access until {formatDate(tenant.freeAccessUntil)}.</p>}
+                {tenant.freeAccessUntil && <p className="font-semibold">Admin-granted free access until {formatDate(tenant.freeAccessUntil)}.</p>}
                 {tenant.promoCodeApplied && <p className="mt-1">Promo code: <span className="font-black">{tenant.promoCodeApplied}</span></p>}
                 {tenant.promoPercentOff ? <p className="mt-1">{tenant.promoPercentOff}% discount saved for this workspace.</p> : null}
               </div>
+            )}
+
+            {hasAdminGrantedFreeAccess && (
+              <p className="text-sm text-muted-foreground">
+                Your workspace already has free access. You do not need to activate another trial.
+              </p>
             )}
 
             {billingLocked && (
@@ -240,17 +289,34 @@ export default function BillingPage() {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  {canActivateTrialCheckout && (
+                  {canActivateTrial && (
+                    <Button onClick={() => runBillingAction('trial')} disabled={Boolean(isLoading)} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+                      {isLoading === 'trial' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                      Activate 1 Month Free Trial
+                    </Button>
+                  )}
+                  {canAddPaymentMethod && (
                     <Button onClick={() => runBillingAction('checkout')} disabled={Boolean(isLoading)} className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
-                      {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                      {trialIsActive ? 'Add payment method' : 'Activate 1 Month Free Trial'}
+                      {isLoading === 'checkout' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                      Add payment method
                     </Button>
                   )}
                   <Button variant="outline" onClick={() => runBillingAction('portal')} disabled={Boolean(isLoading) || !tenant.stripeCustomerId} className="rounded-lg">
                     {isLoading === 'portal' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Manage or unsubscribe
                   </Button>
+                  {tenant.stripeCustomerId && (
+                    <Button variant="ghost" onClick={() => refreshBillingStatus()} disabled={Boolean(isLoading)} className="rounded-lg">
+                      {isLoading === 'refresh' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Refresh status
+                    </Button>
+                  )}
                 </div>
+                {!tenant.stripeCustomerId && status !== 'not_started' && (
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Subscription management becomes available after Stripe finishes creating your customer record.
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Only a school admin or individual instructor owner can manage billing.</p>
