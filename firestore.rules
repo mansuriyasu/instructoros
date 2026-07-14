@@ -72,14 +72,24 @@ service cloud.firestore {
       return isActiveTenantMember(tenantId) && role(tenantId) == "schoolInstructor";
     }
 
-    function assignedToInstructor() {
-      return (resource.data.assignedInstructorIds is list && request.auth.uid in resource.data.assignedInstructorIds)
-        || (resource.data.instructorId is string && resource.data.instructorId == request.auth.uid);
+    function assignedStudentToInstructor() {
+      return resource.data.assignedInstructorIds is list
+        && request.auth.uid in resource.data.assignedInstructorIds;
     }
 
-    function newAssignedToInstructor() {
-      return (request.resource.data.assignedInstructorIds is list && request.auth.uid in request.resource.data.assignedInstructorIds)
-        || (request.resource.data.instructorId is string && request.resource.data.instructorId == request.auth.uid);
+    function assignedRecordToInstructor() {
+      return resource.data.instructorId is string
+        && resource.data.instructorId == request.auth.uid;
+    }
+
+    function newAssignedStudentToInstructor() {
+      return request.resource.data.assignedInstructorIds is list
+        && request.auth.uid in request.resource.data.assignedInstructorIds;
+    }
+
+    function newAssignedRecordToInstructor() {
+      return request.resource.data.instructorId is string
+        && request.resource.data.instructorId == request.auth.uid;
     }
 
     function onlyChanges(fields) {
@@ -206,26 +216,26 @@ service cloud.firestore {
       }
 
       match /students/{docId} {
-        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor()));
-        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor()));
+        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedStudentToInstructor());
+        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedStudentToInstructor());
+        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedStudentToInstructor()));
+        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedStudentToInstructor() && newAssignedStudentToInstructor()));
         allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /payments/{docId} {
-        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor()));
-        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor()));
+        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
+        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
+        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedRecordToInstructor()));
+        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor() && newAssignedRecordToInstructor()));
         allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /events/{docId} {
-        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor());
-        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedToInstructor()));
-        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedToInstructor() && newAssignedToInstructor()));
+        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
+        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
+        allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedRecordToInstructor()));
+        allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor() && newAssignedRecordToInstructor()));
         allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
