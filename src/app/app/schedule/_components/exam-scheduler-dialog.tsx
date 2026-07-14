@@ -112,7 +112,7 @@ export function ExamSchedulerDialog({
       title: 'Service required',
       description: billableServices.length > 0
         ? 'Please select a service before scheduling this exam.'
-        : 'Please add a service in Settings > Services before scheduling exams.',
+        : 'Please add a service in Services before scheduling exams.',
       variant: 'destructive',
     });
   };
@@ -419,7 +419,7 @@ export function ExamSchedulerDialog({
                         </select>
                     ) : (
                         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                            Add exam center locations in Settings &gt; Services using the category "Exam center".
+                            Add exam center locations in Services using the category "Exam center".
                         </p>
                     )}
                     {(selectedExamCenterServiceId === CUSTOM_EXAM_CENTER_VALUE || examCenterServices.length === 0) && (
@@ -447,7 +447,7 @@ export function ExamSchedulerDialog({
                     <Label>Service</Label>
                     {billableServices.length === 0 && (
                         <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                            Add a service in Settings &gt; Services before scheduling exams.
+                            Add a service in Services before scheduling exams.
                         </p>
                     )}
                     <select

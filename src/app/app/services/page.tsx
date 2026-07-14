@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { ServiceList } from './_components/service-list';
 
 export default function ServicesPage() {
-    redirect('/app/settings?tab=services');
+  return <ServiceList />;
 }

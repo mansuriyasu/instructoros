@@ -231,7 +231,7 @@ export function EventDialog({
           setServiceWarning(
             allServices.length > 0
               ? 'Please select a service before scheduling this student.'
-              : 'Please add a service in Settings > Services before scheduling this student.'
+              : 'Please add a service in Services before scheduling this student.'
           );
           return;
         }
@@ -482,7 +482,7 @@ export function EventDialog({
                     size="sm"
                     onClick={() => {
                       onOpenChange(false);
-                      router.push('/app/settings?tab=services');
+                  router.push('/app/services');
                     }}
                   >
                     Add Service
@@ -498,7 +498,7 @@ export function EventDialog({
                   setServiceWarning('');
                   if (allServices.length === 0) {
                     onOpenChange(false);
-                    router.push('/app/settings?tab=services');
+                    router.push('/app/services');
                     return;
                   }
                   append({ id: '', name: '', price: 0, cost: 0, discount: 0 });
