@@ -52,8 +52,11 @@ service cloud.firestore {
     function isActiveMember(tenantId) {
       return signedIn()
         && exists(memberPath(tenantId, request.auth.uid))
-        && member(tenantId).status == "active"
-        && tenantActive(tenantId);
+        && member(tenantId).status == "active";
+    }
+
+    function isActiveTenantMember(tenantId) {
+      return isActiveMember(tenantId) && tenantActive(tenantId);
     }
 
     function role(tenantId) {
@@ -62,11 +65,11 @@ service cloud.firestore {
 
     function isTenantAdmin(tenantId) {
       return isMainAdmin()
-        || (isActiveMember(tenantId) && role(tenantId) in ["schoolAdmin", "soloInstructor"]);
+        || (isActiveTenantMember(tenantId) && role(tenantId) in ["schoolAdmin", "soloInstructor"]);
     }
 
     function isSchoolInstructor(tenantId) {
-      return isActiveMember(tenantId) && role(tenantId) == "schoolInstructor";
+      return isActiveTenantMember(tenantId) && role(tenantId) == "schoolInstructor";
     }
 
     function assignedToInstructor() {
@@ -125,7 +128,7 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow get: if isMainAdmin() || isActiveMember(tenantId);
+      allow get: if isMainAdmin() || (isActiveMember(tenantId) && resource.data.status == "active");
       allow list: if isMainAdmin();
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid
@@ -227,12 +230,12 @@ service cloud.firestore {
       }
 
       match /services/{docId} {
-        allow read: if isActiveMember(tenantId) || isMainAdmin();
+        allow read: if isActiveTenantMember(tenantId) || isMainAdmin();
         allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /serviceCategories/{docId} {
-        allow read: if isActiveMember(tenantId) || isMainAdmin();
+        allow read: if isActiveTenantMember(tenantId) || isMainAdmin();
         allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
