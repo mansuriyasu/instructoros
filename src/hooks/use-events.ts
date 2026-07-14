@@ -17,13 +17,13 @@ import { useStudents } from './use-students';
 
 export function useEvents(startDate?: Date, endDate?: Date) {
   const firestore = useFirestore();
-  const { user, role } = useSession();
+  const { user, role, isSessionLoading } = useSession();
   const eventsPath = useTenantCollectionPath('events');
   const { students: allStudents } = useStudents();
 
   const eventsQuery = useMemoFirebase(
     () => {
-      if (!firestore || !eventsPath) return null;
+      if (!firestore || !eventsPath || isSessionLoading || !role) return null;
       let q = query(collection(firestore, eventsPath));
       
       if (startDate && endDate) {
@@ -47,7 +47,7 @@ export function useEvents(startDate?: Date, endDate?: Date) {
 
       return q;
     },
-    [firestore, eventsPath, role, user, startDate?.toISOString(), endDate?.toISOString()]
+    [endDate?.toISOString(), eventsPath, firestore, isSessionLoading, role, startDate?.toISOString(), user]
   );
   
   const filterFn = useMemo(() => {

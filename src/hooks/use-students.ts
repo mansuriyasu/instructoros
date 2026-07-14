@@ -7,12 +7,23 @@ import { collection, doc, query, where } from 'firebase/firestore';
 export function useStudents() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const { role } = useSession();
+  const { role, tenant, member, activeTenantId, isSessionLoading } = useSession();
   const studentsPath = useTenantCollectionPath('students');
 
   const studentsCollectionRef = useMemoFirebase(
-    () => (firestore && user && studentsPath ? collection(firestore, studentsPath) : null),
-    [firestore, user, studentsPath]
+    () => (
+      firestore
+      && user
+      && studentsPath
+      && !isSessionLoading
+      && role
+      && activeTenantId
+      && tenant
+      && member
+        ? collection(firestore, studentsPath)
+        : null
+    ),
+    [activeTenantId, firestore, isSessionLoading, member, role, studentsPath, tenant, user]
   );
 
   const studentsQuery = useMemoFirebase(
@@ -31,6 +42,15 @@ export function useStudents() {
   const addStudent = async (student: Omit<Student, 'id' | 'registrationDate' | 'status'>) => {
     if (!user) {
       throw new Error('Firebase sign-in is not ready. Please refresh the app and try again.');
+    }
+    if (isSessionLoading || !activeTenantId || !tenant || !member) {
+      throw new Error('Your workspace is still loading. Please wait a moment and try again.');
+    }
+    if (member.status !== 'active' || tenant.status !== 'active') {
+      throw new Error('Your account is not active in this workspace. Ask the workspace owner to activate your access.');
+    }
+    if (tenant.billingLocked) {
+      throw new Error('This workspace is locked until billing or free access is activated.');
     }
     if (!studentsCollectionRef) {
       throw new Error('The students database is not ready yet. Please try again.');
@@ -81,5 +101,5 @@ export function useStudents() {
     return deleteDocumentNonBlocking(studentRef);
   };
 
-  return { students, loading: isUserLoading || isLoading, addStudent, updateStudent, deleteStudent };
+  return { students, loading: isUserLoading || isLoading || isSessionLoading, addStudent, updateStudent, deleteStudent };
 }

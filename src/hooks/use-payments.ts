@@ -17,12 +17,16 @@ import { collection, doc, query, where } from 'firebase/firestore';
 
 export function usePayments() {
   const firestore = useFirestore();
-  const { user, role } = useSession();
+  const { user, role, isSessionLoading } = useSession();
   const paymentsPath = useTenantCollectionPath('payments');
 
   const paymentsCollectionRef = useMemoFirebase(
-    () => (firestore && paymentsPath ? collection(firestore, paymentsPath) : null),
-    [firestore, paymentsPath]
+    () => (
+      firestore && paymentsPath && !isSessionLoading && role
+        ? collection(firestore, paymentsPath)
+        : null
+    ),
+    [firestore, isSessionLoading, paymentsPath, role]
   );
 
   const paymentsQuery = useMemoFirebase(
