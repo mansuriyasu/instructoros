@@ -30,11 +30,12 @@ export async function POST(request: NextRequest) {
       ]);
       if (!tenantSnap.exists || !inviteSnap.exists) return { error: 'This invite was not found.', status: 404 };
       const tenant = tenantSnap.data() as { status?: string };
-      const invite = inviteSnap.data() as { email?: string; status?: string; expiresAt?: Timestamp };
+      const invite = inviteSnap.data() as { email?: string; status?: string; expiresAt?: Timestamp; acceptedByUid?: string };
       if (tenant.status !== 'active') return { error: 'This school workspace is not active.', status: 403 };
-      if (invite.status !== 'pending') return { error: 'This invite is no longer available.', status: 409 };
+      const isAcceptedForThisUser = invite.status === 'accepted' && invite.acceptedByUid === actor.uid;
+      if (invite.status !== 'pending' && !isAcceptedForThisUser) return { error: 'This invite is no longer available.', status: 409 };
       if (normalizeEmail(invite.email) !== email) return { error: 'This invite is for a different email address.', status: 403 };
-      if (invite.expiresAt?.toMillis && invite.expiresAt.toMillis() <= Date.now()) {
+      if (!isAcceptedForThisUser && invite.expiresAt?.toMillis && invite.expiresAt.toMillis() <= Date.now()) {
         return { error: 'This invite link has expired. Ask the school admin to send a new one.', status: 410 };
       }
       if (memberSnap.exists && memberSnap.data()?.status === 'active') {
@@ -62,12 +63,14 @@ export async function POST(request: NextRequest) {
         createdAt: now,
         updatedAt: now,
       }, { merge: true });
-      transaction.update(inviteRef, {
-        status: 'accepted',
-        acceptedAt: now,
-        acceptedByUid: actor.uid,
-        updatedAt: now,
-      });
+      if (!isAcceptedForThisUser) {
+        transaction.update(inviteRef, {
+          status: 'accepted',
+          acceptedAt: now,
+          acceptedByUid: actor.uid,
+          updatedAt: now,
+        });
+      }
       return { alreadyMember: false };
     });
 
