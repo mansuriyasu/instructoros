@@ -16,10 +16,11 @@ export function FirebaseErrorListener() {
     // The callback now expects a strongly-typed error, matching the event payload.
     const handleError = (error: FirestorePermissionError) => {
       console.warn('Firebase permission error:', error);
+      const requestPath = error.request.path.replace('/databases/(default)/documents/', '');
       toast({
         variant: 'destructive',
         title: 'Access blocked',
-        description: 'Firebase security rules blocked this action. Check your role, billing status, or deployment rules.',
+        description: `Firestore denied ${error.request.method} on ${requestPath}. Check that your account is an active workspace member and that the correct workspace is selected.`,
       });
     };
 
