@@ -33,10 +33,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const acceptedInviteSnapshots = await db.collectionGroup('invites').where('acceptedByUid', '==', actor.uid).get();
-    const acceptedInvites = acceptedInviteSnapshots.docs.filter(snapshot => {
+    const [, emailInviteSnapshots] = await Promise.all([
+      db.collectionGroup('invites').where('acceptedByUid', '==', actor.uid).get(),
+      db.collectionGroup('invites').where('email', '==', email).get(),
+    ]);
+    const matchingInvites = emailInviteSnapshots.docs.filter(snapshot => {
       const invite = snapshot.data();
-      return invite.status === 'accepted' && normalizeEmail(invite.email) === email;
+      return (invite.status === 'pending' || (invite.status === 'accepted' && invite.acceptedByUid === actor.uid))
+        && normalizeEmail(invite.email) === email;
     });
 
     let repairedTenantId = activeMemberships.find(item => item.tenantId === existingProfile.activeTenantId)?.tenantId
@@ -45,9 +49,12 @@ export async function POST(request: NextRequest) {
     let repairedRole = activeMemberships.find(item => item.tenantId === repairedTenantId)?.role || null;
     let repairedDisplayName = activeMemberships.find(item => item.tenantId === repairedTenantId)?.displayName || actor.name || email;
 
-    if (!repairedTenantId && acceptedInvites.length > 0) {
-      const invite = acceptedInvites[0].data();
-      const tenantId = acceptedInvites[0].ref.parent.parent?.id;
+    let repairedFromInvite = false;
+    if (!repairedTenantId && matchingInvites.length > 0) {
+      const candidate = matchingInvites.find(snapshot => snapshot.ref.parent.parent?.id === existingProfile.activeTenantId)
+        || matchingInvites[0];
+      const invite = candidate.data();
+      const tenantId = candidate.ref.parent.parent?.id;
       if (tenantId) {
         const tenantSnapshot = await db.collection('tenants').doc(tenantId).get();
         if (tenantSnapshot.exists && tenantSnapshot.data()?.status === 'active') {
@@ -62,10 +69,19 @@ export async function POST(request: NextRequest) {
             role: repairedRole,
             status: 'active',
             tenantId,
-            inviteId: acceptedInvites[0].id,
+            inviteId: candidate.id,
             createdAt: invite.acceptedAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }, { merge: true });
+          if (invite.status === 'pending') {
+            await candidate.ref.update({
+              status: 'accepted',
+              acceptedAt: new Date().toISOString(),
+              acceptedByUid: actor.uid,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          repairedFromInvite = true;
         }
       }
     }
@@ -87,7 +103,7 @@ export async function POST(request: NextRequest) {
       }, { merge: true });
     }
 
-    return NextResponse.json({ repaired: needsProfileRepair || acceptedInvites.length > 0, tenantId: repairedTenantId, role: repairedRole });
+    return NextResponse.json({ repaired: needsProfileRepair || repairedFromInvite, tenantId: repairedTenantId, role: repairedRole });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not repair the workspace session.';
     const status = error instanceof RequestSecurityError ? error.status : 500;
