@@ -4,6 +4,7 @@ import { Student } from '@/lib/types';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useSession, useTenantCollectionPath } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
+import { getWorkspaceAccess } from '@/lib/workspace-access';
 
 export function useStudents() {
   const firestore = useFirestore();
@@ -81,7 +82,7 @@ export function useStudents() {
     if (member.status !== 'active' || tenant.status !== 'active') {
       throw new Error('Your account is not active in this workspace. Ask the workspace owner to activate your access.');
     }
-    if (tenant.billingLocked) {
+    if (!getWorkspaceAccess(tenant).canWrite) {
       throw new Error('This workspace is locked until billing or free access is activated.');
     }
     if (!studentsCollectionRef) {

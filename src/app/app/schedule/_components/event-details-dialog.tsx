@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CalendarEvent, LessonStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { CalendarCheck2, CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle } from 'lucide-react';
+import { CalendarCheck2, CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle, ClipboardCheck } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +39,7 @@ interface EventDetailsDialogProps {
   onMarkPayment: (event: CalendarEvent, status: 'paid' | 'unpaid') => void;
   onMarkLessonStatus: (event: CalendarEvent, status: LessonStatus) => void;
   onSendWhatsApp?: (event: CalendarEvent) => void;
+  onEvaluate: (event: CalendarEvent) => void;
 }
 
 export function EventDetailsDialog({
@@ -52,6 +53,7 @@ export function EventDetailsDialog({
   onMarkPayment,
   onMarkLessonStatus,
   onSendWhatsApp,
+  onEvaluate,
 }: EventDetailsDialogProps) {
   const router = useRouter();
   const [isExamImageOpen, setIsExamImageOpen] = useState(false);
@@ -277,6 +279,9 @@ export function EventDetailsDialog({
 
         {!isBlockedSlot && (
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => onEvaluate(event)} className="h-9 border-[#d4af37] bg-[#fff9e7] px-2 text-xs font-bold text-[#806000] hover:bg-[#fff1bd] sm:h-10 sm:text-sm">
+              <ClipboardCheck className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />Evaluate
+            </Button>
             <Button
               type="button"
               variant="outline"

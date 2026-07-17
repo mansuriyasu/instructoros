@@ -10,6 +10,7 @@ export interface Student {
   id: string;
   name: string;
   mobileNumber: string;
+  email?: string;
   address: string;
   birthdate: string; // YYYYMMDD
   licenseNumber: string;
@@ -99,6 +100,37 @@ export interface CalendarEvent {
   examCenter?: string;
   examDateTime?: string;
   examImageDataUri?: string;
+}
+
+export type EvaluationTestType = 'G2' | 'G';
+export type EvaluationItemStatus = 'ok' | 'minor' | 'major';
+export type EvaluationVerdict = 'pass' | 'borderline' | 'fail';
+
+export interface EvaluationItem {
+  id: string;
+  name: string;
+  status: EvaluationItemStatus;
+  tags: string[];
+}
+
+export interface Evaluation {
+  id: string;
+  studentId: string;
+  lessonId: string;
+  testType: EvaluationTestType;
+  date: string;
+  area: string;
+  instructor: string;
+  instructorUid: string;
+  createdByUid: string;
+  items: EvaluationItem[];
+  minor_count: number;
+  major_count: number;
+  autofails: string[];
+  verdict: EvaluationVerdict;
+  notes: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface InstructorOption {

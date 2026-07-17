@@ -239,6 +239,29 @@ service cloud.firestore {
         allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
+      match /evaluations/{docId} {
+        allow get: if isMainAdmin()
+          || isTenantAdmin(tenantId)
+          || (isSchoolInstructor(tenantId)
+            && resource.data.instructorUid == request.auth.uid
+            && resource.data.studentId is string
+            && get(/databases/$(database)/documents/tenants/$(tenantId)/students/$(resource.data.studentId)).data.assignedInstructorIds is list
+            && request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)/students/$(resource.data.studentId)).data.assignedInstructorIds);
+        allow list: if isMainAdmin()
+          || isTenantAdmin(tenantId)
+          || (isSchoolInstructor(tenantId) && resource.data.instructorUid == request.auth.uid);
+        allow create: if billingWritable(tenantId)
+          && (isTenantAdmin(tenantId)
+            || (isSchoolInstructor(tenantId)
+              && request.resource.data.instructorUid == request.auth.uid
+              && request.resource.data.createdByUid == request.auth.uid));
+        allow update: if billingWritable(tenantId)
+          && (isMainAdmin()
+            || isTenantAdmin(tenantId)
+            || (isSchoolInstructor(tenantId) && resource.data.createdByUid == request.auth.uid));
+        allow delete: if isMainAdmin() || isTenantAdmin(tenantId);
+      }
+
       match /services/{docId} {
         allow read: if isActiveTenantMember(tenantId) || isMainAdmin();
         allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);

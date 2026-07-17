@@ -40,6 +40,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useStudents } from '@/hooks/use-students';
 import { useEvents } from '@/hooks/use-events';
+import { useEvaluations } from '@/hooks/use-evaluations';
 import { useStorage } from '@/hooks/use-storage';
 import { getScanErrorMessage, prepareLicenseFileForAi, scanLicenseFile } from '@/lib/license-scan-client';
 import {
@@ -79,6 +80,7 @@ export function StudentDetailsDialog({
 }: StudentDetailsDialogProps) {
   const { payments, updatePayment } = usePayments();
   const { events, updateEvent } = useEvents();
+  const { evaluations } = useEvaluations(student?.id);
   const { students, updateStudent, deleteStudent } = useStudents();
   const router = useRouter();
   const { toast } = useToast();
@@ -662,9 +664,10 @@ export function StudentDetailsDialog({
         {/* Details Tabs */}
         <div className="p-6 sm:p-8 pt-6">
           <Tabs defaultValue="contact" className="w-full">
-            <TabsList className="w-full grid grid-cols-4 mb-6 bg-muted/40 p-1.5 rounded-xl">
+            <TabsList className="w-full grid grid-cols-5 mb-6 bg-muted/40 p-1.5 rounded-xl">
               <TabsTrigger value="contact" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2">Contact</TabsTrigger>
               <TabsTrigger value="lessons" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2">Lessons</TabsTrigger>
+              <TabsTrigger value="evaluations" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2">Tests</TabsTrigger>
               <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2">Notes</TabsTrigger>
               <TabsTrigger value="payments" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2">Payments</TabsTrigger>
             </TabsList>
@@ -819,6 +822,28 @@ export function StudentDetailsDialog({
                     )}
                   </div>
                 </ScrollArea>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="evaluations" className="outline-none focus-visible:ring-0 animate-in fade-in duration-300">
+              <div className="rounded-xl border border-border/50 bg-card shadow-sm">
+                <div className="border-b bg-muted/20 p-4">
+                  <p className="text-sm font-semibold">Mock road-test history</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Instructor estimates only, not official DriveTest scores.</p>
+                </div>
+                <div className="divide-y">
+                  {evaluations.length > 0 ? evaluations.map(evaluation => (
+                    <div key={evaluation.id} className="flex items-center justify-between gap-3 p-4">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm">{format(new Date(evaluation.date), 'MMM dd, yyyy')} · {evaluation.testType}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{evaluation.minor_count} minor · {evaluation.major_count} major</p>
+                      </div>
+                      <Badge className={cn('capitalize shadow-none', evaluation.verdict === 'pass' ? 'bg-emerald-100 text-emerald-800' : evaluation.verdict === 'borderline' ? 'bg-amber-100 text-amber-900' : 'bg-red-100 text-red-800')}>
+                        {evaluation.verdict}
+                      </Badge>
+                    </div>
+                  )) : <div className="p-8 text-center text-sm text-muted-foreground">No mock evaluations recorded yet.</div>}
+                </div>
               </div>
             </TabsContent>
 

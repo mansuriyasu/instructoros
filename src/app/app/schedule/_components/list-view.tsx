@@ -14,12 +14,13 @@ import Link from 'next/link';
 interface ListViewProps {
   currentDate: Date;
   onEventClick: (event: CalendarEvent) => void;
+  onEvaluate: (event: CalendarEvent) => void;
   searchQuery?: string;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
-export function ListView({ currentDate, onEventClick, searchQuery, selectedInstructorId = 'all', instructorNameById = {} }: ListViewProps) {
+export function ListView({ currentDate, onEventClick, onEvaluate, searchQuery, selectedInstructorId = 'all', instructorNameById = {} }: ListViewProps) {
   const dayStart = useMemo(() => startOfDay(currentDate), [currentDate]);
   const dayEnd = useMemo(() => endOfDay(currentDate), [currentDate]);
 
@@ -168,7 +169,7 @@ export function ListView({ currentDate, onEventClick, searchQuery, selectedInstr
                   )}
                 </div>
                 <div className="col-span-3 flex items-center justify-between text-sm text-muted-foreground sm:hidden">
-                  <span>Ends {format(new Date(event.end), 'h:mm a')}</span>
+                  <div className="flex items-center gap-2"><span>Ends {format(new Date(event.end), 'h:mm a')}</span>{!isBlocked && <Button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); onEvaluate(event); }} className="h-9 rounded-lg bg-[#d4af37] px-3 text-xs font-bold text-[#0b0b0d] hover:bg-[#e5c65c]">Evaluate</Button>}</div>
                 </div>
                 {wazeUrl && (
                   <div className="hidden items-center justify-end sm:flex">
@@ -183,6 +184,11 @@ export function ListView({ currentDate, onEventClick, searchQuery, selectedInstr
                     >
                       <Navigation className="h-4 w-4" />
                     </Link>
+                  </div>
+                )}
+                {!isBlocked && (
+                  <div className="hidden items-center justify-end sm:flex">
+                    <Button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); onEvaluate(event); }} className="h-10 rounded-lg bg-[#d4af37] px-3 text-xs font-bold text-[#0b0b0d] hover:bg-[#e5c65c]">Evaluate</Button>
                   </div>
                 )}
               </div>

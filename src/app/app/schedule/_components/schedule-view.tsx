@@ -399,6 +399,12 @@ export function ScheduleView() {
     setIsDetailsDialogOpen(true);
   };
 
+  const handleEvaluate = (event: CalendarEvent) => {
+    if (!event.studentId) return;
+    setIsDetailsDialogOpen(false);
+    router.push(`/app/evaluations?lessonId=${encodeURIComponent(event.id)}`);
+  };
+
   const handleSlotClick = (date: Date) => {
     setSelectedEvent(null);
     setSelectedDateTime(date);
@@ -1024,7 +1030,7 @@ export function ScheduleView() {
       case 'day':
         return <DayView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} searchQuery={searchQuery} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'list':
-        return <ListView currentDate={currentDate} onEventClick={handleEventClick} searchQuery={searchQuery} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <ListView currentDate={currentDate} onEventClick={handleEventClick} onEvaluate={handleEvaluate} searchQuery={searchQuery} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       default:
         return null;
     }
@@ -1270,6 +1276,7 @@ export function ScheduleView() {
         onMarkPayment={handleMarkPayment}
         onMarkLessonStatus={handleMarkLessonStatus}
         onSendWhatsApp={handleSendWhatsAppEvent}
+        onEvaluate={handleEvaluate}
       />
 
       <EventDialog

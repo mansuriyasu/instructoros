@@ -38,6 +38,7 @@ import { LicenseImagePreviewDialog } from '@/app/app/_components/license-image-p
 
 const studentSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
+  email: z.string().email('Enter a valid email.').optional().or(z.literal('')),
   mobileNumber: z.string().optional(),
   address: z.string().optional(),
   birthdate: z.string().optional(),
@@ -50,7 +51,7 @@ const studentSchema = z.object({
 function getSaveErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/permission|insufficient permissions|permission-denied/i.test(message)) {
-    return 'Firebase blocked the save. Please make sure this website domain is allowed in Firebase Authentication, then try again.';
+    return 'Firestore denied this save. Your account may not have an active workspace, the workspace may be locked, or the app may be connected to a different Firebase project. Refresh the app and try again. If it continues, contact the workspace owner.';
   }
   if (/sign-in|signed in|auth/i.test(message)) {
     return 'The app is still connecting to Firebase sign-in. Please refresh the page and try again.';
@@ -84,6 +85,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     resolver: zodResolver(studentSchema),
     defaultValues: {
       name: '',
+      email: '',
       mobileNumber: '',
       address: '',
       birthdate: '',
@@ -101,6 +103,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     if (student) {
       form.reset({
         name: student.name || '',
+        email: student.email || '',
         mobileNumber: student.mobileNumber || '',
         address: student.address || '',
         birthdate: student.birthdate || '',
@@ -114,6 +117,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     } else {
       form.reset({
         name: '',
+        email: '',
         mobileNumber: '',
         address: '',
         birthdate: '',
@@ -384,6 +388,19 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
                                 <FormLabel>Full Name</FormLabel>
                                 <FormControl>
                                     <Input placeholder="John Doe" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Email (optional)</FormLabel>
+                                <FormControl>
+                                    <Input type="email" placeholder="student@example.com" {...field} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
