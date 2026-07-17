@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, type ReactNode } from 'react';
+import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { FirebaseProvider, useUser } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
@@ -20,6 +20,18 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
   const isLoginPage = pathname === '/login';
   const isPublicPage = pathname === '/';
   const isAdminPage = pathname?.startsWith('/admin');
+  const sessionRepairAttempted = useRef(false);
+
+  useEffect(() => {
+    if (isUserLoading || !user || sessionRepairAttempted.current) return;
+    sessionRepairAttempted.current = true;
+    void user.getIdToken().then(token => fetch('/api/session/repair', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })).then(response => response?.json()).then(result => {
+      if (result?.repaired) window.location.reload();
+    }).catch(() => undefined);
+  }, [isUserLoading, user]);
 
   useEffect(() => {
     if (isUserLoading || isLoginPage || isPublicPage || user) return;
