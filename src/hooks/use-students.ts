@@ -1,6 +1,7 @@
 "use client";
 
 import { Student } from '@/lib/types';
+import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useSession, useTenantCollectionPath } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 
@@ -37,7 +38,38 @@ export function useStudents() {
     [studentsCollectionRef, role, user]
   );
 
-  const { data: students, isLoading } = useCollection<Student>(studentsQuery);
+  const isSchoolInstructor = role === 'schoolInstructor';
+  const { data: firestoreStudents, isLoading } = useCollection<Student>(isSchoolInstructor ? null : studentsQuery);
+  const [assignedStudents, setAssignedStudents] = useState<Array<Student & { id: string }> | null>(null);
+  const [assignedStudentsLoading, setAssignedStudentsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isSchoolInstructor || isSessionLoading || !user || !activeTenantId) {
+      setAssignedStudents(null);
+      setAssignedStudentsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAssignedStudentsLoading(true);
+    void user.getIdToken().then(token => fetch('/api/students/assigned', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ tenantId: activeTenantId }),
+    })).then(async response => {
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not load assigned students.');
+      if (!cancelled) setAssignedStudents(result.students || []);
+    }).catch(() => {
+      if (!cancelled) setAssignedStudents([]);
+    }).finally(() => {
+      if (!cancelled) setAssignedStudentsLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [activeTenantId, isSchoolInstructor, isSessionLoading, user]);
+
+  const students = isSchoolInstructor ? assignedStudents : firestoreStudents;
 
   const addStudent = async (student: Omit<Student, 'id' | 'registrationDate' | 'status'>) => {
     if (!user) {
@@ -101,5 +133,5 @@ export function useStudents() {
     return deleteDocumentNonBlocking(studentRef);
   };
 
-  return { students, loading: isUserLoading || isLoading || isSessionLoading, addStudent, updateStudent, deleteStudent };
+  return { students, loading: isUserLoading || (isSchoolInstructor ? assignedStudentsLoading : isLoading) || isSessionLoading, addStudent, updateStudent, deleteStudent };
 }
