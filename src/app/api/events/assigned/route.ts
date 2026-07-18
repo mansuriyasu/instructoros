@@ -15,10 +15,11 @@ export async function POST(request: NextRequest) {
 
     const db = getAdminFirestore();
     const tenantRef = db.collection('tenants').doc(tenantId);
-    const [tenantSnap, memberSnap, studentsSnap, eventsSnap] = await Promise.all([
+    const [tenantSnap, memberSnap, assignedStudentsSnap, legacyStudentsSnap, eventsSnap] = await Promise.all([
       tenantRef.get(),
       tenantRef.collection('members').doc(actor.uid).get(),
       tenantRef.collection('students').where('assignedInstructorIds', 'array-contains', actor.uid).get(),
+      tenantRef.collection('students').where('instructorId', '==', actor.uid).get(),
       tenantRef.collection('events').get(),
     ]);
     const member = memberSnap.data();
@@ -26,7 +27,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This instructor is not active in the selected school workspace.' }, { status: 403 });
     }
 
-    const assignedStudentIds = new Set(studentsSnap.docs.map(snapshot => snapshot.id));
+    const assignedStudentIds = new Set([
+      ...assignedStudentsSnap.docs.map(snapshot => snapshot.id),
+      ...legacyStudentsSnap.docs.map(snapshot => snapshot.id),
+    ]);
     const events = eventsSnap.docs
       .map(snapshot => ({ ...snapshot.data(), id: snapshot.id } as Record<string, any>))
       .filter(event => event.instructorId === actor.uid || (typeof event.studentId === 'string' && assignedStudentIds.has(event.studentId)))
