@@ -12,7 +12,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, or, query, where, orderBy } from 'firebase/firestore';
 import { useStudents } from './use-students';
 
 export function useEvents(startDate?: Date, endDate?: Date) {
@@ -20,23 +20,37 @@ export function useEvents(startDate?: Date, endDate?: Date) {
   const { user, role, isSessionLoading } = useSession();
   const eventsPath = useTenantCollectionPath('events');
   const { students: allStudents } = useStudents();
+  const assignedStudentIds = useMemo(
+    () => (role === 'schoolInstructor' ? (allStudents || []).map(student => student.id).filter(Boolean) : []),
+    [allStudents, role]
+  );
+  const startDateIso = startDate?.toISOString();
+  const endDateIso = endDate?.toISOString();
 
   const eventsQuery = useMemoFirebase(
     () => {
       if (!firestore || !eventsPath || isSessionLoading || !role) return null;
       let q = query(collection(firestore, eventsPath));
       
-      if (startDate && endDate) {
+      if (startDateIso && endDateIso) {
         // Query for events that *end* after the start of the range
         // and *start* before the end of the range.
         // This ensures we catch events that span across the view boundaries.
         q = query(q, 
-            where('start', '<=', endDate.toISOString()),
+            where('start', '<=', endDateIso),
         );
       }
 
       if (role === 'schoolInstructor' && user) {
-        q = query(q, where('instructorId', '==', user.uid));
+        // Some older lessons were created before instructorId was required. Keep
+        // those visible when their student is assigned to this instructor.
+        const assignmentFilters = [where('instructorId', '==', user.uid)];
+        if (assignedStudentIds.length > 0 && assignedStudentIds.length <= 30) {
+          assignmentFilters.push(where('studentId', 'in', assignedStudentIds));
+          q = query(q, or(...assignmentFilters));
+        } else {
+          q = query(q, assignmentFilters[0]);
+        }
       }
       
       // We are fetching a slightly wider range and filtering on the client
@@ -47,7 +61,7 @@ export function useEvents(startDate?: Date, endDate?: Date) {
 
       return q;
     },
-    [endDate?.toISOString(), eventsPath, firestore, isSessionLoading, role, startDate?.toISOString(), user]
+    [assignedStudentIds, endDateIso, eventsPath, firestore, isSessionLoading, role, startDateIso, user]
   );
   
   const filterFn = useMemo(() => {
