@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarEvent } from '@/lib/types';
 import {
   useFirestore,
@@ -12,20 +12,44 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
-import { collection, doc, or, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import { useStudents } from './use-students';
 
 export function useEvents(startDate?: Date, endDate?: Date) {
   const firestore = useFirestore();
-  const { user, role, isSessionLoading } = useSession();
+  const { user, role, activeTenantId, isSessionLoading } = useSession();
   const eventsPath = useTenantCollectionPath('events');
   const { students: allStudents } = useStudents();
-  const assignedStudentIds = useMemo(
-    () => (role === 'schoolInstructor' ? (allStudents || []).map(student => student.id).filter(Boolean) : []),
-    [allStudents, role]
-  );
   const startDateIso = startDate?.toISOString();
   const endDateIso = endDate?.toISOString();
+  const [assignedEvents, setAssignedEvents] = useState<Array<Omit<CalendarEvent, 'studentAddress'>> | null>(null);
+  const [assignedEventsLoading, setAssignedEventsLoading] = useState(false);
+
+  useEffect(() => {
+    if (role !== 'schoolInstructor' || !user || !activeTenantId || isSessionLoading) {
+      setAssignedEvents(null);
+      setAssignedEventsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAssignedEventsLoading(true);
+    void user.getIdToken().then(token => fetch('/api/events/assigned', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ tenantId: activeTenantId, startDate: startDateIso, endDate: endDateIso }),
+    })).then(async response => {
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not load assigned lessons.');
+      if (!cancelled) setAssignedEvents(result.events || []);
+    }).catch(() => {
+      if (!cancelled) setAssignedEvents([]);
+    }).finally(() => {
+      if (!cancelled) setAssignedEventsLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [activeTenantId, endDateIso, isSessionLoading, role, startDateIso, user]);
 
   const eventsQuery = useMemoFirebase(
     () => {
@@ -41,17 +65,7 @@ export function useEvents(startDate?: Date, endDate?: Date) {
         );
       }
 
-      if (role === 'schoolInstructor' && user) {
-        // Some older lessons were created before instructorId was required. Keep
-        // those visible when their student is assigned to this instructor.
-        const assignmentFilters = [where('instructorId', '==', user.uid)];
-        if (assignedStudentIds.length > 0 && assignedStudentIds.length <= 30) {
-          assignmentFilters.push(where('studentId', 'in', assignedStudentIds));
-          q = query(q, or(...assignmentFilters));
-        } else {
-          q = query(q, assignmentFilters[0]);
-        }
-      }
+      if (role === 'schoolInstructor' && user) return null;
       
       // We are fetching a slightly wider range and filtering on the client
       // because Firestore doesn't support inequality filters on multiple fields ('start' and 'end').
@@ -61,7 +75,7 @@ export function useEvents(startDate?: Date, endDate?: Date) {
 
       return q;
     },
-    [assignedStudentIds, endDateIso, eventsPath, firestore, isSessionLoading, role, startDateIso, user]
+    [endDateIso, eventsPath, firestore, isSessionLoading, role, startDateIso, user]
   );
   
   const filterFn = useMemo(() => {
@@ -73,9 +87,11 @@ export function useEvents(startDate?: Date, endDate?: Date) {
     };
   }, [startDate?.toISOString(), endDate?.toISOString()]);
 
-  const { data: events, isLoading } = useCollection<Omit<CalendarEvent, 'studentAddress'>>(eventsQuery, {
+  const { data: firestoreEvents, isLoading: firestoreEventsLoading } = useCollection<Omit<CalendarEvent, 'studentAddress'>>(eventsQuery, {
     filter: filterFn
   });
+  const events = role === 'schoolInstructor' ? assignedEvents : firestoreEvents;
+  const isLoading = role === 'schoolInstructor' ? assignedEventsLoading : firestoreEventsLoading;
 
   const eventsWithAddress = useMemo(() => {
     if (!events || !allStudents) return [];

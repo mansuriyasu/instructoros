@@ -25,10 +25,6 @@ service cloud.firestore {
       return /databases/$(database)/documents/tenants/$(tenantId)/invites/$(inviteId);
     }
 
-    function studentPath(tenantId, studentId) {
-      return /databases/$(database)/documents/tenants/$(tenantId)/students/$(studentId);
-    }
-
     function tenantExists(tenantId) {
       return exists(tenantPath(tenantId));
     }
@@ -84,14 +80,6 @@ service cloud.firestore {
     function assignedRecordToInstructor() {
       return resource.data.instructorId is string
         && resource.data.instructorId == request.auth.uid;
-    }
-
-    function assignedEventToInstructor(tenantId) {
-      return assignedRecordToInstructor()
-        || (resource.data.studentId is string
-          && exists(studentPath(tenantId, resource.data.studentId))
-          && get(studentPath(tenantId, resource.data.studentId)).data.assignedInstructorIds is list
-          && request.auth.uid in get(studentPath(tenantId, resource.data.studentId)).data.assignedInstructorIds);
     }
 
     function newAssignedStudentToInstructor() {
@@ -244,8 +232,8 @@ service cloud.firestore {
       }
 
       match /events/{docId} {
-        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedEventToInstructor(tenantId));
-        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedEventToInstructor(tenantId));
+        allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
+        allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
         allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedRecordToInstructor()));
         allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor() && newAssignedRecordToInstructor()));
         allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
