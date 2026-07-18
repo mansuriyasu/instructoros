@@ -10,6 +10,7 @@ import { Calendar as CalendarIcon, X, PlusCircle, Minus, Plus, ReceiptText, Wall
 import { format, setHours, setMinutes, isValid } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, formatCurrency } from '@/lib/utils';
+import { formatPackageContents } from '@/lib/package-utils';
 import { useToast } from '@/hooks/use-toast';
 import { usePayments } from '@/hooks/use-payments';
 import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
@@ -395,6 +396,11 @@ export function CurrentBill({
                                   {formatCurrency(item.price * item.quantity)}
                                 </span>
                               </div>
+                              {!!item.packageItems?.length && (
+                                <p className="line-clamp-2 text-xs text-muted-foreground">
+                                  Includes: {formatPackageContents(item.packageItems)}
+                                </p>
+                              )}
                               <div className='flex items-center justify-between mt-1'>
                                   <div className="flex items-center gap-1">
                                     <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => onItemQuantityChange(item.billItemId, item.quantity - 1)}>

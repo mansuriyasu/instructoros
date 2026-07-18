@@ -593,6 +593,7 @@ export function ScheduleView() {
         billItemId: `${event.id}-${service.id}`,
         date: event.start,
         quantity: 1,
+        ...(serviceDetails?.packageItems?.length ? { packageItems: serviceDetails.packageItems.map(c => ({ ...c })) } : {}),
       };
     });
 

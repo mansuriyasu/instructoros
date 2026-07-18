@@ -25,6 +25,12 @@ export interface Student {
   assignedInstructorIds?: string[];
 }
 
+export interface PackageComponent {
+  serviceId: string; // component Service id at definition time
+  name: string; // snapshot of the component name
+  quantity: number; // units included, >= 1
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -34,6 +40,7 @@ export interface Service {
   order: number;
   category?: string;
   duration?: number; // in minutes
+  packageItems?: PackageComponent[]; // non-empty => this service is a package
 }
 
 export interface ServiceCategory {

@@ -28,10 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Service } from '@/lib/types';
 import { useEffect } from 'react';
+import { Minus, Plus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useServiceCategories } from '@/hooks/use-service-categories';
+import { useServices } from '@/hooks/use-services';
+import { getPackageComponentsValue, isPackageService } from '@/lib/package-utils';
+import { formatCurrency } from '@/lib/utils';
 
 const serviceSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -41,6 +46,20 @@ const serviceSchema = z.object({
   category: z.string().optional(),
   durationHours: z.coerce.number().min(0).optional(),
   durationMinutes: z.coerce.number().min(0).max(59).optional(),
+  isPackage: z.boolean().default(false),
+  packageItems: z.array(z.object({
+    serviceId: z.string(),
+    name: z.string(),
+    quantity: z.coerce.number().int().min(1),
+  })).default([]),
+}).superRefine((values, ctx) => {
+  if (values.isPackage && values.packageItems.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['packageItems'],
+      message: 'Add at least one service to the package.',
+    });
+  }
 });
 
 interface ServiceFormDialogProps {
@@ -53,6 +72,7 @@ interface ServiceFormDialogProps {
 export function ServiceFormDialog({ isOpen, onOpenChange, service, onSave }: ServiceFormDialogProps) {
   const { toast } = useToast();
   const { categories } = useServiceCategories();
+  const { services } = useServices();
 
   const form = useForm<z.infer<typeof serviceSchema>>({
     resolver: zodResolver(serviceSchema),
@@ -64,10 +84,27 @@ export function ServiceFormDialog({ isOpen, onOpenChange, service, onSave }: Ser
       category: '',
       durationHours: 0,
       durationMinutes: 0,
+      isPackage: false,
+      packageItems: [],
     },
   });
 
   const isEditing = !!service;
+  const isPackage = form.watch('isPackage');
+  const packageItems = form.watch('packageItems');
+  const componentOptions = (services || []).filter(
+    s => s.id !== service?.id && !isPackageService(s) && !packageItems.some(item => item.serviceId === s.id)
+  );
+  const individualValue = getPackageComponentsValue(packageItems, services);
+  const packagePrice = Number(form.watch('price')) || 0;
+
+  const setComponentQuantity = (serviceId: string, quantity: number) => {
+    const current = form.getValues('packageItems');
+    const next = quantity <= 0
+      ? current.filter(item => item.serviceId !== serviceId)
+      : current.map(item => (item.serviceId === serviceId ? { ...item, quantity } : item));
+    form.setValue('packageItems', next, { shouldValidate: true });
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -82,9 +119,11 @@ export function ServiceFormDialog({ isOpen, onOpenChange, service, onSave }: Ser
             category: service.category || '',
             durationHours: hours,
             durationMinutes: minutes,
+            isPackage: isPackageService(service),
+            packageItems: service.packageItems || [],
           });
         } else {
-          form.reset({ name: '', price: 0, cost: 0, discount: 0, category: '', durationHours: 0, durationMinutes: 0 });
+          form.reset({ name: '', price: 0, cost: 0, discount: 0, category: '', durationHours: 0, durationMinutes: 0, isPackage: false, packageItems: [] });
         }
     }
   }, [service, form, isOpen]);
@@ -93,13 +132,15 @@ export function ServiceFormDialog({ isOpen, onOpenChange, service, onSave }: Ser
     try {
       const duration = (values.durationHours || 0) * 60 + (values.durationMinutes || 0);
       
-      const dataToSave = { 
+      const dataToSave = {
         name: values.name,
         price: values.price,
         cost: values.cost || 0,
-        discount: values.discount || 0,
+        discount: values.isPackage ? 0 : values.discount || 0,
         duration: duration > 0 ? duration : 0,
         category: values.category === 'none' ? '' : values.category,
+        // Empty array (not undefined) so editing a former package clears it.
+        packageItems: values.isPackage ? values.packageItems : [],
       };
 
       if (isEditing && service) {
@@ -160,6 +201,70 @@ export function ServiceFormDialog({ isOpen, onOpenChange, service, onSave }: Ser
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="isPackage"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <FormLabel className="text-sm font-medium">This is a package</FormLabel>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            {isPackage && (
+              <FormField
+                control={form.control}
+                name="packageItems"
+                render={() => (
+                  <FormItem className="rounded-lg border p-3">
+                    <FormLabel className="text-sm">Included services</FormLabel>
+                    <div className="space-y-2">
+                      {packageItems.map(item => (
+                        <div key={item.serviceId} className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-sm">{item.name}</span>
+                          <Button type="button" variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={() => setComponentQuantity(item.serviceId, item.quantity - 1)}>
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                          <Button type="button" variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={() => setComponentQuantity(item.serviceId, item.quantity + 1)}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={() => setComponentQuantity(item.serviceId, 0)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      {componentOptions.length > 0 && (
+                        <Select
+                          value=""
+                          onValueChange={serviceId => {
+                            const selected = componentOptions.find(s => s.id === serviceId);
+                            if (!selected) return;
+                            form.setValue(
+                              'packageItems',
+                              [...form.getValues('packageItems'), { serviceId: selected.id, name: selected.name, quantity: 1 }],
+                              { shouldValidate: true }
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Add a service..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {componentOptions.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -194,7 +299,15 @@ export function ServiceFormDialog({ isOpen, onOpenChange, service, onSave }: Ser
                 )}
               />
             </div>
-             <FormField
+            {isPackage && individualValue > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Individual value: {formatCurrency(individualValue)}
+                {packagePrice > 0 && packagePrice < individualValue && (
+                  <> — you save {formatCurrency(individualValue - packagePrice)}</>
+                )}
+              </p>
+            )}
+             {!isPackage && <FormField
                 control={form.control}
                 name="discount"
                 render={({ field }) => (
@@ -212,7 +325,7 @@ export function ServiceFormDialog({ isOpen, onOpenChange, service, onSave }: Ser
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              />}
              <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}

@@ -6,6 +6,7 @@ import { Service } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
+import { isPackageService } from '@/lib/package-utils';
 import { PackagePlus, Plus, Tag } from 'lucide-react';
 import {
   Accordion,
@@ -110,9 +111,9 @@ export function ServiceSelection({ onSelectService }: ServiceSelectionProps) {
                         className="group relative cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#C9A84C] hover:shadow-md active:scale-[0.98]"
                     >
                         <CardContent className="flex h-28 flex-col justify-between p-3">
-                        {service.name.toLowerCase().includes('package') && (
-                            <div className="absolute right-0 top-0 rounded-bl-lg bg-[#FFD700] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#0D1B2A]">
-                                Popular
+                        {isPackageService(service) && (
+                            <div className="absolute right-0 top-0 rounded-bl-lg bg-violet-600 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white">
+                                Package
                             </div>
                         )}
                         <div className="flex items-start justify-between gap-2">
@@ -135,6 +136,11 @@ export function ServiceSelection({ onSelectService }: ServiceSelectionProps) {
                             )
                             : formatCurrency(service.price)}
                           </p>
+                          {isPackageService(service) && (
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              Includes {service.packageItems!.reduce((sum, item) => sum + item.quantity, 0)} items
+                            </p>
+                          )}
                         </div>
                         </CardContent>
                     </Card>

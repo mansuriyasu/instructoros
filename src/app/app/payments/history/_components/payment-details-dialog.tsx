@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/firebase';
 import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, formatTaxLabel } from '@/lib/tax';
+import { formatPackageContents } from '@/lib/package-utils';
 
 interface PaymentDetailsDialogProps {
   isOpen: boolean;
@@ -264,9 +265,13 @@ export function PaymentDetailsDialog({
       const quantity = item.quantity || 1;
       const lineTotal = item.price * quantity;
 
+      const serviceCell = item.packageItems?.length
+        ? `${item.name}\nIncludes: ${formatPackageContents(item.packageItems)}`
+        : item.name;
+
       return [
         format(displayDate, 'MMM d, yyyy'),
-        item.name,
+        serviceCell,
         String(quantity),
         formatCurrency(item.price),
         formatCurrency(lineTotal),
@@ -520,6 +525,11 @@ export function PaymentDetailsDialog({
                                   <div key={item.billItemId} className="flex justify-between items-start gap-4">
                                       <div>
                                           <p className="font-medium">{item.name}</p>
+                                          {!!item.packageItems?.length && (
+                                            <p className="text-xs text-muted-foreground">
+                                              Includes: {formatPackageContents(item.packageItems)}
+                                            </p>
+                                          )}
                                           <p className="text-xs text-muted-foreground">{format(displayDate, 'MMM d, yyyy')}</p>
                                           <p className="text-xs text-muted-foreground">
                                             {quantity} x {formatCurrency(item.price)}

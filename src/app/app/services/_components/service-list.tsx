@@ -5,7 +5,8 @@ import { useServices } from '@/hooks/use-services';
 import { Service, ServiceCategory } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Edit, Trash2, Plus, Info, Settings, Clock, ArrowRight, AlertTriangle } from 'lucide-react';
+import { GripVertical, Edit, Trash2, Plus, Info, Settings, Clock, ArrowRight, AlertTriangle, Boxes } from 'lucide-react';
+import { formatPackageContents, isPackageService } from '@/lib/package-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ServiceFormDialog } from './service-form-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -149,6 +150,12 @@ export function ServiceList() {
                   <p className="font-bold text-base sm:text-lg leading-tight mb-2 line-clamp-2">{service.name}</p>
                   
                   <div className="flex flex-wrap gap-1.5 overflow-hidden">
+                     {isPackageService(service) && (
+                        <Badge className="flex items-center gap-1 text-[10px] px-1.5 py-0 font-medium shrink-0 bg-violet-600 text-white hover:bg-violet-600" title={formatPackageContents(service.packageItems || [])}>
+                            <Boxes className="h-2.5 w-2.5" />
+                            Package · {service.packageItems!.length}
+                        </Badge>
+                     )}
                      {service.category && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium truncate max-w-full">{service.category}</Badge>}
                      {service.duration && (
                         <Badge variant="outline" className="flex items-center gap-1 text-[10px] px-1.5 py-0 font-medium shrink-0 bg-background/50">

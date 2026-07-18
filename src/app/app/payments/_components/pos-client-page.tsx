@@ -61,6 +61,9 @@ export function PosClientPage() {
           billItemId: `${service.id}-${Date.now()}`, // Unique ID for each bill item
           date: new Date().toISOString(),
           quantity: 1,
+          // Snapshot the package contents so receipts and usage tracking
+          // keep working even if the Service is later edited or deleted.
+          ...(service.packageItems?.length ? { packageItems: service.packageItems.map(c => ({ ...c })) } : {}),
         };
         return [...prev, billItem];
     });
@@ -84,6 +87,7 @@ export function PosClientPage() {
           billItemId: `${event.id}-${eventService.id}-${index}`,
           date: event.start,
           quantity: 1,
+          ...(serviceDetails?.packageItems?.length ? { packageItems: serviceDetails.packageItems.map(c => ({ ...c })) } : {}),
         };
       });
     });
@@ -284,6 +288,12 @@ export function PosClientPage() {
                 isEditing={!!paymentIdForEdit}
             />
         </div>
+
+        {!selectedStudent && items.some(item => item.packageItems?.length) && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Select a student to track package usage. Walk-in package sales are not tracked.
+            </p>
+        )}
 
         <div className="grid grid-cols-3 gap-2 rounded-2xl border bg-card p-2 text-center shadow-sm sm:hidden">
             <div className="rounded-xl bg-muted/60 px-2 py-2">

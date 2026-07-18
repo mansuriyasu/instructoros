@@ -22,6 +22,8 @@ import { format } from 'date-fns';
 import { usePayments } from '@/hooks/use-payments';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, cn } from '@/lib/utils';
+import { getStudentPackageData } from '@/lib/package-utils';
+import { Progress } from '@/components/ui/progress';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -117,6 +119,11 @@ export function StudentDetailsDialog({
       : [];
   }, [student, events]);
 
+  const packageData = useMemo(
+    () => getStudentPackageData(payments, events, student?.id),
+    [payments, events, student?.id]
+  );
+
   const billableTakenLessons = useMemo(() => {
     const now = Date.now();
     return studentLessons.filter(lesson => {
@@ -127,10 +134,11 @@ export function StudentDetailsDialog({
         lessonStatus !== 'cancelled' &&
         lessonStatus !== 'no-show' &&
         lesson.paymentStatus !== 'paid' &&
+        !packageData.coveredEventIds.has(lesson.id) &&
         (lesson.services || []).length > 0
       );
     });
-  }, [studentLessons]);
+  }, [studentLessons, packageData]);
 
   const mergeCandidates = useMemo(() => {
     if (!student || !students) return [];
@@ -735,6 +743,32 @@ export function StudentDetailsDialog({
             </TabsContent>
 
             <TabsContent value="lessons" className="outline-none focus-visible:ring-0 animate-in fade-in duration-300">
+              {packageData.entitlements.length > 0 && (
+                <div className="mb-3 rounded-xl border border-violet-200 bg-violet-50/60 p-3 shadow-sm dark:border-violet-900 dark:bg-violet-950/30">
+                  <p className="mb-2 text-sm font-semibold">Package balance</p>
+                  <div className="space-y-2">
+                    {packageData.entitlements.map(entitlement => (
+                      <div key={entitlement.serviceId}>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="min-w-0 truncate font-medium">{entitlement.serviceName}</span>
+                          <span className="shrink-0 text-muted-foreground">
+                            {entitlement.used} used{entitlement.booked > 0 ? ` · ${entitlement.booked} booked` : ''} · {entitlement.remaining} left
+                          </span>
+                        </div>
+                        <Progress
+                          className="mt-1 h-1.5"
+                          value={entitlement.purchased > 0 ? ((entitlement.used + entitlement.booked) / entitlement.purchased) * 100 : 0}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {packageData.hasUnpaidPackagePayment && (
+                    <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                      A package bill still has a balance due.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="border border-border/50 rounded-xl overflow-hidden bg-card shadow-sm">
                 <div className="flex flex-col gap-3 border-b bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -763,7 +797,8 @@ export function StudentDetailsDialog({
                       const services = lesson.services?.map(service => service.name).join(', ') || lesson.examCenter || 'Lesson';
                       const isPastLesson = lessonDate.getTime() < Date.now();
                       const lessonStatus = lesson.lessonStatus || 'scheduled';
-                      const canBillLesson = isPastLesson && lessonStatus !== 'cancelled' && lessonStatus !== 'no-show' && lesson.paymentStatus !== 'paid' && (lesson.services || []).length > 0;
+                      const isPackageCovered = packageData.coveredEventIds.has(lesson.id);
+                      const canBillLesson = isPastLesson && lessonStatus !== 'cancelled' && lessonStatus !== 'no-show' && lesson.paymentStatus !== 'paid' && !isPackageCovered && (lesson.services || []).length > 0;
                       return (
                         <div 
                           key={lesson.id} 
@@ -790,9 +825,13 @@ export function StudentDetailsDialog({
                               <Badge className={cn("shadow-none", getLessonStatusClass(lesson.lessonStatus))}>
                                 {getLessonStatusLabel(lesson.lessonStatus)}
                               </Badge>
-                              <Badge variant={lesson.paymentStatus === 'paid' ? 'default' : 'outline'} className="shadow-none">
-                                {lesson.paymentStatus === 'paid' ? 'Paid' : lesson.paymentStatus === 'unpaid' ? 'Unpaid' : isPastLesson ? 'Taken' : 'Booked'}
-                              </Badge>
+                              {isPackageCovered ? (
+                                <Badge className="bg-violet-600 text-white shadow-none hover:bg-violet-600">Package</Badge>
+                              ) : (
+                                <Badge variant={lesson.paymentStatus === 'paid' ? 'default' : 'outline'} className="shadow-none">
+                                  {lesson.paymentStatus === 'paid' ? 'Paid' : lesson.paymentStatus === 'unpaid' ? 'Unpaid' : isPastLesson ? 'Taken' : 'Booked'}
+                                </Badge>
+                              )}
                               <Button
                                 type="button"
                                 variant="outline"
