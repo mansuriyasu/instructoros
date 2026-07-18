@@ -15,7 +15,10 @@ assert.match(checkout, /getBillingActor\(request, tenantId, \{ requireOwner: tru
 assert.match(checkout, /billingLocked: false/);
 
 const deletion = read('src/app/api/account/delete-workspace/route.ts');
-assert.match(deletion, /tenant\.ownerUid === decoded\.uid/);
+assert.match(deletion, /if \(requestedUserId && !isMainAdmin\)/);
+assert.match(deletion, /targetUid !== decoded\.uid && !isMainAdmin/);
+assert.match(deletion, /ownerUid === targetUid/);
+assert.match(deletion, /where\('ownerUid', '==', targetUid\)/);
 
 const shortcut = read('src/app/api/shortcuts/license-scan/route.ts');
 assert.match(shortcut, /SHORTCUT_TENANT_ID/);
