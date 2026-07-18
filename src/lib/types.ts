@@ -118,6 +118,7 @@ export interface EvaluationItem {
   name: string;
   status: EvaluationItemStatus;
   tags: string[];
+  category?: string; // section id from evaluation-criteria; absent on older records
 }
 
 export interface Evaluation {

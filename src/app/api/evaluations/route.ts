@@ -2,19 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { RequestSecurityError, requireRateLimitedUser } from '@/lib/server/request-security';
 import { MAIN_ADMIN_EMAIL, normalizeEmail } from '@/lib/auth-config';
+import { TEST_TYPES, calculateVerdict, countStatuses, normalizeAutofails, normalizeEvaluationItems } from '@/lib/evaluation-criteria';
 import type { Firestore, Query } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
 
-const TEST_TYPES = new Set(['G2', 'G']);
-const STATUSES = new Set(['ok', 'minor', 'major']);
-const AUTOFAILS = new Set([
-  'Dangerous action',
-  'Collision/mounted curb',
-  'Instructor took control',
-  'Stopped/rolled on railway tracks',
-  "Didn't follow instruction",
-]);
+const TEST_TYPE_SET = new Set<string>(TEST_TYPES);
 
 function errorResponse(error: unknown, fallback: string) {
   const status = error instanceof RequestSecurityError ? error.status : 500;
@@ -23,12 +16,6 @@ function errorResponse(error: unknown, fallback: string) {
 
 function cleanString(value: unknown, max = 500) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
-}
-
-function calculateVerdict(minorCount: number, majorCount: number, autofails: string[]) {
-  if (autofails.length > 0 || majorCount >= 2 || (majorCount >= 1 && minorCount >= 4)) return 'fail';
-  if (majorCount >= 1 || minorCount >= 4) return 'borderline';
-  return 'pass';
 }
 
 async function getWorkspaceAccess(tenantId: string, uid: string, email?: string) {
@@ -68,23 +55,10 @@ function normalizePayload(body: Record<string, unknown>) {
   const area = cleanString(body.area, 300);
   const instructor = cleanString(body.instructor, 160);
   const notes = cleanString(body.notes, 4000);
-  const inputItems = Array.isArray(body.items) ? body.items : [];
-  const items = inputItems.map((item, index) => {
-    const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
-    const status = cleanString(record.status, 10);
-    return {
-      id: cleanString(record.id, 100) || `item-${index + 1}`,
-      name: cleanString(record.name, 160),
-      status: STATUSES.has(status) ? status : 'ok',
-      tags: Array.isArray(record.tags) ? record.tags.map(tag => cleanString(tag, 80)).filter(Boolean).slice(0, 20) : [],
-    };
-  }).filter(item => item.name);
-  const autofails = Array.isArray(body.autofails)
-    ? body.autofails.map(item => cleanString(item, 100)).filter(item => AUTOFAILS.has(item))
-    : [];
-  const minor_count = items.filter(item => item.status === 'minor').length;
-  const major_count = items.filter(item => item.status === 'major').length;
-  return { studentId, lessonId, testType, date, area, instructor, notes, items, autofails, minor_count, major_count, verdict: calculateVerdict(minor_count, major_count, autofails) };
+  const items = normalizeEvaluationItems(body.items);
+  const autofails = normalizeAutofails(body.autofails);
+  const { minors: minor_count, majors: major_count } = countStatuses(items);
+  return { studentId, lessonId, testType, date, area, instructor, notes, items, autofails, minor_count, major_count, verdict: calculateVerdict(minor_count, major_count, autofails.length) };
 }
 
 async function assertInstructorCanUseLesson(access: { member: { role?: string }; mainAdmin: boolean }, uid: string, lesson: Record<string, unknown>, student: Record<string, unknown>) {
@@ -126,7 +100,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const tenantId = cleanString(body.tenantId, 160);
     const payload = normalizePayload(body);
-    if (!tenantId || !payload.studentId || !payload.lessonId || !TEST_TYPES.has(payload.testType) || !payload.date || !payload.items.length) {
+    if (!tenantId || !payload.studentId || !payload.lessonId || !TEST_TYPE_SET.has(payload.testType) || !payload.date || !payload.items.length) {
       return NextResponse.json({ error: 'Student, scheduled lesson, test type, date, and maneuvers are required.' }, { status: 400 });
     }
     const access = await getWorkspaceAccess(tenantId, actor.uid, actor.email);
