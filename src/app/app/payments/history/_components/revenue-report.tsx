@@ -10,7 +10,7 @@ import { formatCurrency } from '@/lib/utils';
 import { DateRangePicker } from './date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { isAdvanceCreditPayment } from '@/lib/payment-utils';
+import { getCollectedAmount, getOutstandingAmount, isAdvanceCreditPayment } from '@/lib/payment-utils';
 
 interface RevenueReportProps {
   payments: Payment[];
@@ -40,11 +40,11 @@ export function RevenueReport({ payments, statusFilter, dateRange, setDateRange 
       : dateFiltered.filter(p => p.status === statusFilter);
 
     const revenuePayments = statusFiltered.filter(payment => !isAdvanceCreditPayment(payment));
-    const revenue = revenuePayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+    const revenue = revenuePayments.reduce((sum, p) => sum + getCollectedAmount(p), 0);
     const cost = revenuePayments.reduce((sum, p) => sum + (p.totalCost || 0), 0);
     const profit = revenue - cost;
 
-    const outstanding = revenuePayments.reduce((sum, p) => sum + (p.amountDue || 0), 0);
+    const outstanding = revenuePayments.reduce((sum, p) => sum + getOutstandingAmount(p), 0);
 
     return { 
       filteredPayments: statusFiltered, 

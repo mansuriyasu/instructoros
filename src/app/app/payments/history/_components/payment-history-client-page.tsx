@@ -14,7 +14,7 @@ import { RecordPaymentDialog } from './record-payment-dialog';
 import { DateRangePicker } from './date-range-picker';
 import { formatCurrency } from '@/lib/utils';
 import { Banknote, CircleDollarSign, ReceiptText, WalletCards, Eye, EyeOff, CalendarDays, CalendarCheck } from 'lucide-react';
-import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, isAdvanceCreditPayment } from '@/lib/payment-utils';
+import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, getCollectedAmount, getOutstandingAmount } from '@/lib/payment-utils';
 import { Button } from '@/components/ui/button';
 import { startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -53,13 +53,12 @@ export function PaymentHistoryClientPage() {
     let totalOutstanding = 0;
 
     safePayments.forEach(payment => {
-      totalOutstanding += payment.amountDue || 0;
-      
-      const isAdvance = isAdvanceCreditPayment(payment);
-      if (isAdvance) return;
+      totalOutstanding += getOutstandingAmount(payment);
+
+      const amount = getCollectedAmount(payment);
+      if (amount <= 0) return;
 
       const paymentDate = new Date(payment.paymentDate);
-      const amount = payment.paidAmount || 0;
 
       if (paymentDate >= currentMonthStart && paymentDate <= currentMonthEnd) {
         thisMonthSales += amount;

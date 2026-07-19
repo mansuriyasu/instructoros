@@ -87,6 +87,7 @@ export function PosClientPage() {
           billItemId: `${event.id}-${eventService.id}-${index}`,
           date: event.start,
           quantity: 1,
+          eventId: event.id,
           ...(serviceDetails?.packageItems?.length ? { packageItems: serviceDetails.packageItems.map(c => ({ ...c })) } : {}),
         };
       });

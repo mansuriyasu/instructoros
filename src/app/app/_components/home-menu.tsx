@@ -23,6 +23,7 @@ import { usePayments } from '@/hooks/use-payments';
 import { useStudents } from '@/hooks/use-students';
 import { useSession, useUser } from '@/firebase';
 import { formatCurrency } from '@/lib/utils';
+import { getCollectedAmount, getOutstandingAmount } from '@/lib/payment-utils';
 
 function isToday(dateString: string | Date) {
   const date = new Date(dateString);
@@ -46,8 +47,8 @@ export function HomeMenu() {
   const todaysRevenue = useMemo(() => {
     if (!payments) return 0;
     return payments
-      .filter(payment => payment.status === 'paid' && isToday(payment.paymentDate))
-      .reduce((sum, payment) => sum + payment.total, 0);
+      .filter(payment => isToday(payment.paymentDate))
+      .reduce((sum, payment) => sum + getCollectedAmount(payment), 0);
   }, [payments]);
 
   const todayLessons = useMemo(() => {
@@ -72,9 +73,7 @@ export function HomeMenu() {
 
   const unpaidPayments = useMemo(() => {
     if (!payments) return 0;
-    return payments
-      .filter(payment => payment.status === 'unpaid')
-      .reduce((sum, payment) => sum + (payment.amountDue || payment.total || 0), 0);
+    return payments.reduce((sum, payment) => sum + getOutstandingAmount(payment), 0);
   }, [payments]);
 
   const showTrialPaymentPrompt = canManageTenant && tenant?.subscriptionStatus === 'trialing' && !tenant.stripeSubscriptionId;

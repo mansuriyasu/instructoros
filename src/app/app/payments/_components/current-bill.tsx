@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { formatPackageContents } from '@/lib/package-utils';
 import { useToast } from '@/hooks/use-toast';
 import { usePayments } from '@/hooks/use-payments';
+import { useEvents } from '@/hooks/use-events';
 import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,7 +26,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, getStudentAdvanceCredit } from '@/lib/payment-utils';
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { useSession } from '@/firebase';
-import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, calculateTaxAmount, formatTaxLabel } from '@/lib/tax';
+import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, calculateTaxAmount, formatTaxLabel, roundCurrency } from '@/lib/tax';
 import { getBillingLocked } from '@/lib/billing';
 
 interface CurrentBillProps {
@@ -67,6 +68,7 @@ export function CurrentBill({
   isEditing,
 }: CurrentBillProps) {
   const { payments, addPayment, updatePayment } = usePayments();
+  const { updateEvent } = useEvents();
   const { sendAndLogWhatsApp } = useWhatsAppLogs();
   const { tenant } = useSession();
   const { toast } = useToast();
@@ -81,6 +83,7 @@ export function CurrentBill({
   const [sendSms, setSendSms] = useState(false);
   const [missingPhoneStudent, setMissingPhoneStudent] = useState<Student | null>(null);
   const [paymentDateIso, setPaymentDateIso] = useState(new Date().toISOString());
+  const taxManuallySetRef = useRef(false);
   const taxRate = tenant?.taxRate ?? ONTARIO_HST_RATE;
   const taxLabel = tenant?.taxLabel || DEFAULT_TAX_LABEL;
   const taxDisplayLabel = formatTaxLabel(taxLabel, taxRate);
@@ -103,13 +106,36 @@ export function CurrentBill({
         setPaymentDateIso(new Date().toISOString());
     }
     setAmountPaidNow(0);
+    taxManuallySetRef.current = false;
   }, [activeBill, tenant?.taxEnabledByDefault]);
 
-  const subtotal = useMemo(() => billItems.reduce((sum, item) => sum + (item.price * item.quantity), 0), [billItems]);
-  const totalCost = useMemo(() => billItems.reduce((sum, item) => sum + ((item.cost || 0) * item.quantity), 0), [billItems]);
+  // Business practice: cash payments are collected without HST. Selecting Cash
+  // unchecks tax automatically; other methods restore the bill/tenant default.
+  // A manual tap on the tax checkbox always wins until the bill resets.
+  const handlePaymentMethodChange = (method: PaymentMethod) => {
+    setPaymentMethod(method);
+    if (!taxManuallySetRef.current) {
+      const defaultApplyTax = activeBill ? activeBill.tax > 0 : Boolean(tenant?.taxEnabledByDefault);
+      setApplyTax(method === 'Cash' ? false : defaultApplyTax);
+    }
+  };
+
+  const subtotal = useMemo(() => roundCurrency(billItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)), [billItems]);
+  const totalCost = useMemo(() => roundCurrency(billItems.reduce((sum, item) => sum + ((item.cost || 0) * item.quantity), 0)), [billItems]);
   const taxableAmount = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
   const taxAmount = useMemo(() => applyTax ? calculateTaxAmount(taxableAmount, taxRate) : 0, [applyTax, taxableAmount, taxRate]);
-  const total = useMemo(() => subtotal - discount + taxAmount, [subtotal, discount, taxAmount]);
+  const total = useMemo(() => roundCurrency(subtotal - discount + taxAmount), [subtotal, discount, taxAmount]);
+
+  // Bills built from schedule lessons carry the source event ids; after a save
+  // the events get the payment link so they stop showing as billable and the
+  // schedule's mark-paid flow reuses this payment instead of creating another.
+  const syncBilledEvents = (paymentId: string | undefined, status: PaymentStatus, method: PaymentMethod) => {
+    if (!paymentId) return;
+    const eventIds = Array.from(new Set(billItems.map(item => item.eventId).filter((id): id is string => Boolean(id))));
+    for (const eventId of eventIds) {
+      updateEvent({ id: eventId, paymentId, paymentStatus: status, paymentMethod: method });
+    }
+  };
   const isFinalizing = paymentMethod !== 'Unpaid';
   const isAdvancePayment = paymentMethod === 'Advance';
   const isCreatingAdvanceCredit = isAdvancePayment && billItems.length === 0;
@@ -218,13 +244,16 @@ export function CurrentBill({
     };
 
     try {
+        let savedPaymentId = activeBill?.id;
         if (activeBill) {
             await updatePayment({ ...paymentData, id: activeBill.id });
             toast({ title: 'Payment updated successfully!' });
         } else {
-            await addPayment(paymentData);
+            const paymentRef = await addPayment(paymentData);
+            savedPaymentId = paymentRef?.id || savedPaymentId;
             toast({ title: 'Payment recorded successfully!' });
         }
+        syncBilledEvents(savedPaymentId, newStatus, finalPaymentMethod);
 
         const servicesDesc = advanceOnly ? 'Advance Payment' : finalBillItems.map(item => item.name).join(', ');
 
@@ -323,11 +352,14 @@ export function CurrentBill({
     };
 
     try {
+      let savedPaymentId = activeBill?.id;
       if (activeBill) {
         await updatePayment({ ...billData, id: activeBill.id });
       } else {
-        await addPayment(billData);
+        const paymentRef = await addPayment(billData);
+        savedPaymentId = paymentRef?.id || savedPaymentId;
       }
+      syncBilledEvents(savedPaymentId, status, 'Unpaid');
       toast({ title: "Student's bill has been updated." });
       onReset();
     } catch (error) {
@@ -502,7 +534,7 @@ export function CurrentBill({
 
             <div className="space-y-2">
             <Label>Payment Method</Label>
-            <Select value={paymentMethod} onValueChange={value => setPaymentMethod(value as PaymentMethod)}>
+            <Select value={paymentMethod} onValueChange={value => handlePaymentMethodChange(value as PaymentMethod)}>
               <SelectTrigger className="rounded-xl bg-card"><SelectValue/></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Unpaid">Unpaid / Update Bill</SelectItem>
@@ -565,7 +597,7 @@ export function CurrentBill({
             </div>
           </div>
           <div className="flex items-center space-x-2">
-              <Checkbox id="tax" checked={applyTax} onCheckedChange={(checked) => setApplyTax(checked as boolean)} />
+              <Checkbox id="tax" checked={applyTax} onCheckedChange={(checked) => { taxManuallySetRef.current = true; setApplyTax(checked as boolean); }} />
               <label
                   htmlFor="tax"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1"

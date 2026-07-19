@@ -39,7 +39,8 @@ import { CalendarDays, Car, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
-import { createPaymentTransaction } from '@/lib/payment-utils';
+import { createPaymentTransaction, getStudentAdvanceCredit } from '@/lib/payment-utils';
+import { roundCurrency } from '@/lib/tax';
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { Student } from '@/lib/types';
 import {
@@ -139,7 +140,7 @@ export function ScheduleView() {
   const { activeTenantId, canManageTenant, tenant, user } = useSession();
   const { events: allEvents, loading: isEventsLoading, addEvent, updateEvent: updateEventFirestore, deleteEvent: deleteEventFirestore } = useEvents();
   const { students: allStudents } = useStudents();
-  const { addPayment, updatePayment, getPaymentById, loading: paymentsLoading } = usePayments();
+  const { payments, addPayment, updatePayment, getPaymentById, loading: paymentsLoading } = usePayments();
   const { services: allServices, loading: servicesLoading } = useServices();
   const {
     connect,
@@ -578,7 +579,12 @@ export function ScheduleView() {
       return;
     }
 
-    const existingPayment = event.paymentId ? getPaymentById(event.paymentId) : null;
+    // Reuse a bill saved from POS for this lesson even when the event link is
+    // missing (older bills) — prevents a duplicate payment doc for one lesson.
+    const linkedPayment = event.paymentId ? getPaymentById(event.paymentId) : null;
+    const existingPayment = linkedPayment
+      || (payments || []).find(p => p.status === 'unpaid' && p.studentId === event.studentId && p.items?.some(item => item.eventId === event.id))
+      || null;
     const items = existingPayment?.items?.length ? existingPayment.items : event.services.map(service => {
       const serviceDetails = allServices.find(item => item.id === service.id || item.name === service.name);
       const basePrice = service.price ?? serviceDetails?.price ?? 0;
@@ -593,17 +599,25 @@ export function ScheduleView() {
         billItemId: `${event.id}-${service.id}`,
         date: event.start,
         quantity: 1,
+        eventId: event.id,
         ...(serviceDetails?.packageItems?.length ? { packageItems: serviceDetails.packageItems.map(c => ({ ...c })) } : {}),
       };
     });
 
-    const subtotal = existingPayment?.subtotal ?? items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const subtotal = existingPayment?.subtotal ?? roundCurrency(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
     const discount = existingPayment?.discount ?? 0;
     const tax = existingPayment?.tax ?? 0;
-    const total = existingPayment?.total ?? subtotal;
-    const totalCost = existingPayment?.totalCost ?? items.reduce((sum, item) => sum + (item.cost || 0) * item.quantity, 0);
+    const total = existingPayment?.total ?? roundCurrency(subtotal);
+    const totalCost = existingPayment?.totalCost ?? roundCurrency(items.reduce((sum, item) => sum + (item.cost || 0) * item.quantity, 0));
     const isPaid = status === 'paid';
-    const paymentMethod: PaymentMethod = isPaid ? 'Cash' : 'Unpaid';
+    // Cash payments are collected without HST (business practice), so this
+    // quick-mark flow intentionally records no tax on new payments.
+    const availableCredit = isPaid && !existingPayment ? getStudentAdvanceCredit(payments, event.studentId) : 0;
+    const creditApplied = existingPayment ? (existingPayment.creditApplied || 0) : Math.min(availableCredit, total);
+    const cashCollected = isPaid ? Math.max(0, total - (existingPayment ? 0 : creditApplied)) : 0;
+    const paymentMethod: PaymentMethod = isPaid
+      ? (!existingPayment && cashCollected <= 0 && creditApplied > 0 ? 'Advance' : 'Cash')
+      : 'Unpaid';
 
     const paymentData = {
       studentId: event.studentId,
@@ -621,15 +635,18 @@ export function ScheduleView() {
       status,
       notes: event.notes ? `From schedule: ${event.notes}` : 'From schedule.',
       instructorId: event.instructorId || user?.uid || null,
-      creditApplied: existingPayment?.creditApplied || 0,
+      creditApplied,
       transactions: [
         ...(existingPayment?.transactions || []),
-        createPaymentTransaction(
-          isPaid ? 'payment' : 'adjustment',
-          isPaid ? total : -(existingPayment?.paidAmount || 0),
-          paymentMethod,
-          isPaid ? 'Cash payment marked from schedule.' : 'Marked unpaid from schedule.'
-        ),
+        ...(!existingPayment && isPaid && creditApplied > 0
+          ? [createPaymentTransaction('credit-applied', creditApplied, 'Advance', 'Student advance credit applied to this lesson.')]
+          : []),
+        ...(isPaid && (existingPayment || cashCollected > 0)
+          ? [createPaymentTransaction('payment', existingPayment ? total : cashCollected, paymentMethod, 'Payment marked from schedule.')]
+          : []),
+        ...(!isPaid
+          ? [createPaymentTransaction('adjustment', -(existingPayment?.paidAmount || 0), paymentMethod, 'Marked unpaid from schedule.')]
+          : []),
       ],
     };
 

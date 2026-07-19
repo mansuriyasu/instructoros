@@ -53,6 +53,7 @@ export interface BillItem extends Omit<Service, 'order' | 'discount' | 'category
   billItemId: string; // To uniquely identify items in a bill
   date: string; // ISO 8601
   quantity: number;
+  eventId?: string; // schedule event this line was billed from, when applicable
 }
 
 export interface Payment {

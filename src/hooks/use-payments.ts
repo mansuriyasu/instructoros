@@ -85,20 +85,6 @@ export function usePayments() {
     [payments]
   );
 
-  const totalRevenue = useMemo(() => {
-    if (!payments) return 0;
-    return payments
-      .filter(p => p.status === 'paid')
-      .reduce((sum, p) => sum + p.total, 0);
-  }, [payments]);
-
-  const outstandingPayments = useMemo(() => {
-    if (!payments) return 0;
-    return payments
-      .filter(p => p.status === 'unpaid')
-      .reduce((sum, p) => sum + p.total, 0);
-  }, [payments]);
-
   const sortedPayments = useMemo(() => {
     if (!payments) return [];
     return [...payments].sort(
@@ -114,7 +100,5 @@ export function usePayments() {
     updatePayment,
     deletePayment,
     getPaymentById,
-    totalRevenue,
-    outstandingPayments,
   };
 }
