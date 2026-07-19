@@ -41,9 +41,10 @@ function createEvaluationPdf(evaluation: { studentName: string; lesson: Calendar
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
   const gold: [number, number, number] = [212, 175, 55];
+  const businessName = tenant?.receiptBusinessName || tenant?.name || 'InstructorOS';
   doc.setFillColor(11, 11, 13); doc.rect(0, 0, width, 34, 'F');
   doc.setTextColor(255, 255, 255); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
-  doc.text(tenant?.receiptBusinessName || tenant?.name || 'InstructorOS', 15, 16);
+  doc.text(businessName, 15, 16);
   doc.setFontSize(9); doc.setTextColor(...gold); doc.text('MOCK ROAD-TEST EVALUATION', 15, 24);
   doc.setTextColor(30, 30, 30); doc.setFontSize(13); doc.text(evaluation.studentName, 15, 48);
   doc.setFontSize(9); doc.setFont('helvetica', 'normal');
@@ -67,7 +68,7 @@ function createEvaluationPdf(evaluation: { studentName: string; lesson: Calendar
   if (evaluation.autofails.length) { doc.text('Automatic fail triggers', 15, y); y += 5; doc.setFont('helvetica', 'normal'); doc.text(evaluation.autofails.join(', '), 15, y, { maxWidth: width - 30 }); y += 10; }
   doc.setFont('helvetica', 'bold'); doc.text('Practise before booking', 15, y); y += 5; doc.setFont('helvetica', 'normal'); doc.text(evaluation.notes || 'No notes added.', 15, y, { maxWidth: width - 30 });
   doc.setFontSize(8); doc.setTextColor(90, 90, 90); doc.text('Instructor estimate only. This is not an official Ontario DriveTest score. DriveTest does not publish point values.', 15, height - 22, { maxWidth: width - 30 });
-  doc.text('SparkOn practice assessment — not an official Ontario DriveTest score. @sparkondrive · linktr.ee/sparkondrive', 15, height - 13, { maxWidth: width - 30 });
+  doc.text(`${businessName} practice assessment${tenant?.receiptFooterText ? ` — ${tenant.receiptFooterText}` : ''}`, 15, height - 13, { maxWidth: width - 30 });
   return doc;
 }
 
@@ -142,7 +143,7 @@ export default function EvaluationPage() {
   const toggleAutofail = (value: string) => setAutofails(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]);
 
   const makePdf = () => savedEvaluation && lesson && student ? createEvaluationPdf({ ...savedEvaluation, studentName: student.name, lesson }, tenant) : null;
-  const downloadPdf = () => { const pdf = makePdf(); if (!pdf || !student) return; pdf.save(`sparkon-evaluation-${safeFileName(student.name)}-${savedEvaluation.date}.pdf`); };
+  const downloadPdf = () => { const pdf = makePdf(); if (!pdf || !student) return; pdf.save(`${safeFileName(tenant?.receiptBusinessName || tenant?.name || 'instructoros')}-evaluation-${safeFileName(student.name)}-${savedEvaluation.date}.pdf`); };
   const sharePdf = async () => {
     const pdf = makePdf(); if (!pdf || !student) return;
     const blob = pdf.output('blob');

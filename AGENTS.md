@@ -52,6 +52,10 @@ Build warnings from Genkit/OpenTelemetry and the Firebase config fallback have b
 - Keep payment, schedule, and student records connected.
 - If changing database fields, update import/export if needed.
 
+## Branding
+
+InstructorOS is a multi-tenant platform. Never hardcode a customer name (e.g. SparkOn) in user-visible output; branding comes from tenant settings (`receiptBusinessName`, `receiptFooterText`, logo fields) with `InstructorOS` as the neutral fallback.
+
 ## Secrets
 
 Do not commit `.env` or real secret values. Use fresh environment variables for this copy.

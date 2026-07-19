@@ -37,6 +37,7 @@ export type Tenant = {
   promoCodeApplied?: string;
   promoPercentOff?: number;
   receiptBusinessName?: string;
+  receiptFooterText?: string;
   receiptLogoDataUrl?: string;
   receiptPhone?: string;
   receiptEmail?: string;

@@ -17,6 +17,8 @@ function unauthorized() {
 
 function getShortcutSecret(request: NextRequest) {
   return (
+    request.headers.get('x-shortcut-secret') ||
+    // Legacy header name kept so already-installed iPhone Shortcuts keep working.
     request.headers.get('x-sparkon-shortcut-secret') ||
     request.nextUrl.searchParams.get('secret') ||
     ''

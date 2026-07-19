@@ -23,6 +23,7 @@ export function WorkspaceProfileSettings() {
   const [form, setForm] = useState({
     name: '',
     receiptBusinessName: '',
+    receiptFooterText: '',
     receiptLogoDataUrl: '',
     receiptPhone: '',
     receiptEmail: '',
@@ -40,6 +41,7 @@ export function WorkspaceProfileSettings() {
     setForm({
       name: tenant.name || '',
       receiptBusinessName: tenant.receiptBusinessName || tenant.name || '',
+      receiptFooterText: tenant.receiptFooterText || '',
       receiptLogoDataUrl: tenant.receiptLogoDataUrl || '',
       receiptPhone: tenant.receiptPhone || '',
       receiptEmail: tenant.receiptEmail || tenant.ownerEmail || '',
@@ -88,6 +90,7 @@ export function WorkspaceProfileSettings() {
       await updateDoc(doc(firestore, 'tenants', activeTenantId), {
         name: form.name.trim(),
         receiptBusinessName: form.receiptBusinessName.trim(),
+        receiptFooterText: form.receiptFooterText.trim(),
         receiptLogoDataUrl: form.receiptLogoDataUrl,
         receiptPhone: form.receiptPhone.trim(),
         receiptEmail: form.receiptEmail.trim(),
@@ -162,6 +165,19 @@ export function WorkspaceProfileSettings() {
             />
             <p className="text-xs text-muted-foreground">
               This name is used in WhatsApp payment, schedule, and welcome messages.
+            </p>
+          </div>
+          <div className="space-y-2 lg:col-span-2">
+            <Label htmlFor="receiptFooterText">Receipt / PDF footer (optional)</Label>
+            <Input
+              id="receiptFooterText"
+              value={form.receiptFooterText}
+              onChange={event => updateField('receiptFooterText', event.target.value)}
+              placeholder="Your social handles or website, e.g. @yourschool · yourschool.ca"
+              className="rounded-lg"
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown at the bottom of evaluation PDFs. Leave empty for no footer line.
             </p>
           </div>
           <div className="space-y-2">

@@ -106,6 +106,7 @@ service cloud.firestore {
         && onlyChanges([
           "name",
           "receiptBusinessName",
+          "receiptFooterText",
           "receiptLogoDataUrl",
           "receiptPhone",
           "receiptEmail",

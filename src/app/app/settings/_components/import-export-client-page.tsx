@@ -328,7 +328,7 @@ export function ImportExportClientPage() {
         toast({ title: 'Nothing to export', description: `${label} has no records yet.` });
         return;
       }
-      downloadText(csv, `sparkon-${collectionName}-${todayStamp()}.csv`, 'text/csv;charset=utf-8;');
+      downloadText(csv, `instructoros-${collectionName}-${todayStamp()}.csv`, 'text/csv;charset=utf-8;');
       toast({ title: 'CSV downloaded', description: `${label} was exported.` });
     } catch (error) {
       toast({
