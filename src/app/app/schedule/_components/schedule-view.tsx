@@ -139,7 +139,7 @@ export function ScheduleView() {
   const firestore = useFirestore();
   const { activeTenantId, canManageTenant, tenant, user } = useSession();
   const { events: allEvents, loading: isEventsLoading, addEvent, updateEvent: updateEventFirestore, deleteEvent: deleteEventFirestore } = useEvents();
-  const { students: allStudents } = useStudents();
+  const { students: allStudents, updateStudent } = useStudents();
   const { payments, addPayment, updatePayment, getPaymentById, loading: paymentsLoading } = usePayments();
   const { services: allServices, loading: servicesLoading } = useServices();
   const {
@@ -519,6 +519,23 @@ export function ScheduleView() {
     }, 150);
   }
 
+  // Scheduling a lesson shares the student with that lesson's instructor:
+  // assigned instructors get full student details through the secure server
+  // routes, so the school admin never has to assign students by hand.
+  const ensureStudentAssignedToInstructor = async (studentId?: string | null, instructorId?: string | null) => {
+    if (tenant?.type !== 'school' || !studentId || !instructorId) return;
+    const student = allStudents?.find(item => item.id === studentId);
+    if (!student || student.assignedInstructorIds?.includes(instructorId)) return;
+    try {
+      await updateStudent({
+        id: studentId,
+        assignedInstructorIds: [...(student.assignedInstructorIds || []), instructorId],
+      });
+    } catch {
+      // Non-fatal: the lesson still saves, and assignment retries on the next scheduling.
+    }
+  };
+
   const handleBookNext = async (event: CalendarEvent) => {
     const currentStart = new Date(event.start);
     const currentEnd = new Date(event.end);
@@ -540,6 +557,7 @@ export function ScheduleView() {
     const finalData = { ...nextEventData };
 
     const docRef = await addEvent(finalData);
+    void ensureStudentAssignedToInstructor(finalData.studentId, finalData.instructorId);
     const savedEventId = docRef?.id;
     const newEvent = { ...finalData, id: savedEventId || `new-${Date.now()}` };
 
@@ -897,6 +915,7 @@ export function ScheduleView() {
 
     setIsFormDialogOpen(false);
     setIsExamDialogOpen(false);
+    void ensureStudentAssignedToInstructor(finalData.studentId, finalData.instructorId);
     void syncGoogleEventAfterLocalSave(savedEventId, savedEventData, previousEvent, localEventsAfterSave);
 
     if (sendSms) {
