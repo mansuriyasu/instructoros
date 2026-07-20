@@ -55,7 +55,7 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
           gcloud auth activate-service-account --key-file="$RUNNER_TEMP/firebase-sa.json" --project instructoros
           access_token="$(gcloud auth print-access-token)"
-          jq --rawfile rules firestore.rules '{source:{files:[{name:"firestore.rules",content:$rules}]}}' > "$RUNNER_TEMP/ruleset-payload.json"
+          jq -n --rawfile rules firestore.rules '{source:{files:[{name:"firestore.rules",content:$rules}]}}' > "$RUNNER_TEMP/ruleset-payload.json"
           ruleset_status="$(curl --silent --show-error --output "$RUNNER_TEMP/ruleset-response.json" --write-out '%{http_code}' \
             -X POST \
             -H "Authorization: Bearer $access_token" \
