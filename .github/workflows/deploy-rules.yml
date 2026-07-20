@@ -53,5 +53,22 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
-          npx firebase-tools@latest deploy --only firestore:rules --project instructoros --non-interactive
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/firebase-sa.json" --project instructoros
+          access_token="$(gcloud auth print-access-token)"
+          jq --rawfile rules firestore.rules '{source:{files:[{name:"firestore.rules",content:$rules}]}}' > "$RUNNER_TEMP/ruleset-payload.json"
+          ruleset_name="$(curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer $access_token" \
+            -H "Content-Type: application/json" \
+            --data-binary @"$RUNNER_TEMP/ruleset-payload.json" \
+            "https://firebaserules.googleapis.com/v1/projects/instructoros/rulesets" | jq -r '.name')"
+          test -n "$ruleset_name" && test "$ruleset_name" != "null"
+          jq -n --arg ruleset_name "$ruleset_name" \
+            '{name:"projects/instructoros/releases/cloud.firestore",rulesetName:$ruleset_name}' \
+            > "$RUNNER_TEMP/release-payload.json"
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer $access_token" \
+            -H "Content-Type: application/json" \
+            --data-binary @"$RUNNER_TEMP/release-payload.json" \
+            "https://firebaserules.googleapis.com/v1/projects/instructoros/releases"
