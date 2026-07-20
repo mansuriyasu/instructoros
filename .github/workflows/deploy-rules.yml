@@ -1,0 +1,57 @@
+# Deploys firestore.rules to the Firebase project whenever the rules change
+# on main (or when run manually from the Actions tab).
+#
+# One-time setup:
+# 1. Google Cloud console -> IAM & Admin -> Service accounts (project
+#    "instructoros") -> Create service account (e.g. "rules-deployer") with
+#    ONLY the "Firebase Rules Admin" role, then create a JSON key for it.
+# 2. GitHub repo -> Settings -> Secrets and variables -> Actions -> new
+#    repository secret named FIREBASE_SERVICE_ACCOUNT containing the full
+#    JSON key file contents.
+# 3. Actions tab -> "Deploy Firestore rules" -> Run workflow (first deploy).
+#
+# The key can only update security rules — it cannot read or write app data.
+
+name: Deploy Firestore rules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - .github/workflows/deploy-rules.yml
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for service account secret
+        id: check
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT secret is not set — skipping deploy."
+            echo "Add it in Settings > Secrets and variables > Actions (see comments in this workflow file)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.configured == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.configured == 'true'
+        with:
+          node-version: 20
+
+      - name: Deploy rules
+        if: steps.check.outputs.configured == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          npx firebase-tools@latest deploy --only firestore:rules --project instructoros --non-interactive
