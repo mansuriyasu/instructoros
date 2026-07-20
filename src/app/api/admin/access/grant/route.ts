@@ -30,9 +30,21 @@ export async function POST(request: NextRequest) {
     if (!tenantSnap.exists) return NextResponse.json({ error: 'Workspace was not found.' }, { status: 404 });
 
     const now = new Date();
-    const accessUntil = new Date(now);
-    accessUntil.setUTCDate(accessUntil.getUTCDate() + days);
     const tenant = tenantSnap.data() as Tenant;
+
+    // Granted days stack on top of whatever access the workspace already has
+    // (trial, paid period, or an earlier grant) instead of running in
+    // parallel from today.
+    const parseDate = (value?: string | null) => {
+      if (!value) return null;
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const base = [now, parseDate(tenant.freeAccessUntil), parseDate(tenant.trialEndsAt), parseDate(tenant.currentPeriodEnd)]
+      .filter((date): date is Date => Boolean(date))
+      .reduce((latest, date) => (date > latest ? date : latest));
+    const accessUntil = new Date(base);
+    accessUntil.setUTCDate(accessUntil.getUTCDate() + days);
     await tenantRef.set({
       status: 'active',
       subscriptionStatus: 'active',
