@@ -64,11 +64,11 @@ jobs:
             "https://firebaserules.googleapis.com/v1/projects/instructoros/rulesets" | jq -r '.name')"
           test -n "$ruleset_name" && test "$ruleset_name" != "null"
           jq -n --arg ruleset_name "$ruleset_name" \
-            '{name:"projects/instructoros/releases/cloud.firestore",rulesetName:$ruleset_name}' \
+            '{release:{name:"projects/instructoros/releases/cloud.firestore",rulesetName:$ruleset_name},updateMask:"rulesetName"}' \
             > "$RUNNER_TEMP/release-payload.json"
           curl --fail-with-body --silent --show-error \
             -X PATCH \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
             --data-binary @"$RUNNER_TEMP/release-payload.json" \
-            "https://firebaserules.googleapis.com/v1/projects/instructoros/releases/cloud.firestore?updateMask=rulesetName"
+            "https://firebaserules.googleapis.com/v1/projects/instructoros/releases/cloud.firestore"
