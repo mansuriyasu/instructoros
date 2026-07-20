@@ -2,6 +2,11 @@
 # https://firebase.google.com/docs/app-hosting/configure
 
 runConfig:
-  # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.
-  maxInstances: 1
+  # One warm instance so a crash or cold start never takes the whole site
+  # down, headroom to scale under load, and double the default memory —
+  # the previous single 512MB instance meant any one heavy request could
+  # 503 every user at once.
+  minInstances: 1
+  maxInstances: 4
+  memoryMiB: 1024
+  cpu: 1
