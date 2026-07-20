@@ -79,4 +79,4 @@ jobs:
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
             --data-binary @"$RUNNER_TEMP/release-payload.json" \
-            "https://firebaserules.googleapis.com/v1/$release_name"
+            "https://firebaserules.googleapis.com/v1/$release_name?updateMask=rulesetName"
