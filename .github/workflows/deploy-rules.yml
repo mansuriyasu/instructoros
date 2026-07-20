@@ -63,12 +63,20 @@ jobs:
             --data-binary @"$RUNNER_TEMP/ruleset-payload.json" \
             "https://firebaserules.googleapis.com/v1/projects/instructoros/rulesets" | jq -r '.name')"
           test -n "$ruleset_name" && test "$ruleset_name" != "null"
+          releases_json="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $access_token" \
+            "https://firebaserules.googleapis.com/v1/projects/instructoros/releases")"
+          release_name="$(printf '%s' "$releases_json" | jq -r '
+            [.releases[]?.name | select(test("/releases/cloud\\.firestore(/|$)"))][0] // empty')"
+          test -n "$release_name"
+          echo "Updating Firestore release: $release_name"
           jq -n --arg ruleset_name "$ruleset_name" \
-            '{release:{name:"projects/instructoros/releases/cloud.firestore",rulesetName:$ruleset_name},updateMask:"rulesetName"}' \
+            --arg release_name "$release_name" \
+            '{release:{name:$release_name,rulesetName:$ruleset_name},updateMask:"rulesetName"}' \
             > "$RUNNER_TEMP/release-payload.json"
           curl --fail-with-body --silent --show-error \
             -X PATCH \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
             --data-binary @"$RUNNER_TEMP/release-payload.json" \
-            "https://firebaserules.googleapis.com/v1/projects/instructoros/releases/cloud.firestore"
+            "https://firebaserules.googleapis.com/v1/$release_name"
