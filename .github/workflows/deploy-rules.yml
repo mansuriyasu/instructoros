@@ -67,8 +67,8 @@ jobs:
             '{name:"projects/instructoros/releases/cloud.firestore",rulesetName:$ruleset_name}' \
             > "$RUNNER_TEMP/release-payload.json"
           curl --fail-with-body --silent --show-error \
-            -X POST \
+            -X PATCH \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
             --data-binary @"$RUNNER_TEMP/release-payload.json" \
-            "https://firebaserules.googleapis.com/v1/projects/instructoros/releases"
+            "https://firebaserules.googleapis.com/v1/projects/instructoros/releases/cloud.firestore?updateMask=rulesetName"
