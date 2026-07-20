@@ -56,16 +56,22 @@ jobs:
           gcloud auth activate-service-account --key-file="$RUNNER_TEMP/firebase-sa.json" --project instructoros
           access_token="$(gcloud auth print-access-token)"
           jq --rawfile rules firestore.rules '{source:{files:[{name:"firestore.rules",content:$rules}]}}' > "$RUNNER_TEMP/ruleset-payload.json"
-          ruleset_name="$(curl --fail-with-body --silent --show-error \
+          ruleset_status="$(curl --silent --show-error --output "$RUNNER_TEMP/ruleset-response.json" --write-out '%{http_code}' \
             -X POST \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
             --data-binary @"$RUNNER_TEMP/ruleset-payload.json" \
-            "https://firebaserules.googleapis.com/v1/projects/instructoros/rulesets" | jq -r '.name')"
+            "https://firebaserules.googleapis.com/v1/projects/instructoros/rulesets")"
+          cat "$RUNNER_TEMP/ruleset-response.json"
+          test "$ruleset_status" = "200"
+          ruleset_name="$(jq -r '.name' "$RUNNER_TEMP/ruleset-response.json")"
           test -n "$ruleset_name" && test "$ruleset_name" != "null"
-          releases_json="$(curl --fail-with-body --silent --show-error \
+          releases_status="$(curl --silent --show-error --output "$RUNNER_TEMP/releases-response.json" --write-out '%{http_code}' \
             -H "Authorization: Bearer $access_token" \
             "https://firebaserules.googleapis.com/v1/projects/instructoros/releases")"
+          cat "$RUNNER_TEMP/releases-response.json"
+          test "$releases_status" = "200"
+          releases_json="$(cat "$RUNNER_TEMP/releases-response.json")"
           release_name="$(printf '%s' "$releases_json" | jq -r '
             [.releases[]?.name | select(test("/releases/cloud\\.firestore(/|$)"))][0] // empty')"
           test -n "$release_name"
