@@ -56,7 +56,7 @@ jobs:
           gcloud auth activate-service-account --key-file="$RUNNER_TEMP/firebase-sa.json" --project instructoros
           access_token="$(gcloud auth print-access-token)"
           jq -n --rawfile rules firestore.rules '{source:{files:[{name:"firestore.rules",content:$rules}]}}' > "$RUNNER_TEMP/ruleset-payload.json"
-          ruleset_status="$(curl --silent --show-error --output "$RUNNER_TEMP/ruleset-response.json" --write-out '%{http_code}' \
+          ruleset_status="$(curl --retry 5 --retry-delay 2 --retry-all-errors --silent --show-error --output "$RUNNER_TEMP/ruleset-response.json" --write-out '%{http_code}' \
             -X POST \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
@@ -66,7 +66,7 @@ jobs:
           test "$ruleset_status" = "200"
           ruleset_name="$(jq -r '.name' "$RUNNER_TEMP/ruleset-response.json")"
           test -n "$ruleset_name" && test "$ruleset_name" != "null"
-          releases_status="$(curl --silent --show-error --output "$RUNNER_TEMP/releases-response.json" --write-out '%{http_code}' \
+          releases_status="$(curl --retry 5 --retry-delay 2 --retry-all-errors --silent --show-error --output "$RUNNER_TEMP/releases-response.json" --write-out '%{http_code}' \
             -H "Authorization: Bearer $access_token" \
             "https://firebaserules.googleapis.com/v1/projects/instructoros/releases")"
           cat "$RUNNER_TEMP/releases-response.json"
@@ -80,7 +80,7 @@ jobs:
             --arg release_name "$release_name" \
             '{release:{name:$release_name,rulesetName:$ruleset_name},updateMask:"rulesetName"}' \
             > "$RUNNER_TEMP/release-payload.json"
-          http_status="$(curl --silent --show-error --output "$RUNNER_TEMP/release-response.json" --write-out '%{http_code}' \
+          http_status="$(curl --retry 5 --retry-delay 2 --retry-all-errors --silent --show-error --output "$RUNNER_TEMP/release-response.json" --write-out '%{http_code}' \
             -X PATCH \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
