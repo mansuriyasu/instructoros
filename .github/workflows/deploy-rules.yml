@@ -74,9 +74,11 @@ jobs:
             --arg release_name "$release_name" \
             '{release:{name:$release_name,rulesetName:$ruleset_name},updateMask:"rulesetName"}' \
             > "$RUNNER_TEMP/release-payload.json"
-          curl --fail-with-body --silent --show-error \
+          http_status="$(curl --silent --show-error --output "$RUNNER_TEMP/release-response.json" --write-out '%{http_code}' \
             -X PATCH \
             -H "Authorization: Bearer $access_token" \
             -H "Content-Type: application/json" \
             --data-binary @"$RUNNER_TEMP/release-payload.json" \
-            "https://firebaserules.googleapis.com/v1/$release_name?updateMask=rulesetName"
+            "https://firebaserules.googleapis.com/v1/$release_name?updateMask=rulesetName")"
+          cat "$RUNNER_TEMP/release-response.json"
+          test "$http_status" = "200"
