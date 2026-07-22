@@ -114,12 +114,28 @@ export type EvaluationTestType = 'G2' | 'G';
 export type EvaluationItemStatus = 'ok' | 'minor' | 'major';
 export type EvaluationVerdict = 'pass' | 'borderline' | 'fail';
 
+// ✓ = "some improvement necessary" (minor), ✗ = "lack of skill, knowledge or
+// judgment" (major) — the DriveTest examiner sheet's own legend.
+export interface EvaluationMark {
+  code: string; // the item letter code, e.g. "A", "B" (empty for code-less items)
+  severity: 'minor' | 'major';
+  lane?: string; // Left/Right or Business/Expressway column on split sections
+}
+
 export interface EvaluationItem {
   id: string;
   name: string;
   status: EvaluationItemStatus;
   tags: string[];
   category?: string; // section id from evaluation-criteria; absent on older records
+  marks?: EvaluationMark[]; // DriveTest-sheet records; status is derived from these
+}
+
+export interface EvaluationIntervention {
+  time: string;
+  intervention: string;
+  violation: string;
+  description: string;
 }
 
 export interface Evaluation {
@@ -140,6 +156,15 @@ export interface Evaluation {
   notes: string;
   created_at: string;
   updated_at?: string;
+  // DriveTest-replica sheet fields (absent on older records, which use the
+  // legacy tag-based model):
+  sheetVersion?: string; // e.g. 'on-g2-v1', 'on-g-v1'
+  sectionStatus?: Record<string, 'ok' | 'not-completed'>;
+  outcome?: 'meets' | 'does-not-meet';
+  summaryReasons?: string[];
+  improperUseOf?: string[];
+  examinerFlags?: string[];
+  interventions?: EvaluationIntervention[];
 }
 
 export interface InstructorOption {

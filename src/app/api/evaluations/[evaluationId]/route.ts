@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { RequestSecurityError, requireRateLimitedUser } from '@/lib/server/request-security';
 import { MAIN_ADMIN_EMAIL, normalizeEmail } from '@/lib/auth-config';
-import { TEST_TYPES, calculateVerdict, countStatuses, normalizeAutofails, normalizeEvaluationItems } from '@/lib/evaluation-criteria';
+import { TEST_TYPES, calculateVerdict, countStatuses, normalizeAutofails, normalizeEvaluationItems, normalizeSheetExtras } from '@/lib/evaluation-criteria';
+import { getExamSheetByVersion } from '@/lib/evaluation-sheets';
 import type { EvaluationItem } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -46,7 +47,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { minors, majors } = countStatuses(effectiveItems);
     changes.minor_count = minors;
     changes.major_count = majors;
-    changes.verdict = calculateVerdict(minors, majors, effectiveAutofails.length);
+
+    // Official-sheet records: normalize the sheet fields and take the verdict
+    // from the recorded outcome rather than the minor/major thresholds.
+    const sheetVersion = String(body.sheetVersion || evaluation.sheetVersion || '');
+    const sheet = getExamSheetByVersion(sheetVersion);
+    if (sheet) {
+      const extras = normalizeSheetExtras(sheet, { ...evaluation, ...body });
+      Object.assign(changes, extras);
+      changes.verdict = extras.outcome === 'meets' ? 'pass' : extras.outcome === 'does-not-meet' ? 'fail' : 'borderline';
+    } else {
+      changes.verdict = calculateVerdict(minors, majors, effectiveAutofails.length);
+    }
     await tenantRef.collection('evaluations').doc(evaluationId).set({ ...changes, updated_at: new Date().toISOString() }, { merge: true });
     return NextResponse.json({ ok: true });
   } catch (error) {

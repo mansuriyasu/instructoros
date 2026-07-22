@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { RequestSecurityError, requireRateLimitedUser } from '@/lib/server/request-security';
 import { MAIN_ADMIN_EMAIL, normalizeEmail } from '@/lib/auth-config';
-import { TEST_TYPES, calculateVerdict, countStatuses, normalizeAutofails, normalizeEvaluationItems } from '@/lib/evaluation-criteria';
+import { TEST_TYPES, calculateVerdict, countStatuses, normalizeAutofails, normalizeEvaluationItems, normalizeSheetExtras } from '@/lib/evaluation-criteria';
+import { getExamSheetByVersion } from '@/lib/evaluation-sheets';
 import type { Firestore, Query } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -58,7 +59,16 @@ function normalizePayload(body: Record<string, unknown>) {
   const items = normalizeEvaluationItems(body.items);
   const autofails = normalizeAutofails(body.autofails);
   const { minors: minor_count, majors: major_count } = countStatuses(items);
-  return { studentId, lessonId, testType, date, area, instructor, notes, items, autofails, minor_count, major_count, verdict: calculateVerdict(minor_count, major_count, autofails.length) };
+  const sheetVersion = cleanString(body.sheetVersion, 40);
+  const sheet = getExamSheetByVersion(sheetVersion);
+  const base = { studentId, lessonId, testType, date, area, instructor, notes, items, autofails, minor_count, major_count };
+  if (sheet) {
+    // Official-sheet records: verdict follows the recorded outcome, not thresholds.
+    const extras = normalizeSheetExtras(sheet, body);
+    const verdict = extras.outcome === 'meets' ? 'pass' : extras.outcome === 'does-not-meet' ? 'fail' : 'borderline';
+    return { ...base, ...extras, verdict };
+  }
+  return { ...base, verdict: calculateVerdict(minor_count, major_count, autofails.length) };
 }
 
 async function assertInstructorCanUseLesson(access: { member: { role?: string }; mainAdmin: boolean }, uid: string, lesson: Record<string, unknown>, student: Record<string, unknown>) {

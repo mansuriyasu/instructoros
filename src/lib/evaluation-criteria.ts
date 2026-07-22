@@ -1,4 +1,5 @@
-import type { EvaluationItem, EvaluationItemStatus, EvaluationTestType, EvaluationVerdict } from './types';
+import type { EvaluationItem, EvaluationItemStatus, EvaluationMark, EvaluationTestType, EvaluationVerdict } from './types';
+import type { ExamSheet } from './evaluation-sheets';
 
 // Mock road-test criteria modeled on the Ontario DriveTest examiner score
 // sheets. The G2 test (G1 exit) is city-only; the full G test (G2 exit) keeps
@@ -195,6 +196,29 @@ function cleanString(value: unknown, max: number): string {
 
 const STATUS_SET = new Set<EvaluationItemStatus>(['ok', 'minor', 'major']);
 
+// Any ✗ (major) mark makes the item major; else any ✓ (minor) makes it minor.
+export function deriveItemStatus(marks: EvaluationMark[] | undefined): EvaluationItemStatus {
+  if (!marks?.length) return 'ok';
+  if (marks.some(mark => mark.severity === 'major')) return 'major';
+  return 'minor';
+}
+
+function normalizeMarks(input: unknown): EvaluationMark[] {
+  const marks = Array.isArray(input) ? input : [];
+  return marks
+    .map(mark => {
+      const record = mark && typeof mark === 'object' ? (mark as Record<string, unknown>) : {};
+      const severity = cleanString(record.severity, 10);
+      const lane = cleanString(record.lane, 20);
+      return {
+        code: cleanString(record.code, 3),
+        severity: severity === 'major' ? ('major' as const) : ('minor' as const),
+        ...(lane ? { lane } : {}),
+      };
+    })
+    .slice(0, 40);
+}
+
 // Unknown item ids and categories are accepted on purpose: old records use
 // retired ids, and rejecting them would make historical evaluations unsavable.
 export function normalizeEvaluationItems(input: unknown): EvaluationItem[] {
@@ -202,16 +226,25 @@ export function normalizeEvaluationItems(input: unknown): EvaluationItem[] {
   return inputItems
     .map((item, index) => {
       const record = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
-      const status = cleanString(record.status, 10) as EvaluationItemStatus;
       const category = cleanString(record.category, 40);
+      const hasMarks = Array.isArray(record.marks);
+      const marks = hasMarks ? normalizeMarks(record.marks) : undefined;
+      // Sheet records derive status from marks; legacy records keep their status.
+      const rawStatus = cleanString(record.status, 10) as EvaluationItemStatus;
+      const status = hasMarks
+        ? deriveItemStatus(marks)
+        : STATUS_SET.has(rawStatus)
+          ? rawStatus
+          : ('ok' as EvaluationItemStatus);
       return {
         id: cleanString(record.id, 100) || `item-${index + 1}`,
-        name: cleanString(record.name, 160),
-        status: STATUS_SET.has(status) ? status : ('ok' as EvaluationItemStatus),
+        name: cleanString(record.name, 200),
+        status,
         tags: Array.isArray(record.tags)
           ? record.tags.map(tag => cleanString(tag, 80)).filter(Boolean).slice(0, 20)
           : [],
         ...(category ? { category } : {}),
+        ...(marks ? { marks } : {}),
       };
     })
     .filter(item => item.name);
@@ -222,4 +255,50 @@ export function normalizeAutofails(input: unknown): string[] {
   return Array.isArray(input)
     ? input.map(item => cleanString(item, 100)).filter(item => allowed.has(item))
     : [];
+}
+
+// Normalizes the DriveTest-sheet-only evaluation fields. Reason/flag strings are
+// filtered against the sheet's own lists; interventions are free text.
+export function normalizeSheetExtras(sheet: ExamSheet | null, body: Record<string, unknown>) {
+  const reasonSet = new Set(sheet?.summaryReasons || []);
+  const improperSet = new Set(sheet?.improperUseOf || []);
+  const flagSet = new Set(sheet?.examinerFlags || []);
+  const outcomeRaw = cleanString(body.outcome, 20);
+  const outcome = outcomeRaw === 'meets' || outcomeRaw === 'does-not-meet' ? outcomeRaw : undefined;
+
+  const sectionStatus: Record<string, 'ok' | 'not-completed'> = {};
+  if (body.sectionStatus && typeof body.sectionStatus === 'object') {
+    for (const [key, value] of Object.entries(body.sectionStatus as Record<string, unknown>)) {
+      const state = cleanString(value, 20);
+      if (state === 'ok' || state === 'not-completed') sectionStatus[cleanString(key, 60)] = state;
+    }
+  }
+
+  const interventions = Array.isArray(body.interventions)
+    ? body.interventions.slice(0, 12).map(entry => {
+        const record = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : {};
+        return {
+          time: cleanString(record.time, 20),
+          intervention: cleanString(record.intervention, 200),
+          violation: cleanString(record.violation, 200),
+          description: cleanString(record.description, 500),
+        };
+      }).filter(entry => entry.time || entry.intervention || entry.violation || entry.description)
+    : [];
+
+  return {
+    sheetVersion: sheet?.version,
+    outcome,
+    sectionStatus,
+    summaryReasons: Array.isArray(body.summaryReasons)
+      ? body.summaryReasons.map(v => cleanString(v, 120)).filter(v => reasonSet.has(v))
+      : [],
+    improperUseOf: Array.isArray(body.improperUseOf)
+      ? body.improperUseOf.map(v => cleanString(v, 60)).filter(v => improperSet.has(v))
+      : [],
+    examinerFlags: Array.isArray(body.examinerFlags)
+      ? body.examinerFlags.map(v => cleanString(v, 60)).filter(v => flagSet.has(v))
+      : [],
+    interventions,
+  };
 }
