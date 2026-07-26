@@ -1,6 +1,6 @@
 'use client';
 
-import { BriefcaseBusiness, Calendar, CreditCard, Home, Shield, Users } from 'lucide-react';
+import { Calendar, CreditCard, Home, Settings, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -17,8 +17,7 @@ export function BottomNav() {
     { href: "/app/students", label: "Students", icon: Users, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
     { href: "/app/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
     { href: "/app/payments", label: "POS", icon: CreditCard, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
-    { href: "/app/billing", label: "Billing", icon: CreditCard, roles: ["schoolAdmin", "soloInstructor", "mainAdmin"] },
-    { href: "/app/services", label: "Services", icon: BriefcaseBusiness, roles: ["schoolAdmin", "soloInstructor", "mainAdmin"] },
+    { href: "/app/settings", label: "Settings", icon: Settings, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   ].filter(item => {
     if (!role || !(item.roles as AppRole[]).includes(role)) return false;
     if (role === "mainAdmin" && !activeTenantId && item.href !== "/admin") return false;
