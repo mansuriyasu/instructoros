@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSession, useUser } from '@/firebase';
-import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE, getBillingLocked, getPlanForTenantType } from '@/lib/billing';
+import { PLAN_DETAILS, SCHOOL_EXTRA_SEAT_PRICE, getPlanForTenantType } from '@/lib/billing';
 import type { BillingPlan } from '@/lib/billing';
 import { getWorkspaceAccess } from '@/lib/workspace-access';
 
@@ -69,9 +69,9 @@ export default function BillingPage() {
   const plan = useMemo<BillingPlan>(() => tenant?.plan || getPlanForTenantType(tenant?.type === 'school' ? 'school' : 'solo'), [tenant?.plan, tenant?.type]);
   const isSchool = tenant?.type === 'school';
   const status = tenant?.subscriptionStatus || 'not_started';
-  const billingLocked = tenant?.billingLocked ?? getBillingLocked(status);
-  const isBillingOwner = Boolean(isMainAdmin || (user && tenant?.ownerUid === user.uid));
   const access = getWorkspaceAccess(tenant);
+  const billingLocked = !access.canWrite;
+  const isBillingOwner = Boolean(isMainAdmin || (user && tenant?.ownerUid === user.uid));
   const hasAdminGrantedFreeAccess = access.source === 'admin_grant';
   const canActivateTrial = isBillingOwner && access.source === 'billing_locked' && !tenant?.trialEndsAt && !tenant?.freeAccessUntil;
   const canAddPaymentMethod = isBillingOwner && status === 'trialing' && !tenant?.stripeSubscriptionId;

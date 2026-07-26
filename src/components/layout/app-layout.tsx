@@ -7,9 +7,11 @@ import { WorkspaceSetupPrompt } from "./workspace-setup-prompt";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { useSession } from "@/firebase";
+import { getWorkspaceAccess } from "@/lib/workspace-access";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { tenant, canManageTenant } = useSession();
+  const workspaceAccess = getWorkspaceAccess(tenant);
   const billingActionLabel = tenant?.subscriptionStatus === 'checkout_pending' ? 'Continue trial setup' : 'Start free trial';
 
   return (
@@ -17,7 +19,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0">
         <Header />
-        {tenant?.billingLocked && (
+        {!workspaceAccess.canWrite && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:px-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 font-semibold">

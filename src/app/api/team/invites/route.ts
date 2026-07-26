@@ -4,6 +4,7 @@ import { PLAN_DETAILS } from '@/lib/billing';
 import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { RequestSecurityError, requireRateLimitedUser } from '@/lib/server/request-security';
 import { Timestamp } from 'firebase-admin/firestore';
+import { getWorkspaceAccess } from '@/lib/workspace-access';
 
 export const runtime = 'nodejs';
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       if (!canInvite || tenant.type !== 'school' || tenant.status !== 'active') {
         return { error: 'Only an active school admin can invite instructors.', status: 403 };
       }
-      if (tenant.billingLocked === true) {
+      if (!getWorkspaceAccess(tenant).canWrite) {
         return { error: 'Activate billing before inviting another instructor.', status: 403 };
       }
 

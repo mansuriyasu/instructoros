@@ -27,7 +27,7 @@ import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, g
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { useSession } from '@/firebase';
 import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, calculateTaxAmount, formatTaxLabel, roundCurrency } from '@/lib/tax';
-import { getBillingLocked } from '@/lib/billing';
+import { getWorkspaceAccess } from '@/lib/workspace-access';
 
 interface CurrentBillProps {
   billItems: BillItem[];
@@ -87,7 +87,7 @@ export function CurrentBill({
   const taxRate = tenant?.taxRate ?? ONTARIO_HST_RATE;
   const taxLabel = tenant?.taxLabel || DEFAULT_TAX_LABEL;
   const taxDisplayLabel = formatTaxLabel(taxLabel, taxRate);
-  const workspaceReadOnly = tenant?.billingLocked ?? getBillingLocked(tenant?.subscriptionStatus);
+  const workspaceReadOnly = !getWorkspaceAccess(tenant).canWrite;
 
   useEffect(() => {
     if (activeBill) {

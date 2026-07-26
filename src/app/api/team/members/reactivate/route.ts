@@ -4,6 +4,7 @@ import { MAIN_ADMIN_EMAIL, normalizeEmail, type Tenant, type TenantMember } from
 import { PLAN_DETAILS } from '@/lib/billing';
 import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { RequestSecurityError, requireRateLimitedUser } from '@/lib/server/request-security';
+import { getWorkspaceAccess } from '@/lib/workspace-access';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       const actorMember = actorMemberSnap.exists ? actorMemberSnap.data() as TenantMember : null;
       const member = memberSnap.data() as TenantMember;
       const canManage = isMainAdmin || (actorMember?.role === 'schoolAdmin' && actorMember.status === 'active');
-      if (!canManage || tenant.type !== 'school' || tenant.status !== 'active' || tenant.billingLocked === true) {
+      if (!canManage || tenant.type !== 'school' || tenant.status !== 'active' || !getWorkspaceAccess(tenant).canWrite) {
         return { error: 'Only an active school admin can reactivate instructors.', status: 403 };
       }
       if (member.role !== 'schoolInstructor' || member.status === 'active') return { error: 'This instructor is already active.', status: 400 };
