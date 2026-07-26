@@ -23,6 +23,7 @@ import { Payment, PaymentMethod } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
+import { getOutstandingAmount } from '@/lib/payment-utils';
 
 interface RecordPaymentDialogProps {
   isOpen: boolean;
@@ -43,7 +44,7 @@ export function RecordPaymentDialog({
   useEffect(() => {
     if (payment) {
       // Default amount to the total amount due
-      setAmount(payment.amountDue);
+      setAmount(getOutstandingAmount(payment));
       // Default to Cash or the last used method if not 'Unpaid'
       setMethod(payment.paymentMethod !== 'Unpaid' ? payment.paymentMethod : 'Cash');
     }
@@ -61,7 +62,7 @@ export function RecordPaymentDialog({
   };
   
   const handleSetFullAmount = () => {
-    setAmount(payment.amountDue);
+    setAmount(getOutstandingAmount(payment));
   }
 
   return (
@@ -79,7 +80,7 @@ export function RecordPaymentDialog({
                 <Label htmlFor="amount">Amount Due</Label>
                 <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleSetFullAmount}>Pay Full Amount</Button>
             </div>
-            <p className="text-2xl font-bold text-destructive">{formatCurrency(payment.amountDue)}</p>
+            <p className="text-2xl font-bold text-destructive">{formatCurrency(getOutstandingAmount(payment))}</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="amount-paid">Amount to Adjust</Label>

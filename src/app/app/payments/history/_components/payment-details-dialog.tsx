@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { useSession } from '@/firebase';
 import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, formatTaxLabel } from '@/lib/tax';
 import { formatPackageContents } from '@/lib/package-utils';
+import { getEffectivePaymentStatus, getOutstandingAmount } from '@/lib/payment-utils';
 
 interface PaymentDetailsDialogProps {
   isOpen: boolean;
@@ -79,6 +80,8 @@ export function PaymentDetailsDialog({
   }, [isOpen, payment?.id]);
 
   if (!payment) return null;
+  const amountDue = getOutstandingAmount(payment);
+  const effectiveStatus = getEffectivePaymentStatus(payment);
   const detailTaxRate = payment.taxRate ?? tenant?.taxRate ?? ONTARIO_HST_RATE;
   const detailTaxLabel = formatTaxLabel(payment.taxLabel || tenant?.taxLabel || DEFAULT_TAX_LABEL, detailTaxRate);
 
@@ -112,9 +115,9 @@ export function PaymentDetailsDialog({
     const muted: [number, number, number] = [107, 114, 128];
     const border: [number, number, number] = [229, 231, 235];
     const soft: [number, number, number] = [249, 250, 251];
-    const paidColor: [number, number, number] = payment.amountDue > 0 ? [220, 38, 38] : [22, 163, 74];
+    const paidColor: [number, number, number] = amountDue > 0 ? [220, 38, 38] : [22, 163, 74];
     const receiptNumber = payment.id ? payment.id.slice(-8).toUpperCase() : 'N/A';
-    const statusLabel = payment.amountDue > 0 ? 'BALANCE DUE' : 'PAID';
+    const statusLabel = amountDue > 0 ? 'BALANCE DUE' : 'PAID';
 
     doc.setProperties({
       title: `${businessName} Receipt - ${payment.studentName}`,
@@ -164,7 +167,7 @@ export function PaymentDetailsDialog({
       doc.text(`Receipt #${receiptNumber}`, pageWidth - margin, 24, { align: 'right' });
       doc.text(formatPdfDate(payment.paymentDate, 'MMMM d, yyyy'), pageWidth - margin, 30, { align: 'right' });
 
-      const pillWidth = payment.amountDue > 0 ? 34 : 20;
+      const pillWidth = amountDue > 0 ? 34 : 20;
       const pillX = pageWidth - margin - pillWidth;
       doc.setFillColor(...paidColor);
       doc.roundedRect(pillX, 33, pillWidth, 7, 3.5, 3.5, 'F');
@@ -317,7 +320,7 @@ export function PaymentDetailsDialog({
       ...(payment.creditApplied && payment.creditApplied > 0 ? [{ label: 'Advance Credit', value: `-${formatCurrency(payment.creditApplied)}` }] : []),
       { label: 'Total Bill', value: formatCurrency(payment.total), bold: true },
       { label: 'Amount Paid', value: formatCurrency(payment.paidAmount) },
-      { label: 'Amount Due', value: formatCurrency(payment.amountDue), bold: true, color: paidColor },
+      { label: 'Amount Due', value: formatCurrency(amountDue), bold: true, color: paidColor },
     ];
     const totalsHeight = 18 + summaryRows.length * 6;
     const detailsHeight = 18 + 4 * 6;
@@ -477,7 +480,7 @@ export function PaymentDetailsDialog({
   };
 
   const getStatusVariant = () => {
-    switch (payment.status) {
+    switch (effectiveStatus) {
         case 'paid': return 'default';
         case 'unpaid': return 'destructive';
         default: return 'outline';
@@ -501,7 +504,7 @@ export function PaymentDetailsDialog({
                   <InfoItem label="Payment Method" value={payment.paymentMethod} />
               </div>
                <InfoItem label="Status">
-                  <Badge variant={getStatusVariant()} className="capitalize">{payment.status.replace('-', ' ')}</Badge>
+                  <Badge variant={getStatusVariant()} className="capitalize">{effectiveStatus.replace('-', ' ')}</Badge>
               </InfoItem>
 
               {payment.notes && (
@@ -573,9 +576,9 @@ export function PaymentDetailsDialog({
                         <span className="font-medium">-{formatCurrency(payment.creditApplied || 0)}</span>
                       </div>
                     )}
-                    <div className={cn("flex justify-between font-bold", payment.amountDue > 0 ? 'text-destructive' : 'text-green-600')}>
+                    <div className={cn("flex justify-between font-bold", amountDue > 0 ? 'text-destructive' : 'text-green-600')}>
                       <span>Amount Due</span>
-                      <span>{formatCurrency(payment.amountDue)}</span>
+                      <span>{formatCurrency(amountDue)}</span>
                     </div>
                   </div>
               </div>

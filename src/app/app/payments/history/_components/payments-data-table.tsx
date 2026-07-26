@@ -51,6 +51,7 @@ import { endOfDay } from 'date-fns';
 import { useStudents } from '@/hooks/use-students';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/firebase';
+import { getEffectivePaymentStatus, getOutstandingAmount } from '@/lib/payment-utils';
 
 interface PaymentsDataTableProps {
   payments: Payment[];
@@ -163,7 +164,7 @@ export function PaymentsDataTable({
         matchesDate = pDate >= from && pDate <= endOfDay(to!);
       }
 
-      const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
+      const matchesStatus = statusFilter === 'all' || getEffectivePaymentStatus(payment) === statusFilter;
       const matchesSearch =
         !normalizedSearch ||
         payment.studentName.toLowerCase().includes(normalizedSearch) ||
@@ -177,8 +178,8 @@ export function PaymentsDataTable({
   const sortedPayments = useMemo(() => {
     const sortablePayments = [...filteredPayments];
     sortablePayments.sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
+      const aValue = sortConfig.key === 'amountDue' ? getOutstandingAmount(a) : a[sortConfig.key];
+      const bValue = sortConfig.key === 'amountDue' ? getOutstandingAmount(b) : b[sortConfig.key];
 
       let comparison = 0;
       if (sortConfig.key === 'paymentDate') {
@@ -253,6 +254,7 @@ export function PaymentsDataTable({
 
     const rows = sortedPayments.map(p => {
       const services = p.items?.map(i => i.name).join('; ') || '';
+      const amountDue = getOutstandingAmount(p);
       return [
         formatPaymentDate(p.paymentDate),
         p.studentName,
@@ -260,8 +262,8 @@ export function PaymentsDataTable({
         p.total,
         p.totalCost || 0,
         p.paidAmount || 0,
-        p.amountDue || 0,
-        p.status,
+        amountDue,
+        getEffectivePaymentStatus(p),
         p.paymentMethod
       ].map(escapeCSV).join(',');
     });
@@ -285,15 +287,17 @@ export function PaymentsDataTable({
     }
     
     const services = payment.items?.map(i => i.name).join(', ') || 'driving lessons';
-    const isPartial = payment.amountDue > 0 && payment.paidAmount > 0;
+    const amountDue = getOutstandingAmount(payment);
+    const status = getEffectivePaymentStatus(payment);
+    const isPartial = amountDue > 0 && (payment.paidAmount || 0) > 0;
     const senderName = tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor';
     
     let message = '';
-    if (payment.status === 'paid') {
+    if (status === 'paid') {
       message = `Hi ${payment.studentName},\n\nThank you for your payment of $${payment.total} for ${services}.\n\nHere is your receipt confirmation. Drive safely!\n\n${senderName}`;
     } else {
       const balanceType = isPartial ? 'remaining balance' : 'outstanding balance';
-      message = `Hi ${payment.studentName},\n\nThis is a gentle reminder that there is an ${balanceType} of $${payment.amountDue} for your ${services}.\n\nPlease let us know if you have any questions!\n\n${senderName}`;
+      message = `Hi ${payment.studentName},\n\nThis is a gentle reminder that there is an ${balanceType} of $${amountDue} for your ${services}.\n\nPlease let us know if you have any questions!\n\n${senderName}`;
     }
 
     const cleanedNumber = student.mobileNumber.replace(/\D/g, '');
@@ -358,7 +362,11 @@ export function PaymentsDataTable({
             </CardContent>
           </Card>
         ) : (
-          paginatedPayments.map((payment) => (
+          paginatedPayments.map((payment) => {
+            const amountDue = getOutstandingAmount(payment);
+            const status = getEffectivePaymentStatus(payment);
+            const isPartial = amountDue > 0 && (payment.paidAmount || 0) > 0;
+            return (
             <Card key={payment.id} className="rounded-lg">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -375,8 +383,8 @@ export function PaymentsDataTable({
                       </span>
                     </div>
                   </div>
-                  <Badge variant={getStatusVariant(payment.status, payment.amountDue > 0 && payment.paidAmount > 0)} className="shrink-0 capitalize">
-                    {payment.amountDue > 0 && payment.paidAmount > 0 ? 'Partial' : payment.status}
+                  <Badge variant={getStatusVariant(status, isPartial)} className="shrink-0 capitalize">
+                    {isPartial ? 'Partial' : status}
                   </Badge>
                 </div>
 
@@ -391,16 +399,16 @@ export function PaymentsDataTable({
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Due</p>
-                    <p className={cn('mt-1 font-semibold', payment.amountDue > 0 && 'text-destructive')}>
-                      {formatCurrency(payment.amountDue || 0)}
+                    <p className={cn('mt-1 font-semibold', amountDue > 0 && 'text-destructive')}>
+                      {formatCurrency(amountDue)}
                     </p>
                   </div>
                 </div>
 
-                {payment.amountDue > 0 && (
+                {amountDue > 0 && (
                   <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                     <AlertCircle className="h-4 w-4 shrink-0" />
-                    Balance remaining: {formatCurrency(payment.amountDue)}
+                    Balance remaining: {formatCurrency(amountDue)}
                   </div>
                 )}
 
@@ -413,7 +421,7 @@ export function PaymentsDataTable({
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit Bill
                   </Button>
-                  {payment.status !== 'paid' && (
+                  {status !== 'paid' && (
                     <Button size="sm" onClick={() => onRecordPayment(payment)}>
                       <WalletCards className="mr-2 h-4 w-4" />
                       Record
@@ -427,7 +435,8 @@ export function PaymentsDataTable({
                 </div>
               </CardContent>
             </Card>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -477,7 +486,11 @@ export function PaymentsDataTable({
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedPayments.map((payment) => (
+              paginatedPayments.map((payment) => {
+                const amountDue = getOutstandingAmount(payment);
+                const status = getEffectivePaymentStatus(payment);
+                const isPartial = amountDue > 0 && (payment.paidAmount || 0) > 0;
+                return (
                 <TableRow key={payment.id}>
                   <TableCell>
                     <Popover>
@@ -508,19 +521,19 @@ export function PaymentsDataTable({
                   </TableCell>
                   <TableCell
                     onClick={() => handleEditClick(payment)}
-                    className={cn('cursor-pointer', payment.amountDue > 0 && 'text-destructive')}
+                    className={cn('cursor-pointer', amountDue > 0 && 'text-destructive')}
                   >
-                    {formatCurrency(payment.amountDue)}
+                    {formatCurrency(amountDue)}
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={getStatusVariant(payment.status, payment.amountDue > 0 && payment.paidAmount > 0)}
+                      variant={getStatusVariant(status, isPartial)}
                       className="w-24 cursor-pointer justify-center capitalize"
                       onClick={() => {
-                        if (payment.status !== 'paid') onRecordPayment(payment);
+                        if (status !== 'paid') onRecordPayment(payment);
                       }}
                     >
-                      {payment.amountDue > 0 && payment.paidAmount > 0 ? 'Partial' : payment.status}
+                      {isPartial ? 'Partial' : status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
@@ -539,7 +552,8 @@ export function PaymentsDataTable({
                     <DeletePaymentButton payment={payment} onDelete={onDelete} />
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

@@ -18,11 +18,20 @@ export function createPaymentTransaction(
 }
 
 export function calculatePaymentStatus(total: number, paidAmount: number): PaymentStatus {
-  return total - paidAmount <= 0.009 ? 'paid' : 'unpaid';
+  const safeTotal = Number.isFinite(Number(total)) ? Number(total) : 0;
+  const safePaidAmount = Number.isFinite(Number(paidAmount)) ? Number(paidAmount) : 0;
+  return safeTotal - safePaidAmount <= 0.009 ? 'paid' : 'unpaid';
 }
 
 export function calculateAmountDue(total: number, paidAmount: number): number {
-  return Math.max(0, total - paidAmount);
+  const safeTotal = Number.isFinite(Number(total)) ? Number(total) : 0;
+  const safePaidAmount = Number.isFinite(Number(paidAmount)) ? Number(paidAmount) : 0;
+  return Math.max(0, safeTotal - safePaidAmount);
+}
+
+export function getEffectivePaymentStatus(payment: Pick<Payment, 'total' | 'paidAmount' | 'paymentMethod' | 'items'>): PaymentStatus {
+  if (isAdvanceCreditPayment(payment)) return 'paid';
+  return calculatePaymentStatus(payment.total, payment.paidAmount || 0);
 }
 
 // Single source of truth for the two money numbers shown across screens.
@@ -30,13 +39,13 @@ export function calculateAmountDue(total: number, paidAmount: number): number {
 // deposits don't, to avoid counting the same dollars twice), and "outstanding"
 // is what is still owed on a bill.
 export function getCollectedAmount(payment: Payment): number {
-  return isAdvanceCreditPayment(payment) ? 0 : payment.paidAmount || 0;
+  return isAdvanceCreditPayment(payment) ? 0 : Number(payment.paidAmount) || 0;
 }
 
 export function getOutstandingAmount(payment: Payment): number {
   if (isAdvanceCreditPayment(payment)) return 0;
-  const due = payment.amountDue ?? Math.max(0, (payment.total || 0) - (payment.paidAmount || 0));
-  return Math.max(0, due);
+  // Always derive the balance. Legacy records may contain a stale amountDue.
+  return calculateAmountDue(payment.total, payment.paidAmount || 0);
 }
 
 export function isAdvanceCreditPayment(payment: Pick<Payment, 'paymentMethod' | 'items'>) {
