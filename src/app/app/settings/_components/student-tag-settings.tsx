@@ -40,8 +40,8 @@ export function StudentTagSettings() {
 
   useEffect(() => {
     const configured = Array.isArray(tenant?.customerTags) ? tenant.customerTags.map(normalizeTag).filter(Boolean) : DEFAULT_TAGS;
-    setTags(Array.from(new Set(configured)));
-  }, [tenant?.customerTags]);
+    setTags(Array.from(new Set([...configured, ...usedTags])));
+  }, [tenant?.customerTags, usedTags]);
 
   if (!canManageTenant) return null;
 
