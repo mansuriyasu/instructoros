@@ -87,6 +87,11 @@ const COLLECTIONS = [
 
 const RESTORABLE_COLLECTIONS = COLLECTIONS.filter(item => item.restorable);
 
+// Stay comfortably below Firestore's per-request limit. JSON size is only an
+// estimate of encoded Firestore size, so keep a margin for field encoding.
+const MAX_WRITE_BATCH_BYTES = 7 * 1024 * 1024;
+const MAX_WRITE_BATCH_RECORDS = 400;
+
 function todayStamp() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -222,13 +227,45 @@ async function writeCollectionRecords(
     await deleteCollectionRecords(firestore, activeTenantId, collectionName);
   }
 
-  for (let i = 0; i < records.length; i += 450) {
+  let batchRecords: Array<{ id: string; data: Record<string, unknown> }> = [];
+  let estimatedBytes = 0;
+
+  const commitBatch = async () => {
+    if (batchRecords.length === 0) return;
+
     const batch = writeBatch(firestore);
-    records.slice(i, i + 450).forEach(record => {
-      batch.set(doc(firestore, tenantCollectionPath(activeTenantId, collectionName), record.id), record.data, { merge: mode === 'merge' });
+    batchRecords.forEach(record => {
+      batch.set(
+        doc(firestore, tenantCollectionPath(activeTenantId, collectionName), record.id),
+        record.data,
+        { merge: mode === 'merge' }
+      );
     });
     await batch.commit();
+    batchRecords = [];
+    estimatedBytes = 0;
+  };
+
+  for (const record of records) {
+    const recordBytes = new TextEncoder().encode(JSON.stringify({ id: record.id, data: record.data })).byteLength + 1024;
+
+    if (recordBytes > MAX_WRITE_BATCH_BYTES) {
+      throw new Error(`Record ${record.id} is too large to restore in Firestore (${Math.ceil(recordBytes / 1024 / 1024)} MiB).`);
+    }
+
+    const wouldExceedBatch =
+      batchRecords.length >= MAX_WRITE_BATCH_RECORDS ||
+      (batchRecords.length > 0 && estimatedBytes + recordBytes > MAX_WRITE_BATCH_BYTES);
+
+    if (wouldExceedBatch) {
+      await commitBatch();
+    }
+
+    batchRecords.push(record);
+    estimatedBytes += recordBytes;
   }
+
+  await commitBatch();
 }
 
 export function ImportExportClientPage() {
