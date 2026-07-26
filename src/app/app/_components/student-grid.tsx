@@ -11,6 +11,7 @@ import { StudentGridActions } from './student-grid-actions';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
 
 export type StudentStatusFilter = StudentStatus | 'all' | 'current';
 
@@ -97,7 +98,10 @@ export function StudentGrid() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Students</h1>
         </div>
-        <StudentGridActions />
+        <div className="flex items-center gap-2">
+          <StudentIntakeLinkDialog />
+          <StudentGridActions />
+        </div>
       </div>
 
       <div className="mt-6 flex-1 pb-24">
