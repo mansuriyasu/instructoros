@@ -92,14 +92,6 @@ function createSheetPdf(
   doc.text(`Date: ${data.date}   Instructor: ${data.instructor}`, 15, 46);
   doc.text(`Lesson: ${format(new Date(data.lesson.start), 'MMM d, yyyy h:mm a')}   Area/route: ${data.area || 'Not provided'}`, 15, 51);
 
-  // Outcome banner
-  const meets = state.outcome === 'meets';
-  const outcomeColor: [number, number, number] = state.outcome === 'meets' ? [22, 128, 75] : state.outcome === 'does-not-meet' ? [180, 35, 35] : [120, 120, 120];
-  doc.setFillColor(...outcomeColor); doc.roundedRect(15, 55, width - 30, 12, 2, 2, 'F');
-  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-  doc.text(state.outcome ? outcomeText[state.outcome] : 'Outcome not recorded', width / 2, 63, { align: 'center' });
-  doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal');
-
   const marksById = new Map(state.items.map(item => [item.id, item.marks || []]));
   const rows: any[] = [];
   for (const section of sheet.sections) {
@@ -118,7 +110,7 @@ function createSheetPdf(
     }
   }
   autoTable(doc, {
-    startY: 71,
+    startY: 57,
     head: [['Item', 'Marks']],
     body: rows,
     theme: 'grid',
@@ -128,7 +120,7 @@ function createSheetPdf(
     margin: { left: 15, right: 15 },
   });
 
-  let y = ((doc as any).lastAutoTable?.finalY || 71) + 6;
+  let y = ((doc as any).lastAutoTable?.finalY || 57) + 6;
   const ensureSpace = (needed: number) => { if (y + needed > height - 20) { doc.addPage(); y = 20; } };
   const writeList = (title: string, values: string[]) => {
     if (!values.length) return;
@@ -153,10 +145,10 @@ function createSheetPdf(
   if (state.notes) { ensureSpace(12); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('Notes', 15, y); y += 4; doc.setFont('helvetica', 'normal'); doc.text(state.notes, 15, y, { maxWidth: width - 30 }); y += 6; }
 
   doc.setFontSize(7); doc.setTextColor(90, 90, 90);
+  doc.text(`Ministry outcome: ${state.outcome ? outcomeText[state.outcome] : 'Not recorded'}`, 15, height - 26, { maxWidth: width - 30 });
   doc.text(sheet.legend, 15, height - 20, { maxWidth: width - 30 });
   doc.text('Instructor practice assessment — not an official Ontario DriveTest score.', 15, height - 13, { maxWidth: width - 30 });
   doc.text(`${businessName}${tenant?.receiptFooterText ? ` — ${tenant.receiptFooterText}` : ''}`, 15, height - 8, { maxWidth: width - 30 });
-  void meets;
   return doc;
 }
 
@@ -448,14 +440,6 @@ export default function EvaluationPage() {
     })}
 
     <div className="mt-5 rounded-2xl border bg-card p-4">
-      <h2 className="text-base font-black">Outcome</h2>
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <button type="button" onClick={() => setState(prev => ({ ...prev, outcome: prev.outcome === 'meets' ? undefined : 'meets' }))} className={cn('min-h-12 rounded-xl px-3 text-sm font-black', state.outcome === 'meets' ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground')}>Meets Ministry Standards</button>
-        <button type="button" onClick={() => setState(prev => ({ ...prev, outcome: prev.outcome === 'does-not-meet' ? undefined : 'does-not-meet' }))} className={cn('min-h-12 rounded-xl px-3 text-sm font-black', state.outcome === 'does-not-meet' ? 'bg-red-600 text-white' : 'bg-muted text-muted-foreground')}>Does Not Meet Ministry Standards</button>
-      </div>
-    </div>
-
-    <div className="mt-5 rounded-2xl border bg-card p-4">
       <h2 className="text-base font-black">{sheet.summaryReasonsLabel}</h2>
       <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
         {sheet.summaryReasons.map(reason => (
@@ -512,10 +496,24 @@ export default function EvaluationPage() {
       <Textarea id="eval-notes" value={state.notes} onChange={event => setState(prev => ({ ...prev, notes: event.target.value }))} placeholder="What should the student practise next?" className="mt-3 min-h-24" />
     </div>
 
+    <div className="mt-5 rounded-xl border border-border/60 bg-muted/20 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground">Ministry outcome record</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Optional administrative field from the examiner-style sheet.</p>
+        </div>
+        <span className="text-xs font-semibold text-muted-foreground">{state.outcome ? outcomeText[state.outcome] : 'Not recorded'}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button type="button" onClick={() => setState(prev => ({ ...prev, outcome: prev.outcome === 'meets' ? undefined : 'meets' }))} className={cn('min-h-10 rounded-lg border px-3 text-xs font-semibold', state.outcome === 'meets' ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-border bg-background text-muted-foreground')}>Record Meets Ministry Standards</button>
+        <button type="button" onClick={() => setState(prev => ({ ...prev, outcome: prev.outcome === 'does-not-meet' ? undefined : 'does-not-meet' }))} className={cn('min-h-10 rounded-lg border px-3 text-xs font-semibold', state.outcome === 'does-not-meet' ? 'border-red-300 bg-red-50 text-red-800' : 'border-border bg-background text-muted-foreground')}>Record Does Not Meet Ministry Standards</button>
+      </div>
+    </div>
+
     <div className="mt-5 rounded-2xl border border-[#d4af37]/50 bg-[#fff9e7] p-4 dark:border-[#d4af37]/30 dark:bg-[#332b0e]">
-      <p className="text-xs font-bold uppercase tracking-wide text-[#806000] dark:text-[#e5c65c]">Running tally</p>
+      <p className="text-xs font-bold uppercase tracking-wide text-[#806000] dark:text-[#e5c65c]">Practice tally</p>
       <div className="mt-1 flex items-end justify-between gap-3">
-        <p className="text-xl font-black text-[#0b0b0d] dark:text-white">{state.outcome ? outcomeText[state.outcome] : 'Outcome not set'}</p>
+        <p className="text-sm font-semibold text-[#0b0b0d] dark:text-white">{state.outcome ? `Ministry record: ${outcomeText[state.outcome]}` : 'Use the results above to guide practice.'}</p>
         <p className="text-right text-sm font-bold text-[#0b0b0d] dark:text-white">{liveCounts.minors} ✓ · {liveCounts.majors} ✗</p>
       </div>
     </div>
