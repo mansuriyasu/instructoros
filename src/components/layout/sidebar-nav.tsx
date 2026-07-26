@@ -15,9 +15,11 @@ import {
   UserCog,
   CreditCard,
   BriefcaseBusiness,
+  Activity,
 } from "lucide-react"
 import { useSession } from "@/firebase"
 import type { AppRole } from "@/lib/auth-config"
+import { canViewExpenses, canViewUtility } from "@/lib/feature-access"
 
 export const navItems = [
   { href: "/app", label: "Home", icon: Home, exact: true, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
@@ -28,17 +30,20 @@ export const navItems = [
   { href: "/app/payments/history", label: "History", icon: History, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   { href: "/app/schedule", label: "Schedule", icon: Calendar, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
   { href: "/app/services", label: "Services", icon: BriefcaseBusiness, roles: ["schoolAdmin", "soloInstructor", "mainAdmin"] },
-  { href: "/app/expenses", label: "Business Expenses", icon: Receipt, roles: ["mainAdmin"] },
+  { href: "/app/expenses", label: "Business Expenses", icon: Receipt, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"], feature: "expenses" },
+  { href: "/admin/utility-tracker", label: "Utility Tracker", icon: Activity, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"], feature: "utility" },
   { href: "/app/billing", label: "Billing", icon: CreditCard, roles: ["schoolAdmin", "soloInstructor", "mainAdmin"] },
   { href: "/app/settings", label: "Settings", icon: Settings, roles: ["schoolAdmin", "schoolInstructor", "soloInstructor", "mainAdmin"] },
 ]
 
 export function SidebarNav() {
   const pathname = usePathname()
-  const { role, activeTenantId } = useSession()
+  const { role, member, activeTenantId } = useSession()
   const visibleItems = navItems.filter(item => {
     if (!role || !(item.roles as AppRole[]).includes(role)) return false;
     if (role === "mainAdmin" && !activeTenantId && item.href !== "/admin") return false;
+    if (item.feature === "expenses" && !canViewExpenses(role, member)) return false;
+    if (item.feature === "utility" && !canViewUtility(role, member)) return false;
     return true;
   });
 

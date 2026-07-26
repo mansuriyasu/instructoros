@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase, useSession } from '@/firebase';
+import { canEditSharedFinance, canViewUtility } from '@/lib/feature-access';
 
 export type TenantRentEntry = {
   id: string;
@@ -137,31 +140,71 @@ function generatePreloadData2026(): MonthlyData[] {
 
 
 export function useUtilityTracker() {
+  const firestore = useFirestore();
+  const { role, member, activeTenantId } = useSession();
+  const canView = canViewUtility(role, member);
+  const canEdit = canEditSharedFinance(role);
+  const utilityRef = useMemoFirebase(
+    () => (firestore && activeTenantId && canView
+      ? doc(firestore, `tenants/${activeTenantId}/utilityTracker/main`)
+      : null),
+    [firestore, activeTenantId, canView]
+  );
+  const { data: cloudData, isLoading: isCloudLoading } = useDoc<UtilityTrackerData>(utilityRef);
   const [data, setData] = useState<UtilityTrackerData | null>(null);
+  const hydratedTenantRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!activeTenantId || !canView) {
+      setData(null);
+      hydratedTenantRef.current = null;
+      return;
+    }
+    if (isCloudLoading || hydratedTenantRef.current === activeTenantId) return;
+
+    if (cloudData) {
+      const sharedData = Object.fromEntries(
+        Object.entries(cloudData).filter(([key]) => key !== 'id')
+      ) as UtilityTrackerData;
+      setData(sharedData);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedData));
+      hydratedTenantRef.current = activeTenantId;
+      return;
+    }
+
+    // Only an editor may seed a new workspace. A read-only grantee must not
+    // accidentally see another account's old browser-local utility data.
+    if (!canEdit) {
+      setData(null);
+      hydratedTenantRef.current = activeTenantId;
+      return;
+    }
+
     const saved = localStorage.getItem(STORAGE_KEY);
+    let initialData: UtilityTrackerData | null = null;
     if (saved) {
       try {
-        setData(JSON.parse(saved));
+        initialData = JSON.parse(saved) as UtilityTrackerData;
       } catch (e) {
-        console.error("Failed to parse utilityTrackerData", e);
+        console.error('Failed to parse utilityTrackerData', e);
       }
-    } else {
-      // Initialize with 2025 and 2026
-      const initialData: UtilityTrackerData = {
-        years: [2025, 2026],
-        monthlyData: [...generatePreloadData2025(), ...generatePreloadData2026()],
-        settings: { defaultTenants: [] },
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
-      setData(initialData);
     }
-  }, []);
+    initialData ??= {
+      years: [2025, 2026],
+      monthlyData: [...generatePreloadData2025(), ...generatePreloadData2026()],
+      settings: { defaultTenants: [] },
+    };
+    setData(initialData);
+    void setDoc(utilityRef!, initialData, { merge: true });
+    hydratedTenantRef.current = activeTenantId;
+  }, [activeTenantId, canEdit, canView, cloudData, isCloudLoading, utilityRef]);
 
   const saveData = (newData: UtilityTrackerData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
     setData(newData);
+    if (utilityRef && canEdit) {
+      void setDoc(utilityRef, newData, { merge: true });
+    }
   };
 
   const updateMonth = (monthId: string, updates: Partial<MonthlyData>) => {
@@ -191,5 +234,5 @@ export function useUtilityTracker() {
     setData(initialData);
   };
 
-  return { data, saveData, updateMonth, addYear, resetData };
+  return { data, saveData, updateMonth, addYear, resetData, canEdit, canView };
 }

@@ -69,6 +69,9 @@ export default function AdminPage() {
   const [adminMessage, setAdminMessage] = useState('');
   const [promoSaving, setPromoSaving] = useState(false);
   const [deletingTenantId, setDeletingTenantId] = useState<string | null>(null);
+  const [featureTenantId, setFeatureTenantId] = useState('');
+  const [featureUid, setFeatureUid] = useState('');
+  const [featureSaving, setFeatureSaving] = useState(false);
 
   const tenantsQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'tenants'), orderBy('createdAt', 'desc')) : null),
@@ -226,6 +229,28 @@ export default function AdminPage() {
     }
   };
 
+  const setFeatureAccess = async (feature: 'expensesAccess' | 'utilityAccess', enabled: boolean) => {
+    if (!user || !featureTenantId || !featureUid) return;
+    setFeatureSaving(true);
+    try {
+      const response = await fetch('/api/admin/feature-access', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken(true)}`,
+        },
+        body: JSON.stringify({ tenantId: featureTenantId, uid: featureUid, feature, enabled }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Could not update feature access.');
+      setAdminMessage(`${feature === 'expensesAccess' ? 'Business Expenses' : 'Utility Tracker'} ${enabled ? 'access granted' : 'access removed'}.`);
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : 'Could not update feature access.');
+    } finally {
+      setFeatureSaving(false);
+    }
+  };
+
   const handlePromoSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const code = normalizePromoCode(promoCode);
@@ -344,6 +369,35 @@ export default function AdminPage() {
                 Utility Tracker
               </Link>
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Feature access</CardTitle>
+            <p className="text-sm text-muted-foreground">Grant an active workspace account access to shared expenses or Utility Tracker data.</p>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
+            <label className="grid gap-1 text-sm font-medium">
+              Workspace
+              <select className="h-10 rounded-md border bg-background px-3" value={featureTenantId} onChange={event => { setFeatureTenantId(event.target.value); setFeatureUid(''); }}>
+                <option value="">Select workspace</option>
+                {(tenants || []).map(tenant => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Account
+              <select className="h-10 rounded-md border bg-background px-3" value={featureUid} onChange={event => setFeatureUid(event.target.value)} disabled={!featureTenantId}>
+                <option value="">Select account</option>
+                {(users || []).filter(profile => profile.activeTenantId === featureTenantId).map(profile => <option key={profile.uid} value={profile.uid}>{profile.displayName || profile.email}</option>)}
+              </select>
+            </label>
+            <Button disabled={featureSaving || !featureTenantId || !featureUid} onClick={() => void setFeatureAccess('expensesAccess', true)}>Give Expenses</Button>
+            <Button disabled={featureSaving || !featureTenantId || !featureUid} onClick={() => void setFeatureAccess('utilityAccess', true)} variant="outline">Give Utility</Button>
+          </CardContent>
+          <CardContent className="flex flex-wrap gap-2 pt-0">
+            <Button disabled={featureSaving || !featureTenantId || !featureUid} variant="ghost" onClick={() => void setFeatureAccess('expensesAccess', false)}>Remove Expenses</Button>
+            <Button disabled={featureSaving || !featureTenantId || !featureUid} variant="ghost" onClick={() => void setFeatureAccess('utilityAccess', false)}>Remove Utility</Button>
           </CardContent>
         </Card>
 

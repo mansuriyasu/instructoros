@@ -68,6 +68,16 @@ service cloud.firestore {
         || (isActiveTenantMember(tenantId) && role(tenantId) in ["schoolAdmin", "soloInstructor"]);
     }
 
+    function canViewExpenses(tenantId) {
+      return isTenantAdmin(tenantId)
+        || (isActiveTenantMember(tenantId) && member(tenantId).expensesAccess == true);
+    }
+
+    function canViewUtility(tenantId) {
+      return isTenantAdmin(tenantId)
+        || (isActiveTenantMember(tenantId) && member(tenantId).utilityAccess == true);
+    }
+
     function isSchoolInstructor(tenantId) {
       return isActiveTenantMember(tenantId) && role(tenantId) == "schoolInstructor";
     }
@@ -188,7 +198,12 @@ service cloud.firestore {
             && request.resource.data.email == resource.data.email
             && request.resource.data.tenantId == resource.data.tenantId
             && request.resource.data.status == "disabled"
-            && onlyChanges(["status", "disabledAt", "updatedAt", "displayName"]));
+            && onlyChanges(["status", "disabledAt", "updatedAt", "displayName"]))
+          || (isTenantAdmin(tenantId)
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.tenantId == resource.data.tenantId
+            && onlyChanges(["expensesAccess", "utilityAccess", "updatedAt"]));
         allow delete: if isMainAdmin() || (isTenantAdmin(tenantId) && billingWritable(tenantId));
       }
 
@@ -274,7 +289,14 @@ service cloud.firestore {
       }
 
       match /business_expenses/{docId} {
-        allow read, write: if isMainAdmin();
+        allow read: if canViewExpenses(tenantId);
+        allow write: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+
+      match /utilityTracker/{docId} {
+        allow get: if canViewUtility(tenantId);
+        allow list: if canViewUtility(tenantId);
+        allow create, update, delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
       match /finance_years/{docId} {

@@ -66,6 +66,8 @@ export type TenantMember = {
   inviteId?: string;
   createdAt: string;
   updatedAt: string;
+  expensesAccess?: boolean;
+  utilityAccess?: boolean;
 };
 
 export type TenantInvite = {

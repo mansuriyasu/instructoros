@@ -5,6 +5,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { PieChart, Plus, List } from "lucide-react"
 import { useSession } from "@/firebase"
+import { canViewExpenses, canEditSharedFinance } from "@/lib/feature-access"
 
 export default function ExpensesLayout({
   children,
@@ -12,7 +13,9 @@ export default function ExpensesLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const { role } = useSession()
+  const { role, member } = useSession()
+  const canView = canViewExpenses(role, member)
+  const canEdit = canEditSharedFinance(role)
 
   const navItems = [
     { href: "/app/expenses", label: "Dashboard", icon: PieChart, exact: true },
@@ -20,12 +23,12 @@ export default function ExpensesLayout({
     { href: "/app/expenses/list", label: "History", icon: List, exact: false },
   ]
 
-  if (role !== "mainAdmin") {
+  if (!canView) {
     return (
       <div className="mx-auto w-full max-w-2xl rounded-xl border bg-white p-6 text-center shadow-sm">
         <h1 className="text-xl font-bold text-foreground">Admin only</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Business Expenses is only available in the main admin area.
+          Ask an administrator to grant you Business Expenses access.
         </p>
       </div>
     )
@@ -51,6 +54,8 @@ export default function ExpensesLayout({
             ? pathname === item.href 
             : pathname.startsWith(item.href)
 
+          if (!canEdit && item.label === 'Add Expense') return null;
+
           return (
             <Link
               key={item.href}
@@ -63,7 +68,7 @@ export default function ExpensesLayout({
               )}
             >
               <item.icon className={cn("w-4 h-4", isActive ? "animate-pulse" : "")} />
-              {item.label}
+            {item.label}
             </Link>
           )
         })}

@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useSession } from "@/firebase"
+import { canViewUtility } from "@/lib/feature-access"
 
 const navItems = [
   { href: "/admin/utility-tracker", label: "Dashboard" },
@@ -17,6 +19,17 @@ export default function UtilityTrackerLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const { role, member } = useSession()
+  const canView = canViewUtility(role, member)
+
+  if (!canView) {
+    return (
+      <div className="mx-auto w-full max-w-2xl rounded-xl border bg-white p-6 text-center shadow-sm">
+        <h1 className="text-xl font-bold text-foreground">Access required</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Ask an administrator to grant you Utility Tracker access.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-8 max-w-7xl mx-auto w-full pb-24 md:pb-8">
