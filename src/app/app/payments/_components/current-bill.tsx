@@ -420,11 +420,11 @@ export function CurrentBill({
                     const itemDate = new Date(item.date);
                     const displayDate = isValid(itemDate) ? itemDate : new Date();
                     return (
-                      <div key={item.billItemId} className="flex items-start gap-3 rounded-2xl border bg-background p-3 shadow-sm">
-                          <div className="flex-1 space-y-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm font-semibold leading-tight">{item.name}</p>
-                                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+                      <div key={item.billItemId} className="relative rounded-2xl border bg-background p-4 shadow-sm sm:p-3">
+                          <div className="space-y-3 pr-9">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="min-w-0 text-base font-semibold leading-snug sm:text-sm">{item.name}</p>
+                                <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-sm font-bold sm:px-2 sm:py-0.5 sm:text-xs">
                                   {formatCurrency(item.price * item.quantity)}
                                 </span>
                               </div>
@@ -433,35 +433,41 @@ export function CurrentBill({
                                   Includes: {formatPackageContents(item.packageItems)}
                                 </p>
                               )}
-                              <div className='flex items-center justify-between mt-1'>
-                                  <div className="flex items-center gap-1">
-                                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => onItemQuantityChange(item.billItemId, item.quantity - 1)}>
+                              <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-between">
+                                  <div className="min-w-0">
+                                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:hidden">Quantity</p>
+                                    <div className="flex items-center gap-1.5">
+                                    <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-xl sm:h-8 sm:w-8 sm:rounded-full" onClick={() => onItemQuantityChange(item.billItemId, item.quantity - 1)}>
                                         <Minus className="h-4 w-4" />
                                     </Button>
                                     <Input
                                         type="number"
                                         value={item.quantity}
                                         onChange={(e) => onItemQuantityChange(item.billItemId, parseInt(e.target.value) || 0)}
-                                        className="h-8 w-12 rounded-lg text-center text-sm"
+                                        className="h-11 w-full min-w-0 rounded-xl text-center text-base font-semibold sm:h-8 sm:w-12 sm:rounded-lg sm:text-sm"
                                     />
-                                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => onItemQuantityChange(item.billItemId, item.quantity + 1)}>
+                                    <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 rounded-xl sm:h-8 sm:w-8 sm:rounded-full" onClick={() => onItemQuantityChange(item.billItemId, item.quantity + 1)}>
                                         <Plus className="h-4 w-4" />
                                     </Button>
+                                    </div>
                                   </div>
-                                <Input
+                                  <div className="min-w-0">
+                                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:hidden">Unit price</p>
+                                    <Input
                                     type="number"
                                     value={item.price}
                                     onChange={(e) => onItemPriceChange(item.billItemId, parseFloat(e.target.value) || 0)}
-                                    className="h-8 w-24 rounded-lg text-right text-sm"
+                                    className="h-11 w-full rounded-xl text-right text-base font-semibold sm:h-8 sm:w-24 sm:rounded-lg sm:text-sm"
                                     step="0.01"
-                                />
+                                    />
+                                  </div>
                               </div>
                                <Popover>
                                   <PopoverTrigger asChild>
                                     <Button
                                       variant={"outline"}
                                       size="sm"
-                                      className={cn("h-9 w-full justify-start rounded-lg text-left text-sm font-normal", !item.date && "text-muted-foreground")}
+                                      className={cn("h-11 w-full justify-start rounded-xl text-left text-sm font-normal sm:h-9 sm:rounded-lg", !item.date && "text-muted-foreground")}
                                     >
                                       <CalendarIcon className="mr-2 h-4 w-4" />
                                       {item.date ? format(displayDate, "MMM d, h:mm a") : <span>Pick date</span>}
@@ -487,7 +493,7 @@ export function CurrentBill({
                                   </PopoverContent>
                                 </Popover>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 rounded-full hover:bg-destructive/10" onClick={() => onRemoveItem(item.billItemId)}>
+                          <Button variant="ghost" size="icon" aria-label={`Remove ${item.name}`} className="absolute right-3 top-3 h-10 w-10 rounded-xl hover:bg-destructive/10 sm:h-8 sm:w-8 sm:rounded-full" onClick={() => onRemoveItem(item.billItemId)}>
                               <X className="h-4 w-4 text-destructive/80" />
                           </Button>
                       </div>
