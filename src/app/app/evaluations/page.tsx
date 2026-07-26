@@ -25,6 +25,16 @@ import { buildSheetItems, getExamSheet, getExamSheetByVersion, type ExamSheet, t
 const TEST_LABELS: Record<EvaluationTestType, string> = { G2: 'Record of G2 Examination', G: 'Record of G Examination' };
 const outcomeText: Record<string, string> = { meets: 'Meets Ministry Standards', 'does-not-meet': 'Does Not Meet Ministry Standards' };
 
+function removeUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(removeUndefined) as T;
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(
+      Object.entries(value).filter(([, entry]) => entry !== undefined).map(([key, entry]) => [key, removeUndefined(entry)])
+    ) as T;
+  }
+  return value;
+}
+
 function safeFileName(value: string) {
   return value.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'student';
 }
@@ -328,7 +338,7 @@ export default function EvaluationPage() {
         const serverError = String(data.error || '');
         const canUseClientFallback = !savedEvaluation?.id && (response.status === 404 || /default credentials|service account|firebase admin|could not load default/i.test(serverError));
         if (!canUseClientFallback || !firestore || !evaluationsPath) throw new Error(serverError || 'Could not save evaluation.');
-        const directRecord = { ...payload, instructorUid: authUser.uid, createdByUid: authUser.uid, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        const directRecord = removeUndefined({ ...payload, instructorUid: authUser.uid, createdByUid: authUser.uid, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
         const directRef = await addDoc(collection(firestore, evaluationsPath), directRecord);
         setSavedEvaluation({ ...directRecord, id: directRef.id });
         toast({ title: 'Evaluation saved', description: 'Saved through your secure Firebase workspace connection.' });

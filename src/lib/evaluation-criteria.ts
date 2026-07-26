@@ -287,8 +287,8 @@ export function normalizeSheetExtras(sheet: ExamSheet | null, body: Record<strin
     : [];
 
   return {
-    sheetVersion: sheet?.version,
-    outcome,
+    ...(sheet?.version ? { sheetVersion: sheet.version } : {}),
+    ...(outcome ? { outcome } : {}),
     sectionStatus,
     summaryReasons: Array.isArray(body.summaryReasons)
       ? body.summaryReasons.map(v => cleanString(v, 120)).filter(v => reasonSet.has(v))
