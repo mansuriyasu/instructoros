@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CalendarEvent, LessonStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { CalendarCheck2, CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle, ClipboardCheck } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle, ClipboardCheck } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -109,9 +109,7 @@ export function EventDetailsDialog({
 
   const isBlockedSlot = event.studentId === null;
   const canAddToBill = !isBlockedSlot && event.services && event.services.length > 0;
-  const paymentLabel = event.paymentStatus === 'paid' ? 'Paid' : event.paymentStatus === 'unpaid' ? 'Unpaid' : 'Not marked';
   const lessonStatus = event.lessonStatus || 'scheduled';
-  const lessonStatusLabel = lessonStatus === 'no-show' ? 'No Show' : lessonStatus === 'cancelled' ? 'Cancelled' : 'Scheduled';
   
   const wazeUrl = event.studentAddress ? `https://waze.com/ul?q=${encodeURIComponent(event.studentAddress)}&navigate=yes` : null;
 
@@ -141,7 +139,6 @@ export function EventDetailsDialog({
 
           {!isBlockedSlot && (
             <>
-                {event.studentName && <InfoItem icon={User}>{event.studentName}</InfoItem>}
                 {event.services && event.services.length > 0 && (
                   <InfoItem icon={Package}>
                       <ul className="space-y-2">
@@ -200,42 +197,6 @@ export function EventDetailsDialog({
                 <ImageIcon className="h-4 w-4" />
                 Exam confirmation
               </Button>
-            </InfoItem>
-          )}
-
-          {!isBlockedSlot && (
-            <InfoItem icon={Receipt}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span>Payment:</span>
-                <span className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-semibold",
-                  event.paymentStatus === 'paid'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : event.paymentStatus === 'unpaid'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-muted text-muted-foreground'
-                )}>
-                  {paymentLabel}
-                </span>
-              </div>
-            </InfoItem>
-          )}
-
-          {!isBlockedSlot && (
-            <InfoItem icon={CalendarCheck2}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span>Lesson:</span>
-                <span className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-semibold",
-                  lessonStatus === 'scheduled'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : lessonStatus === 'no-show'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-slate-200 text-slate-700'
-                )}>
-                  {lessonStatusLabel}
-                </span>
-              </div>
             </InfoItem>
           )}
 

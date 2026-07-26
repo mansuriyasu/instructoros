@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { CalendarIcon } from 'lucide-react';
-import { addDays, format, startOfMonth, startOfToday, endOfMonth, subDays, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
+import { CalendarIcon, ChevronDown } from 'lucide-react';
+import { format, startOfMonth, startOfToday, endOfMonth, subDays, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 
 import { cn } from '@/lib/utils';
@@ -58,37 +58,40 @@ export function DateRangePicker({
 
   return (
     <div className={cn('grid gap-2', className)}>
+      <p className="text-sm font-semibold text-foreground">Report period</p>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             id="date"
             variant={'outline'}
             className={cn(
-              'w-full md:w-[300px] justify-start text-left font-normal',
+              'h-12 w-full justify-between rounded-lg px-3 text-left font-normal sm:w-[320px]',
               !dateRange && 'text-muted-foreground'
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {dateRange?.from ? (
-              dateRange.to ? (
-                <>
-                  {format(dateRange.from, 'LLL dd, y')} -{' '}
-                  {format(dateRange.to, 'LLL dd, y')}
-                </>
-              ) : (
-                format(dateRange.from, 'LLL dd, y')
-              )
-            ) : (
-              <span>Pick a date</span>
-            )}
+            <span className="flex min-w-0 items-center gap-2">
+              <CalendarIcon className="h-4 w-4 shrink-0" />
+              <span className="truncate">
+                {dateRange?.from ? (
+                  dateRange.to
+                    ? `${format(dateRange.from, 'MMM d, yyyy')} - ${format(dateRange.to, 'MMM d, yyyy')}`
+                    : format(dateRange.from, 'MMM d, yyyy')
+                ) : 'Choose dates'}
+              </span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
-          <div className="flex flex-col md:flex-row">
-            <div className="p-2 border-b md:border-r">
+        <PopoverContent className="w-[calc(100vw-2rem)] max-w-[380px] p-0" align="start" sideOffset={8}>
+          <div className="border-b px-4 py-3">
+            <p className="text-sm font-semibold">Choose a date range</p>
+            <p className="mt-1 text-xs text-muted-foreground">Select the start date, then the end date.</p>
+          </div>
+          <div className="flex flex-col">
+            <div className="border-b p-3">
                 <Select onValueChange={handlePresetChange}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a preset" />
+                    <SelectTrigger className="h-11 w-full">
+                        <SelectValue placeholder="Quick range" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="today">Today</SelectItem>
@@ -107,7 +110,8 @@ export function DateRangePicker({
                 defaultMonth={dateRange?.from}
                 selected={dateRange}
                 onSelect={setDateRange}
-                numberOfMonths={2}
+                numberOfMonths={1}
+                className="mx-auto w-full p-3"
             />
           </div>
         </PopoverContent>
