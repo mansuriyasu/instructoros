@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImportExportClientPage } from './import-export-client-page';
 import { WorkspaceProfileSettings } from './workspace-profile-settings';
+import { StudentTagSettings } from './student-tag-settings';
 import { Database, Settings2 } from 'lucide-react';
 import { useSession } from '@/firebase';
 
@@ -56,7 +57,7 @@ export function SettingsClientPage() {
         </TabsList>
         <div className="mt-6">
             <TabsContent value="workspace">
-                {canManageWorkspace ? <WorkspaceProfileSettings /> : null}
+                {canManageWorkspace ? <div className="space-y-5"><WorkspaceProfileSettings /><StudentTagSettings /></div> : null}
             </TabsContent>
             <TabsContent value="import-export">
                 {canImportExport ? <ImportExportClientPage /> : null}

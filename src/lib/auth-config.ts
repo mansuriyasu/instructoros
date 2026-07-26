@@ -44,6 +44,7 @@ export type Tenant = {
   receiptWebsite?: string;
   receiptAddress?: string;
   messageSenderName?: string;
+  customerTags?: string[];
   hstNumber?: string;
   taxLabel?: string;
   taxRate?: number;

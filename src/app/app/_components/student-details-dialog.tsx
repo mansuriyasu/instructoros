@@ -41,6 +41,7 @@ import {
   } from "@/components/ui/alert-dialog"
 import { useRouter } from 'next/navigation';
 import { useStudents } from '@/hooks/use-students';
+import { useSession } from '@/firebase';
 import { useEvents } from '@/hooks/use-events';
 import { useEvaluations } from '@/hooks/use-evaluations';
 import { useStorage } from '@/hooks/use-storage';
@@ -84,6 +85,7 @@ export function StudentDetailsDialog({
   const { events, updateEvent } = useEvents();
   const { evaluations } = useEvaluations(student?.id);
   const { students, updateStudent, deleteStudent } = useStudents();
+  const { tenant } = useSession();
   const router = useRouter();
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -99,6 +101,7 @@ export function StudentDetailsDialog({
   const [newNote, setNewNote] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isAddressNavigationOpen, setIsAddressNavigationOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const profileScanInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -170,7 +173,10 @@ export function StudentDetailsDialog({
   );
 
   const allAvailableTags = useMemo(() => {
-    const tagsSet = new Set<string>(defaultCustomerTags);
+    const tagsSet = new Set<string>([
+      ...defaultCustomerTags,
+      ...(Array.isArray(tenant?.customerTags) ? tenant.customerTags : []),
+    ]);
     (students || []).forEach(s => {
       if (Array.isArray(s.tags)) {
         s.tags.forEach(t => {
@@ -181,7 +187,7 @@ export function StudentDetailsDialog({
       }
     });
     return Array.from(tagsSet).sort();
-  }, [students]);
+  }, [students, tenant?.customerTags]);
 
   if (!student) return null;
 
@@ -550,26 +556,10 @@ export function StudentDetailsDialog({
                     <GitMerge className="mr-2 h-4 w-4" />
                     <span className="font-medium">Merge Duplicate</span>
                   </DropdownMenuItem>
-                  <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                          <div className="relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-red-50 focus:bg-red-50 text-red-600 dark:hover:bg-red-950/50 dark:focus:bg-red-950/50 dark:text-red-500 mt-1">
-                              <Trash2 className="h-4 w-4" />
-                              <span className="font-medium">Delete Student</span>
-                          </div>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl">
-                          <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this student?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                              This will permanently delete {student.name} and all associated data. This action cannot be undone.
-                          </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                          <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md">Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                      </AlertDialogContent>
-                  </AlertDialog>
+                  <DropdownMenuItem onSelect={() => setIsDeleteOpen(true)} className="mt-1 rounded-md text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-red-500 dark:focus:bg-red-950/50">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span className="font-medium">Delete Student</span>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -1130,6 +1120,20 @@ export function StudentDetailsDialog({
         </div>
       </SheetContent>
     </Sheet>
+    <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+      <AlertDialogContent className="rounded-2xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this student?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete {student.name} and all associated data. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={async () => { setIsDeleteOpen(false); await handleDelete(); }} className="rounded-full bg-red-600 text-white shadow-md hover:bg-red-700">Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
