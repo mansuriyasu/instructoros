@@ -65,7 +65,6 @@ import { useCollection, useFirestore, useMemoFirebase, useSession } from '@/fire
 import type { TenantMember } from '@/lib/auth-config';
 type ViewMode = 'month' | 'week' | 'day' | 'list';
 const PENDING_GOOGLE_SYNC_KEY = 'sparkon_google_calendar_pending_sync';
-const GOOGLE_TIMEZONE_FIX_SYNC_KEY = 'sparkon_google_calendar_timezone_fix_v1';
 const viewModes: ViewMode[] = ['day', 'week', 'month', 'list'];
 const BUSINESS_TIME_ZONE = 'America/Toronto';
 const TRAVEL_WARNING_MINUTES = 10;
@@ -997,20 +996,6 @@ export function ScheduleView() {
 
     window.sessionStorage.removeItem(PENDING_GOOGLE_SYNC_KEY);
     void syncGoogleEvents();
-  }, [isConnected, isEventsLoading, isSyncingGoogle, syncGoogleEvents]);
-
-  useEffect(() => {
-    if (!isConnected || isSyncingGoogle || isEventsLoading) return;
-    if (window.localStorage.getItem(GOOGLE_TIMEZONE_FIX_SYNC_KEY) === '1') return;
-
-    void (async () => {
-      try {
-        await syncGoogleEvents();
-        window.localStorage.setItem(GOOGLE_TIMEZONE_FIX_SYNC_KEY, '1');
-      } catch {
-        // Leave the flag unset so the app can retry the calendar repair later.
-      }
-    })();
   }, [isConnected, isEventsLoading, isSyncingGoogle, syncGoogleEvents]);
 
   useEffect(() => {
