@@ -15,6 +15,16 @@ import {
 } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 
+function removeUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(removeUndefined) as T;
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(
+      Object.entries(value).filter(([, entry]) => entry !== undefined).map(([key, entry]) => [key, removeUndefined(entry)])
+    ) as T;
+  }
+  return value;
+}
+
 export function usePayments() {
   const firestore = useFirestore();
   const { user, role, isSessionLoading } = useSession();
@@ -50,10 +60,10 @@ export function usePayments() {
     if (!paymentsCollectionRef) {
       throw new Error('The payments database is not ready yet. Please try again.');
     }
-    return addDocumentNonBlocking(paymentsCollectionRef, {
+    return addDocumentNonBlocking(paymentsCollectionRef, removeUndefined({
       ...payment,
       instructorId: payment.instructorId || user?.uid || null,
-    });
+    }));
   };
 
   const updatePayment = async (payment: Payment) => {
@@ -64,7 +74,7 @@ export function usePayments() {
       throw new Error('The payments database is not ready yet. Please try again.');
     }
     const paymentRef = doc(firestore, paymentsPath, payment.id);
-    return updateDocumentNonBlocking(paymentRef, payment);
+    return updateDocumentNonBlocking(paymentRef, removeUndefined(payment));
   };
 
   const deletePayment = async (paymentId: string) => {
