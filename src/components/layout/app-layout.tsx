@@ -34,7 +34,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         )}
-        <main className="flex flex-1 flex-col gap-4 p-4 pb-24 md:pb-6 md:px-8 md:pt-6 lg:px-[30px] lg:pt-[26px] lg:pb-[60px]">
+        <main className="flex flex-1 flex-col gap-4 p-4 pb-24 sm:px-5 md:px-8 md:pt-6 lg:px-[30px] lg:pt-[26px] lg:pb-[60px]">
           {children}
         </main>
       </div>

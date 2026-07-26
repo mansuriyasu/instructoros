@@ -26,7 +26,7 @@ export function BottomNav() {
   }).slice(0, 5);
 
   return (
-    <div className="fixed bottom-0 left-0 z-50 w-full h-[68px] bg-background border-t md:hidden pb-safe">
+    <div className="fixed bottom-0 left-0 z-50 w-full h-[68px] bg-background border-t lg:hidden pb-safe">
       <div className="grid h-full w-full grid-cols-5 font-medium px-1">
         {navItems.map(item => {
           const isActive = item.href === '/app'

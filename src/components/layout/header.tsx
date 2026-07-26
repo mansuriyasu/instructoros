@@ -23,11 +23,11 @@ export function Header() {
   const dateLabel = format(today, "EEEE, MMMM d · yyyy");
 
   return (
-    <header className="sticky top-0 z-30 flex h-[62px] items-center justify-between border-b border-[#EBEBEB] bg-[rgba(245,245,245,0.85)] px-6 backdrop-blur-[12px] md:px-8">
+    <header className="sticky top-0 z-30 flex h-[62px] items-center justify-between border-b border-[#EBEBEB] bg-[rgba(245,245,245,0.85)] px-4 backdrop-blur-[12px] sm:px-6 lg:px-8">
       {/* Date — hidden on small screens where Logo is shown instead */}
-      <div className="hidden text-[13px] font-medium text-[#8A8E96] md:block">{dateLabel}</div>
+      <div className="hidden text-[13px] font-medium text-[#8A8E96] lg:block">{dateLabel}</div>
 
-      <Logo className="md:hidden" imageClassName="text-xl" />
+      <Logo className="lg:hidden" imageClassName="text-xl" />
 
       <div className="flex items-center gap-3">
         <NotificationsSheet triggerType="icon" />
