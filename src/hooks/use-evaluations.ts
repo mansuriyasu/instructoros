@@ -12,11 +12,12 @@ export function useEvaluations(studentId?: string, lessonId?: string) {
   const firestore = useFirestore();
   const evaluationsPath = useTenantCollectionPath('evaluations');
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(studentId || lessonId));
 
   const load = useCallback(async () => {
     if (!user || !activeTenantId || (!studentId && !lessonId)) {
       setEvaluations([]);
+      setLoading(false);
       return;
     }
     setLoading(true);

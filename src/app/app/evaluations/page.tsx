@@ -341,7 +341,10 @@ export default function EvaluationPage() {
     } finally { setIsSaving(false); }
   };
 
-  if (eventsLoading || studentsLoading) return <div className="mx-auto w-full max-w-2xl rounded-2xl border bg-card p-8 text-center"><p className="font-semibold">Loading scheduled lesson…</p></div>;
+  if (eventsLoading || studentsLoading || evaluationsLoading) {
+    return <div className="mx-auto w-full max-w-2xl rounded-2xl border bg-card p-8 text-center"><h1 className="text-xl font-bold">Loading evaluation</h1><p className="mt-2 text-sm text-muted-foreground">Loading the scheduled lesson and student details.</p></div>;
+  }
+
   if (!lessonId || !lesson || !student) return <div className="mx-auto w-full max-w-2xl rounded-2xl border bg-card p-8 text-center"><h1 className="text-xl font-bold">Scheduled lesson not found</h1><p className="mt-2 text-sm text-muted-foreground">Open Evaluate from a scheduled student lesson.</p><Button className="mt-5" onClick={() => router.push('/app/schedule')}><ArrowLeft className="mr-2 h-4 w-4" />Back to Schedule</Button></div>;
 
   return <div className="mx-auto w-full max-w-3xl pb-28">
