@@ -173,10 +173,7 @@ export function StudentDetailsDialog({
   );
 
   const allAvailableTags = useMemo(() => {
-    const tagsSet = new Set<string>([
-      ...defaultCustomerTags,
-      ...(Array.isArray(tenant?.customerTags) ? tenant.customerTags : []),
-    ]);
+    const tagsSet = new Set<string>(Array.isArray(tenant?.customerTags) ? tenant.customerTags : defaultCustomerTags);
     (students || []).forEach(s => {
       if (Array.isArray(s.tags)) {
         s.tags.forEach(t => {
