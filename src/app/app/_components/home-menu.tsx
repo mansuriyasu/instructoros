@@ -21,7 +21,7 @@ import { NotificationsSheet } from '@/components/layout/notifications-sheet';
 import { useEvents } from '@/hooks/use-events';
 import { usePayments } from '@/hooks/use-payments';
 import { useStudents } from '@/hooks/use-students';
-import { useSession, useUser } from '@/firebase';
+import { useSession } from '@/firebase';
 import { formatCurrency } from '@/lib/utils';
 import { getCollectedAmount, getOutstandingAmount } from '@/lib/payment-utils';
 
@@ -36,13 +36,10 @@ function isToday(dateString: string | Date) {
 }
 
 export function HomeMenu() {
-  const { user } = useUser();
   const { payments } = usePayments();
   const { events } = useEvents();
   const { students } = useStudents();
   const { tenant, canManageTenant } = useSession();
-
-  const firstName = user?.displayName?.split(' ')[0] || 'Instructor';
 
   const todaysRevenue = useMemo(() => {
     if (!payments) return 0;
@@ -80,29 +77,6 @@ export function HomeMenu() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 pb-24">
-      <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              InstructorOS
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Good morning, {firstName}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Your day, students, payments, and alerts in one place.
-            </p>
-          </div>
-          <Link
-            href="/app/schedule"
-            className="inline-flex h-10 items-center justify-center rounded-full bg-[#0D1B2A] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#132840]"
-          >
-            Open schedule
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </div>
-      </section>
-
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
           icon={CalendarDays}
