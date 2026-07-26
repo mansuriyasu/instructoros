@@ -239,21 +239,22 @@ export default function BillingPage() {
               </div>
             </div>
 
-            {tenant.trialEndsAt && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
-                Free trial ends {formatDate(tenant.trialEndsAt)}.
-              </div>
-            )}
-
-            {(tenant.freeAccessUntil || tenant.promoCodeApplied || tenant.promoPercentOff) && (
+            {(access.source === 'trial' || access.source === 'admin_grant') && (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                {tenant.freeAccessUntil && <p className="font-semibold">Admin-granted free access until {formatDate(tenant.freeAccessUntil)}.</p>}
+                <p className="font-semibold">{access.source === 'admin_grant' ? 'Admin-granted free access' : 'Free trial'} until {formatDate(access.endsAt)}.</p>
                 {tenant.promoCodeApplied && <p className="mt-1">Promo code: <span className="font-black">{tenant.promoCodeApplied}</span></p>}
                 {tenant.promoPercentOff ? <p className="mt-1">{tenant.promoPercentOff}% discount saved for this workspace.</p> : null}
               </div>
             )}
 
-            {hasAdminGrantedFreeAccess && (
+            {access.source !== 'trial' && access.source !== 'admin_grant' && (tenant.promoCodeApplied || tenant.promoPercentOff) && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                {tenant.promoCodeApplied && <p className="mt-1">Promo code: <span className="font-black">{tenant.promoCodeApplied}</span></p>}
+                {tenant.promoPercentOff ? <p className="mt-1">{tenant.promoPercentOff}% discount saved for this workspace.</p> : null}
+              </div>
+            )}
+
+            {hasAdminGrantedFreeAccess && access.source !== 'admin_grant' && (
               <p className="text-sm text-muted-foreground">
                 Your workspace already has free access. You do not need to activate another trial.
               </p>

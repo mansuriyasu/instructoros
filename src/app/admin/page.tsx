@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, doc, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
-import { Activity, AlertTriangle, Building2, CheckCircle2, ExternalLink, Gift, Receipt, RefreshCw, Shield, TicketPercent, Trash2, UserRound, XCircle } from 'lucide-react';
+import { Activity, AlertTriangle, Building2, CheckCircle2, Edit, ExternalLink, Gift, Receipt, RefreshCw, Save, Shield, TicketPercent, Trash2, UserRound, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +72,9 @@ export default function AdminPage() {
   const [featureTenantId, setFeatureTenantId] = useState('');
   const [featureUid, setFeatureUid] = useState('');
   const [featureSaving, setFeatureSaving] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState({ displayName: '', email: '', password: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const tenantsQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'tenants'), orderBy('createdAt', 'desc')) : null),
@@ -207,6 +210,32 @@ export default function AdminPage() {
       setAdminMessage(error instanceof Error ? error.message : 'Could not delete the account.');
     } finally {
       setDeletingTenantId(null);
+    }
+  };
+
+  const startEditingUser = (profile: { uid: string; email: string; displayName?: string }) => {
+    setEditingUserId(profile.uid);
+    setProfileForm({ displayName: profile.displayName || '', email: profile.email || '', password: '' });
+  };
+
+  const saveUserProfile = async () => {
+    if (!user || !editingUserId) return;
+    setProfileSaving(true);
+    try {
+      const response = await fetch('/api/admin/users/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken(true)}` },
+        body: JSON.stringify({ uid: editingUserId, ...profileForm }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Could not update account profile.');
+      setAdminMessage('Account profile updated. The user should sign out and sign in again if their email changed.');
+      setEditingUserId(null);
+      setProfileForm({ displayName: '', email: '', password: '' });
+    } catch (error) {
+      setAdminMessage(error instanceof Error ? error.message : 'Could not update account profile.');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -657,14 +686,29 @@ export default function AdminPage() {
                   <p className="font-semibold">{profile.displayName || profile.email || 'Unnamed account'}</p>
                   <p className="text-xs text-muted-foreground">{profile.email} · {profile.uid}</p>
                 </div>
-                <Button
-                  variant="destructive"
-                  onClick={() => deleteUser(profile)}
-                  disabled={profile.uid === user?.uid || deletingTenantId === `user:${profile.uid}`}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {deletingTenantId === `user:${profile.uid}` ? 'Deleting...' : 'Delete account'}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => startEditingUser(profile)} disabled={profileSaving}>
+                    <Edit className="mr-2 h-4 w-4" />Edit profile
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => deleteUser(profile)}
+                    disabled={profile.uid === user?.uid || deletingTenantId === `user:${profile.uid}`}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {deletingTenantId === `user:${profile.uid}` ? 'Deleting...' : 'Delete account'}
+                  </Button>
+                </div>
+                {editingUserId === profile.uid && (
+                  <div className="w-full space-y-3 rounded-lg border bg-muted/20 p-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1"><Label htmlFor={`admin-name-${profile.uid}`}>Name</Label><Input id={`admin-name-${profile.uid}`} value={profileForm.displayName} onChange={event => setProfileForm(current => ({ ...current, displayName: event.target.value }))} /></div>
+                      <div className="space-y-1"><Label htmlFor={`admin-email-${profile.uid}`}>Email</Label><Input id={`admin-email-${profile.uid}`} type="email" value={profileForm.email} onChange={event => setProfileForm(current => ({ ...current, email: event.target.value }))} /></div>
+                    </div>
+                    <div className="space-y-1"><Label htmlFor={`admin-password-${profile.uid}`}>New password (optional)</Label><Input id={`admin-password-${profile.uid}`} type="password" value={profileForm.password} onChange={event => setProfileForm(current => ({ ...current, password: event.target.value }))} placeholder="Leave blank to keep current password" /></div>
+                    <div className="flex gap-2"><Button type="button" onClick={() => void saveUserProfile()} disabled={profileSaving}><Save className="mr-2 h-4 w-4" />{profileSaving ? 'Saving...' : 'Save profile'}</Button><Button type="button" variant="ghost" onClick={() => setEditingUserId(null)}>Cancel</Button></div>
+                  </div>
+                )}
               </div>
             ))}
             {(!users || users.length === 0) && <p className="text-sm text-muted-foreground">No user profiles found.</p>}
