@@ -18,7 +18,7 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === '/login';
-  const isPublicPage = pathname === '/';
+  const isPublicPage = pathname === '/' || pathname?.startsWith('/student-intake');
   const isAdminPage = pathname?.startsWith('/admin');
   const sessionRepairAttempted = useRef(false);
 
