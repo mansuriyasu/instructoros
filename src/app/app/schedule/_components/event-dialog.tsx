@@ -33,7 +33,7 @@ import { CalendarEvent, InstructorOption } from '@/lib/types';
 import { useStudents } from '@/hooks/use-students';
 import { useServices } from '@/hooks/use-services';
 import { format, setHours, setMinutes, parse, addMinutes } from 'date-fns';
-import { Trash2, Plus, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Loader2, X } from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -62,7 +62,7 @@ const eventSchema = z.object({
     discount: z.number().optional(),
   })).optional(),
   notes: z.string().optional(),
-  sendSms: z.boolean().default(false),
+  openWhatsApp: z.boolean().default(false),
 }).refine(data => {
     const start = parse(data.startTime, 'HH:mm', new Date());
     const end = parse(data.endTime, 'HH:mm', new Date());
@@ -100,6 +100,7 @@ export function EventDialog({
   const { user, role } = useSession();
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
 
   const sortedStudents = useMemo(() => {
     if (!students) return [];
@@ -115,7 +116,7 @@ export function EventDialog({
       instructorId: null,
       studentId: null,
       services: [],
-      sendSms: false,
+      openWhatsApp: false,
     }
   });
 
@@ -176,8 +177,9 @@ export function EventDialog({
         endTime: event ? format(new Date(event.end), 'HH:mm') : format(addMinutes(initialStartDateTime, 60), 'HH:mm'),
         services: event?.services ?? [],
         notes: event?.notes ?? '',
-        sendSms: false,
+        openWhatsApp: false,
       });
+      setIsNotesOpen(false);
       setMissingAddress('');
       setServiceWarning('');
     }
@@ -270,9 +272,9 @@ export function EventDialog({
         };
 
         if (event) {
-          await onSave({ ...event, ...eventData }, data.sendSms);
+          await onSave({ ...event, ...eventData }, data.openWhatsApp);
         } else {
-          await onSave(eventData, data.sendSms);
+          await onSave(eventData, data.openWhatsApp);
         }
     } finally {
         setIsSaving(false);
@@ -510,23 +512,37 @@ export function EventDialog({
             </FormItem>
 
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Any details about the appointment..." />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 w-full justify-between px-2"
+                onClick={() => setIsNotesOpen(current => !current)}
+                aria-expanded={isNotesOpen}
+              >
+                <span className="font-semibold">{isNotesOpen ? 'Hide notes' : 'Add note'}</span>
+                {isNotesOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              </Button>
+              {isNotesOpen && (
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem className="mt-3">
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} placeholder="Any details about the appointment..." />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
-            />
+            </div>
 
             <FormField
               control={form.control}
-              name="sendSms"
+              name="openWhatsApp"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm bg-blue-50/50 dark:bg-blue-900/10">
                   <FormControl>
@@ -538,9 +554,9 @@ export function EventDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Open WhatsApp message</FormLabel>
+                    <FormLabel>Open WhatsApp after saving</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Opens WhatsApp with the appointment details after saving.
+                      Saves the schedule, then opens WhatsApp with a ready-to-send appointment message. It will not send automatically.
                     </p>
                   </div>
                 </FormItem>
