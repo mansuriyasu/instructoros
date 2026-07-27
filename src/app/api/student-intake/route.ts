@@ -20,9 +20,20 @@ function clean(value: unknown, max = 240) {
 async function loadForm(token: string) {
   if (!token || token.length < 32) return null;
   const db = getAdminFirestore();
-  const snapshot = await db.collectionGroup('studentIntakeForms').where('tokenHash', '==', hashToken(token)).limit(1).get();
-  if (snapshot.empty) return null;
-  const form = snapshot.docs[0];
+  let form;
+  const tokenParts = token.split('.');
+  if (tokenParts.length === 2 && /^[A-Za-z0-9_-]+$/.test(tokenParts[0])) {
+    const tenantRef = db.collection('tenants').doc(tokenParts[0]);
+    const formRef = tenantRef.collection('studentIntakeForms').doc(hashToken(token));
+    const formSnap = await formRef.get();
+    if (!formSnap.exists) return null;
+    form = formSnap;
+  } else {
+    // Legacy links created before direct tenant lookups were introduced.
+    const snapshot = await db.collectionGroup('studentIntakeForms').where('tokenHash', '==', hashToken(token)).limit(1).get();
+    if (snapshot.empty) return null;
+    form = snapshot.docs[0];
+  }
   const data = form.data() as Record<string, unknown>;
   const expiresAt = typeof data.expiresAt === 'string' ? Date.parse(data.expiresAt) : 0;
   if (!expiresAt || expiresAt <= Date.now() || data.status !== 'active') return null;
@@ -69,10 +80,10 @@ export async function POST(request: NextRequest) {
     if (!canManage) return NextResponse.json({ error: 'Only the workspace owner or school admin can create this link.' }, { status: 403 });
     if (!getWorkspaceAccess(tenant).canWrite) return NextResponse.json({ error: 'Activate billing or free access before accepting student forms.' }, { status: 403 });
 
-    const token = randomBytes(32).toString('base64url');
+    const token = `${tenantId}.${randomBytes(32).toString('base64url')}`;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
-    await tenantRef.collection('studentIntakeForms').add({
+    await tenantRef.collection('studentIntakeForms').doc(hashToken(token)).set({
       tokenHash: hashToken(token),
       status: 'active',
       tenantId,
