@@ -101,6 +101,7 @@ export function PaymentDetailsDialog({
     const receiptWebsite = tenant?.receiptWebsite || 'www.instructoros.ca';
     const receiptPhone = tenant?.receiptPhone || '';
     const receiptEmail = tenant?.receiptEmail || tenant?.ownerEmail || '';
+    const eTransferEmail = tenant?.eTransferEmail || '';
     const receiptAddress = tenant?.receiptAddress || '';
     const hstNumber = tenant?.hstNumber || '';
     const paymentTaxRate = payment.taxRate ?? tenant?.taxRate ?? ONTARIO_HST_RATE;
@@ -289,8 +290,8 @@ export function PaymentDetailsDialog({
       theme: 'grid',
       styles: {
         font: 'helvetica',
-        fontSize: 8.8,
-        cellPadding: 3,
+        fontSize: 8.5,
+        cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 },
         textColor: ink,
         lineColor: border,
         lineWidth: 0.15,
@@ -304,10 +305,10 @@ export function PaymentDetailsDialog({
         fillColor: [252, 252, 253],
       },
       columnStyles: {
-        0: { cellWidth: 30 },
-        1: { cellWidth: contentWidth - 30 - 14 - 27 - 30 },
-        2: { cellWidth: 14, halign: 'center' },
-        3: { cellWidth: 27, halign: 'right' },
+        0: { cellWidth: 28 },
+        1: { cellWidth: contentWidth - 28 - 15 - 28 - 30 },
+        2: { cellWidth: 15, halign: 'center' },
+        3: { cellWidth: 28, halign: 'right' },
         4: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
       },
     });
@@ -323,7 +324,15 @@ export function PaymentDetailsDialog({
       { label: 'Amount Due', value: formatCurrency(amountDue), bold: true, color: paidColor },
     ];
     const totalsHeight = 18 + summaryRows.length * 6;
-    const detailsHeight = 18 + 4 * 6;
+    const detailRows = [
+      ['Method', payment.paymentMethod],
+      ['Paid On', formatPdfDate(payment.paymentDate)],
+      ['Status', statusLabel],
+      ...(payment.paymentMethod === 'E-Transfer' && eTransferEmail
+        ? [['E-transfer email', eTransferEmail]]
+        : []),
+    ] as Array<[string, string]>;
+    const detailsHeight = 18 + detailRows.length * 6;
     const cardHeight = Math.max(totalsHeight, detailsHeight);
     cursorY = addPageIfNeeded(cursorY, cardHeight + 10);
 
@@ -341,13 +350,13 @@ export function PaymentDetailsDialog({
     doc.text('Receipt Summary', margin + leftCardWidth + 12, cursorY + 7);
 
     let detailsY = cursorY + 16;
-    drawKeyValue('Method', payment.paymentMethod, margin + 4, detailsY, leftCardWidth - 8);
-    detailsY += 6;
-    drawKeyValue('Paid On', formatPdfDate(payment.paymentDate), margin + 4, detailsY, leftCardWidth - 8);
-    detailsY += 6;
-    drawKeyValue('Status', statusLabel, margin + 4, detailsY, leftCardWidth - 8, { bold: true, color: paidColor });
-    detailsY += 6;
-    drawKeyValue('E-transfer', 'Justdriveca1@gmail.com', margin + 4, detailsY, leftCardWidth - 8);
+    detailRows.forEach(([label, value]) => {
+      drawKeyValue(label, value, margin + 4, detailsY, leftCardWidth - 8, {
+        bold: label === 'Status',
+        color: label === 'Status' ? paidColor : undefined,
+      });
+      detailsY += 6;
+    });
 
     let totalsY = cursorY + 16;
     summaryRows.forEach((row) => {

@@ -41,6 +41,7 @@ export type Tenant = {
   receiptLogoDataUrl?: string;
   receiptPhone?: string;
   receiptEmail?: string;
+  eTransferEmail?: string;
   receiptWebsite?: string;
   receiptAddress?: string;
   messageSenderName?: string;

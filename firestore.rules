@@ -120,6 +120,7 @@ service cloud.firestore {
           "receiptLogoDataUrl",
           "receiptPhone",
           "receiptEmail",
+          "eTransferEmail",
           "receiptWebsite",
           "receiptAddress",
           "messageSenderName",

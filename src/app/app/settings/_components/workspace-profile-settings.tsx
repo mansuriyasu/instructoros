@@ -27,6 +27,7 @@ export function WorkspaceProfileSettings() {
     receiptLogoDataUrl: '',
     receiptPhone: '',
     receiptEmail: '',
+    eTransferEmail: '',
     receiptWebsite: '',
     receiptAddress: '',
     messageSenderName: '',
@@ -45,6 +46,7 @@ export function WorkspaceProfileSettings() {
       receiptLogoDataUrl: tenant.receiptLogoDataUrl || '',
       receiptPhone: tenant.receiptPhone || '',
       receiptEmail: tenant.receiptEmail || tenant.ownerEmail || '',
+      eTransferEmail: tenant.eTransferEmail || '',
       receiptWebsite: tenant.receiptWebsite || '',
       receiptAddress: tenant.receiptAddress || '',
       messageSenderName: tenant.messageSenderName || tenant.receiptBusinessName || tenant.name || '',
@@ -94,6 +96,7 @@ export function WorkspaceProfileSettings() {
         receiptLogoDataUrl: form.receiptLogoDataUrl,
         receiptPhone: form.receiptPhone.trim(),
         receiptEmail: form.receiptEmail.trim(),
+        eTransferEmail: form.eTransferEmail.trim(),
         receiptWebsite: form.receiptWebsite.trim(),
         receiptAddress: form.receiptAddress.trim(),
         messageSenderName: form.messageSenderName.trim() || form.receiptBusinessName.trim() || form.name.trim(),
@@ -187,6 +190,11 @@ export function WorkspaceProfileSettings() {
           <div className="space-y-2">
             <Label htmlFor="receiptEmail">Email</Label>
             <Input id="receiptEmail" type="email" value={form.receiptEmail} onChange={event => updateField('receiptEmail', event.target.value)} className="rounded-lg" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="eTransferEmail">E-transfer email (optional)</Label>
+            <Input id="eTransferEmail" type="email" value={form.eTransferEmail} onChange={event => updateField('eTransferEmail', event.target.value)} placeholder="payments@example.com" className="rounded-lg" />
+            <p className="text-xs text-muted-foreground">Shown on receipts only when the payment method is E-Transfer.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptWebsite">Website</Label>
