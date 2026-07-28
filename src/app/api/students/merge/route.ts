@@ -6,8 +6,8 @@ import type { DocumentReference } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
 
-const MAX_DUPLICATES = 25;
-const MAX_GROUPS = 20;
+const MAX_DUPLICATES = 250;
+const MAX_GROUPS = 200;
 const MERGEABLE_FIELDS = [
   'name', 'mobileNumber', 'email', 'address', 'birthdate', 'licenseNumber',
   'licenseExpiry', 'licenseType', 'status', 'comments', 'registrationDate',
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const allStudentIds = groups.flatMap(group => [group.primaryId, ...group.duplicateIds]);
 
     if (!tenantId || groups.length === 0 || groups.length > MAX_GROUPS || groups.some(group => !group.primaryId || group.duplicateIds.length === 0 || group.duplicateIds.length > MAX_DUPLICATES || group.duplicateIds.includes(group.primaryId)) || new Set(allStudentIds).size !== allStudentIds.length) {
-      return NextResponse.json({ error: 'Choose valid duplicate groups. Each group needs one primary and up to twenty-five duplicates.' }, { status: 400 });
+      return NextResponse.json({ error: 'Choose valid duplicate groups. Each group needs one primary and up to 250 duplicates.' }, { status: 400 });
     }
 
     const db = getAdminFirestore();
