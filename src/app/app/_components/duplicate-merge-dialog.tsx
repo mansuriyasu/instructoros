@@ -11,7 +11,7 @@ interface DuplicateMergeDialogProps {
   groups: Student[][];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onMerge: (primary: Student, duplicates: Student[]) => Promise<void>;
+  onMerge: (groups: Array<{ primary: Student; duplicates: Student[] }>) => Promise<void>;
 }
 
 function primaryFirst(a: Student, b: Student) {
@@ -28,10 +28,11 @@ export function DuplicateMergeDialog({ groups, open, onOpenChange, onMerge }: Du
   const mergeAll = async () => {
     setIsMerging(true);
     try {
-      for (const group of groups) {
+      const mergeGroups = groups.map(group => {
         const [primary, ...duplicates] = [...group].sort(primaryFirst);
-        await onMerge(primary, duplicates);
-      }
+        return { primary, duplicates };
+      });
+      await onMerge(mergeGroups);
       toast({ title: 'Duplicates merged', description: `${groups.length} duplicate group${groups.length === 1 ? '' : 's'} consolidated successfully.` });
       onOpenChange(false);
     } catch (error) {

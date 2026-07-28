@@ -7,6 +7,7 @@ import type { DocumentReference } from 'firebase-admin/firestore';
 export const runtime = 'nodejs';
 
 const MAX_DUPLICATES = 25;
+const MAX_GROUPS = 20;
 const MERGEABLE_FIELDS = [
   'name', 'mobileNumber', 'email', 'address', 'birthdate', 'licenseNumber',
   'licenseExpiry', 'licenseType', 'status', 'comments', 'registrationDate',
@@ -59,13 +60,19 @@ export async function POST(request: NextRequest) {
     const actor = await requireRateLimitedUser(request, 'students-merge', 10);
     const body = await request.json().catch(() => ({}));
     const tenantId = text(body.tenantId);
-    const primaryId = text(body.primaryId);
-    const duplicateIds: string[] = Array.isArray(body.duplicateIds)
-      ? [...new Set<string>(body.duplicateIds.map((value: unknown) => text(value)).filter((value: unknown): value is string => Boolean(value)))]
-      : [];
+    const requestedGroups: Array<{ primaryId?: unknown; duplicateIds?: unknown }> = Array.isArray(body.groups)
+      ? body.groups
+      : [{ primaryId: body.primaryId, duplicateIds: body.duplicateIds }];
+    const groups = requestedGroups.map((group: { primaryId?: unknown; duplicateIds?: unknown }) => ({
+      primaryId: text(group?.primaryId),
+      duplicateIds: Array.isArray(group?.duplicateIds)
+        ? [...new Set<string>(group.duplicateIds.map((value: unknown) => text(value)).filter((value: unknown): value is string => Boolean(value)))]
+        : [],
+    }));
+    const allStudentIds = groups.flatMap(group => [group.primaryId, ...group.duplicateIds]);
 
-    if (!tenantId || !primaryId || duplicateIds.length === 0 || duplicateIds.length > MAX_DUPLICATES || duplicateIds.includes(primaryId)) {
-      return NextResponse.json({ error: 'Choose one primary student and one to twenty-five duplicates.' }, { status: 400 });
+    if (!tenantId || groups.length === 0 || groups.length > MAX_GROUPS || groups.some(group => !group.primaryId || group.duplicateIds.length === 0 || group.duplicateIds.length > MAX_DUPLICATES || group.duplicateIds.includes(group.primaryId)) || new Set(allStudentIds).size !== allStudentIds.length) {
+      return NextResponse.json({ error: 'Choose valid duplicate groups. Each group needs one primary and up to twenty-five duplicates.' }, { status: 400 });
     }
 
     const db = getAdminFirestore();
@@ -81,36 +88,42 @@ export async function POST(request: NextRequest) {
     }
 
     const studentRef = tenantRef.collection('students');
-    const studentSnapshots = await Promise.all([primaryId, ...duplicateIds].map(id => studentRef.doc(id).get()));
-    if (studentSnapshots.some(snapshot => !snapshot.exists)) {
-      throw new RequestSecurityError('One of the selected students no longer exists.', 404);
-    }
-    const primarySnapshot = studentSnapshots[0];
-    const duplicateSnapshots = studentSnapshots.slice(1);
-    const primary = primarySnapshot.data() || {};
-    const duplicates = duplicateSnapshots.map(snapshot => snapshot.data() || {});
-    const merged = mergeStudent(primary, duplicates);
-
-    const allIds = [primaryId, ...duplicateIds];
     const references = ['events', 'payments', 'evaluations'];
-    const writes: Array<{ ref: DocumentReference; data: Record<string, unknown> }> = [];
-    for (const collectionName of references) {
-      for (let index = 0; index < allIds.length; index += 30) {
-        const ids = allIds.slice(index, index + 30);
-        const snapshots = await tenantRef.collection(collectionName).where('studentId', 'in', ids).get();
-        snapshots.docs.forEach(snapshot => {
-          if (snapshot.data().studentId !== primaryId) {
-            writes.push({ ref: snapshot.ref, data: { studentId: primaryId, studentName: merged.name || primary.name || 'Student' } });
-          }
-        });
+    const operations: Array<{ ref: DocumentReference; data: Record<string, unknown> }> = [];
+    let mergedStudentCount = 0;
+    let reassignedRecordCount = 0;
+    for (const group of groups) {
+      const studentSnapshots = await Promise.all([group.primaryId, ...group.duplicateIds].map(id => studentRef.doc(id).get()));
+      if (studentSnapshots.some(snapshot => !snapshot.exists)) {
+        throw new RequestSecurityError('One of the selected students no longer exists.', 404);
       }
+      const primarySnapshot = studentSnapshots[0];
+      const duplicateSnapshots = studentSnapshots.slice(1);
+      const primary = primarySnapshot.data() || {};
+      const duplicates = duplicateSnapshots.map(snapshot => snapshot.data() || {});
+      const merged = mergeStudent(primary, duplicates);
+      const allIds = [group.primaryId, ...group.duplicateIds];
+      const groupWrites: Array<{ ref: DocumentReference; data: Record<string, unknown> }> = [];
+
+      operations.push({ ref: primarySnapshot.ref, data: { ...merged, updatedAt: new Date().toISOString() } });
+      mergedStudentCount += group.duplicateIds.length;
+
+      for (const collectionName of references) {
+        for (let index = 0; index < allIds.length; index += 30) {
+          const ids = allIds.slice(index, index + 30);
+          const snapshots = await tenantRef.collection(collectionName).where('studentId', 'in', ids).get();
+          snapshots.docs.forEach(snapshot => {
+            if (snapshot.data().studentId !== group.primaryId) {
+              groupWrites.push({ ref: snapshot.ref, data: { studentId: group.primaryId, studentName: merged.name || primary.name || 'Student' } });
+            }
+          });
+        }
+      }
+      operations.push(...groupWrites);
+      reassignedRecordCount += groupWrites.length;
+      operations.push(...duplicateSnapshots.map(snapshot => ({ ref: snapshot.ref, data: { mergedIntoStudentId: group.primaryId, mergedAt: new Date().toISOString(), status: 'deactivated' } })));
     }
 
-    const operations = [
-      { ref: primarySnapshot.ref, data: { ...merged, updatedAt: new Date().toISOString() } },
-      ...writes,
-      ...duplicateSnapshots.map(snapshot => ({ ref: snapshot.ref, data: { mergedIntoStudentId: primaryId, mergedAt: new Date().toISOString(), status: 'deactivated' } })),
-    ];
     for (let index = 0; index < operations.length; index += 450) {
       const batch = db.batch();
       operations.slice(index, index + 450).forEach(operation => batch.set(operation.ref, operation.data, { merge: true }));
@@ -120,9 +133,8 @@ export async function POST(request: NextRequest) {
     // Keep a reversible audit marker for the duplicate documents instead of hard-deleting them.
     return NextResponse.json({
       ok: true,
-      primaryId,
-      mergedStudentCount: duplicateIds.length,
-      reassignedRecordCount: writes.length,
+      mergedStudentCount,
+      reassignedRecordCount,
     });
   } catch (error) {
     return errorResponse(error);

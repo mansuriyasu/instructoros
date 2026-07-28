@@ -19,7 +19,7 @@ import { useSession } from '@/firebase';
 export type StudentStatusFilter = StudentStatus | 'all' | 'current';
 
 export function StudentGrid() {
-  const { students, loading, updateStudent, deleteStudent, mergeStudents } = useStudents();
+  const { students, loading, updateStudent, deleteStudent, mergeStudentGroups } = useStudents();
   const { role } = useSession();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
@@ -185,8 +185,11 @@ export function StudentGrid() {
         groups={duplicateGroups}
         open={isDuplicateMergeOpen}
         onOpenChange={setIsDuplicateMergeOpen}
-        onMerge={async (primary, duplicates) => {
-          await mergeStudents(primary.id, duplicates.map(duplicate => duplicate.id));
+        onMerge={async (groups) => {
+          await mergeStudentGroups(groups.map(group => ({
+            primaryId: group.primary.id,
+            duplicateIds: group.duplicates.map(duplicate => duplicate.id),
+          })));
         }}
       />
     </div>

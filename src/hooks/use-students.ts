@@ -135,19 +135,22 @@ export function useStudents() {
     return deleteDocumentNonBlocking(studentRef);
   };
 
-  const mergeStudents = async (primaryId: string, duplicateIds: string[]) => {
+  const mergeStudentGroups = async (groups: Array<{ primaryId: string; duplicateIds: string[] }>) => {
     if (!user || !activeTenantId) {
       throw new Error('Your workspace is not ready yet. Please try again.');
     }
     const response = await fetch('/api/students/merge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
-      body: JSON.stringify({ tenantId: activeTenantId, primaryId, duplicateIds }),
+      body: JSON.stringify({ tenantId: activeTenantId, groups }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || 'Could not merge students.');
     return result as { mergedStudentCount: number; reassignedRecordCount: number };
   };
 
-  return { students, loading: isUserLoading || (isSchoolInstructor ? assignedStudentsLoading : isLoading) || isSessionLoading, addStudent, updateStudent, deleteStudent, mergeStudents };
+  const mergeStudents = (primaryId: string, duplicateIds: string[]) =>
+    mergeStudentGroups([{ primaryId, duplicateIds }]);
+
+  return { students, loading: isUserLoading || (isSchoolInstructor ? assignedStudentsLoading : isLoading) || isSessionLoading, addStudent, updateStudent, deleteStudent, mergeStudents, mergeStudentGroups };
 }
