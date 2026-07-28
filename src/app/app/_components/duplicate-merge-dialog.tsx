@@ -14,6 +14,13 @@ interface DuplicateMergeDialogProps {
   onMerge: (primary: Student, duplicates: Student[]) => Promise<void>;
 }
 
+function primaryFirst(a: Student, b: Student) {
+  const aDeactivated = a.status === 'deactivated' ? 1 : 0;
+  const bDeactivated = b.status === 'deactivated' ? 1 : 0;
+  if (aDeactivated !== bDeactivated) return aDeactivated - bDeactivated;
+  return new Date(a.registrationDate || '').getTime() - new Date(b.registrationDate || '').getTime();
+}
+
 export function DuplicateMergeDialog({ groups, open, onOpenChange, onMerge }: DuplicateMergeDialogProps) {
   const [isMerging, setIsMerging] = useState(false);
   const { toast } = useToast();
@@ -22,9 +29,7 @@ export function DuplicateMergeDialog({ groups, open, onOpenChange, onMerge }: Du
     setIsMerging(true);
     try {
       for (const group of groups) {
-        const [primary, ...duplicates] = [...group].sort((a, b) =>
-          new Date(a.registrationDate || '').getTime() - new Date(b.registrationDate || '').getTime()
-        );
+        const [primary, ...duplicates] = [...group].sort(primaryFirst);
         await onMerge(primary, duplicates);
       }
       toast({ title: 'Duplicates merged', description: `${groups.length} duplicate group${groups.length === 1 ? '' : 's'} consolidated successfully.` });
@@ -48,7 +53,7 @@ export function DuplicateMergeDialog({ groups, open, onOpenChange, onMerge }: Du
         </DialogHeader>
         <div className="space-y-3 py-2">
           {groups.map((group, groupIndex) => {
-            const sorted = [...group].sort((a, b) => new Date(a.registrationDate || '').getTime() - new Date(b.registrationDate || '').getTime());
+            const sorted = [...group].sort(primaryFirst);
             return (
               <div key={group.map(student => student.id).join('-')} className="rounded-xl border bg-muted/20 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Group {groupIndex + 1}</p>

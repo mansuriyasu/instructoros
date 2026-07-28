@@ -34,7 +34,7 @@ export function StudentGrid() {
   const duplicateGroups = useMemo(() => {
     const groups = new Map<string, Student[]>();
     (students || []).forEach(student => {
-      if (student.status === 'deactivated') return;
+      if ((student as Student & { mergedIntoStudentId?: string }).mergedIntoStudentId) return;
       const name = (student.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
       if (!name) return;
       const key = name;
