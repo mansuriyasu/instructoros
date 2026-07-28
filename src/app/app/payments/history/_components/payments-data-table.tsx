@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Payment } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import {
   AlertCircle,
@@ -41,8 +41,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -223,6 +221,11 @@ export function PaymentsDataTable({
     if (date) {
       onUpdatePayment({ ...payment, paymentDate: date.toISOString() });
     }
+  };
+
+  const handleDateInputChange = (payment: Payment, value: string) => {
+    const date = parse(value, 'yyyy-MM-dd', new Date());
+    if (value && isValid(date)) handleDateChange(payment, date);
   };
 
   const handleFilterChange = (value: string) => {
@@ -493,22 +496,14 @@ export function PaymentsDataTable({
                 return (
                 <TableRow key={payment.id}>
                   <TableCell>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" className="pl-0 text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formatPaymentDate(payment.paymentDate)}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={new Date(payment.paymentDate)}
-                          onSelect={(date) => handleDateChange(payment, date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Input
+                      type="date"
+                      value={payment.paymentDate ? format(new Date(payment.paymentDate), 'yyyy-MM-dd') : ''}
+                      onChange={(event) => handleDateInputChange(payment, event.target.value)}
+                      onClick={(event) => event.stopPropagation()}
+                      className="h-9 min-w-[145px] border-0 bg-transparent px-0 text-sm [color-scheme:light]"
+                      aria-label={`Payment date for ${payment.studentName}`}
+                    />
                   </TableCell>
                   <TableCell onClick={() => handleEditClick(payment)} className="cursor-pointer font-medium">
                     {payment.studentName}
