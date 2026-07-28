@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CalendarEvent, LessonStatus } from '@/lib/types';
 import { format } from 'date-fns';
-import { CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle, ClipboardCheck } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle, ClipboardCheck, CalendarDays, MapPin, CarFront } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -110,6 +110,9 @@ export function EventDetailsDialog({
   const isBlockedSlot = event.studentId === null;
   const canAddToBill = !isBlockedSlot && event.services && event.services.length > 0;
   const lessonStatus = event.lessonStatus || 'scheduled';
+  const isExamEvent = Boolean(event.examCenter || event.examDateTime || event.examImageDataUri || event.title?.toLowerCase().includes('exam'));
+  const eventLabel = isExamEvent ? 'Road test' : event.services?.[0]?.name || 'Driving lesson';
+  const paymentLabel = event.paymentStatus === 'paid' ? 'Cash Paid' : event.paymentStatus === 'unpaid' ? 'Unpaid' : 'Payment pending';
   
   const wazeUrl = event.studentAddress ? `https://waze.com/ul?q=${encodeURIComponent(event.studentAddress)}&navigate=yes` : null;
 
@@ -118,92 +121,63 @@ export function EventDetailsDialog({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{isBlockedSlot ? 'Blocked Time' : event.studentName}</DialogTitle>
-          <DialogDescription>
-            {format(new Date(event.start), 'eeee, MMMM d, yyyy')}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-h-[92vh] max-w-md overflow-y-auto rounded-t-[28px] p-0 sm:rounded-2xl">
+        <div className="px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted sm:hidden" />
+          <DialogHeader className="text-left">
+            <div className="flex items-start gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#e8eefc] text-xl font-bold text-[#3157b7]">
+                {event.studentId && event.studentName ? event.studentName.charAt(0).toUpperCase() : <CarFront className="h-6 w-6" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="truncate text-xl sm:text-2xl">{isBlockedSlot ? 'Blocked time' : event.studentName}</DialogTitle>
+                <DialogDescription className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-semibold text-foreground">{eventLabel}</span>
+                  {instructorName && <span className="text-xs text-muted-foreground">{instructorName}</span>}
+                </DialogDescription>
+              </div>
+              {!isBlockedSlot && <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold', event.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800')}>{paymentLabel}</span>}
+            </div>
+          </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <InfoItem icon={Clock}>
-            {format(new Date(event.start), 'h:mm a')} - {format(new Date(event.end), 'h:mm a')}
-          </InfoItem>
-
-          {instructorName && (
-            <InfoItem icon={User}>
-              Instructor: {instructorName}
-            </InfoItem>
-          )}
+          <div className="mt-5 grid grid-cols-2 divide-x rounded-2xl border bg-card p-3 shadow-sm">
+            <div className="flex items-center gap-2 px-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              <div><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Date</p><p className="text-sm font-semibold">{format(new Date(event.start), 'EEE, MMM d, yyyy')}</p></div>
+            </div>
+            <div className="flex items-center gap-2 px-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <div><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Time</p><p className="text-sm font-semibold">{format(new Date(event.start), 'h:mm a')} - {format(new Date(event.end), 'h:mm a')}</p></div>
+            </div>
+          </div>
 
           {!isBlockedSlot && (
-            <>
-                {event.services && event.services.length > 0 && (
-                  <InfoItem icon={Package}>
-                      <ul className="space-y-2">
-                        {event.services.map(service => (
-                          <li key={service.id} className="flex items-center gap-2">
-                            <span className={cn("h-3 w-3 rounded-full", {
-                              'bg-chart-1': getServiceColorName(service.id) === 'chart-1',
-                              'bg-chart-2': getServiceColorName(service.id) === 'chart-2',
-                              'bg-chart-3': getServiceColorName(service.id) === 'chart-3',
-                              'bg-chart-4': getServiceColorName(service.id) === 'chart-4',
-                              'bg-chart-5': getServiceColorName(service.id) === 'chart-5',
-                            })}></span>
-                            <span>{service.name}</span>
-                          </li>
-                        ))}
-                      </ul>
-                  </InfoItem>
-                )}
-                {event.studentAddress && wazeUrl && (
-                    <InfoItem icon={Navigation} isLink>
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium leading-snug text-foreground">
-                            {event.studentAddress}
-                          </p>
-                          <Link
-                            href={wazeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex h-10 items-center gap-2 rounded-full bg-sky-600 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700"
-                            aria-label={`Open ${event.studentAddress} in Waze`}
-                            title="Open pickup in Waze"
-                          >
-                            <Navigation className="h-4 w-4" />
-                            Open in Waze
-                          </Link>
-                        </div>
-                    </InfoItem>
-                )}
-                {event.examCenter && (
-                  <InfoItem icon={Navigation}>{event.examCenter}</InfoItem>
-                )}
-            </>
+            <div className="mt-4 space-y-3">
+              {isExamEvent ? (
+                <div className="rounded-2xl border bg-[#f7f5ff] p-4">
+                  <div className="mb-2 flex items-center gap-2 font-semibold"><MapPin className="h-5 w-5 text-indigo-600" /> Exam details</div>
+                  <p className="text-sm font-medium">{event.examCenter || 'Exam centre not added'}</p>
+                  {event.examDateTime && <p className="mt-1 text-sm text-muted-foreground">Exam time: {format(new Date(event.examDateTime), 'EEE, MMM d, yyyy · h:mm a')}</p>}
+                </div>
+              ) : (
+                <div className="rounded-2xl border bg-[#f7fbff] p-4">
+                  <div className="mb-2 flex items-center gap-2 font-semibold"><MapPin className="h-5 w-5 text-sky-600" /> Pickup address</div>
+                  <p className="text-sm font-medium">{event.studentAddress || 'No pickup address added'}</p>
+                  {wazeUrl && <Link href={wazeUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700"><Navigation className="h-4 w-4" /> Open in Waze</Link>}
+                </div>
+              )}
+              {event.services && event.services.length > 0 && !isExamEvent && (
+                <div className="rounded-2xl border p-4"><div className="mb-2 flex items-center gap-2 font-semibold"><Package className="h-5 w-5 text-primary" /> Services</div><p className="text-sm text-muted-foreground">{event.services.map(service => service.name).join(' · ')}</p></div>
+              )}
+              {event.notes && <div className="rounded-2xl border p-4"><div className="mb-2 flex items-center gap-2 font-semibold"><Info className="h-5 w-5 text-muted-foreground" /> Notes</div><p className="whitespace-pre-wrap text-sm text-muted-foreground">{event.notes}</p></div>}
+              {event.examImageDataUri && <Button type="button" variant="outline" onClick={() => setIsExamImageOpen(true)} className="h-11 w-full justify-start gap-2 rounded-xl"><ImageIcon className="h-4 w-4" /> View exam confirmation</Button>}
+            </div>
           )}
 
-          {event.notes && <InfoItem icon={Info}>{event.notes}</InfoItem>}
-
-          {event.examImageDataUri && (
-            <InfoItem icon={ImageIcon}>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsExamImageOpen(true)}
-                className="gap-2"
-              >
-                <ImageIcon className="h-4 w-4" />
-                Exam confirmation
-              </Button>
-            </InfoItem>
-          )}
-
-        </div>
+          <div className="mt-4">
 
         {!isBlockedSlot && (
-          <div className="grid grid-cols-3 gap-1.5 border-t pt-3 sm:gap-2">
+          <div className="grid grid-cols-3 gap-2 border-t pt-4">
             <Button type="button" variant="outline" size="sm" onClick={handleBookNext} className="h-9 px-2 text-xs sm:h-10 sm:text-sm">
               <CalendarPlus className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
               Book Next
@@ -239,7 +213,7 @@ export function EventDetailsDialog({
         )}
 
         {!isBlockedSlot && (
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => onEvaluate(event)} className="h-9 border-[#d4af37] bg-[#fff9e7] px-2 text-xs font-bold text-[#806000] hover:bg-[#fff1bd] sm:h-10 sm:text-sm">
               <ClipboardCheck className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />Evaluate
             </Button>
@@ -274,7 +248,7 @@ export function EventDetailsDialog({
               variant="outline"
               size="sm"
               onClick={handleSendWhatsApp}
-              className="h-9 px-2 text-xs sm:h-10 sm:text-sm border-emerald-400 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+              className="col-span-2 h-10 border-emerald-400 bg-emerald-100 px-2 text-xs text-emerald-800 hover:bg-emerald-100 sm:text-sm"
             >
               <MessageCircle className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
               WhatsApp
@@ -320,6 +294,8 @@ export function EventDetailsDialog({
             </Button>
           </div>
         </DialogFooter>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
     {event.examImageDataUri && (
