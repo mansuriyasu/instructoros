@@ -36,12 +36,8 @@ export function StudentGrid() {
     (students || []).forEach(student => {
       if (student.status === 'deactivated') return;
       const name = (student.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
-      const phone = (student.mobileNumber || '').replace(/\D/g, '');
-      const license = (student.licenseNumber || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-      const email = (student.email || '').trim().toLowerCase();
-      const identifier = license ? `license:${license}` : phone ? `phone:${phone}` : email ? `email:${email}` : '';
-      if (!name || !identifier) return;
-      const key = `${name}|${identifier}`;
+      if (!name) return;
+      const key = name;
       groups.set(key, [...(groups.get(key) || []), student]);
     });
     return [...groups.values()].filter(group => group.length > 1);

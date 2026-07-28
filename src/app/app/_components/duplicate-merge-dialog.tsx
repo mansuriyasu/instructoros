@@ -42,7 +42,7 @@ export function DuplicateMergeDialog({ groups, open, onOpenChange, onMerge }: Du
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><GitMerge className="h-5 w-5 text-primary" /> Duplicate students</DialogTitle>
           <DialogDescription>
-            These records share the same name and contact or licence details. The oldest record stays as the primary profile.
+            These records have the same student name. Review each group before merging; the oldest record stays as the primary profile.
             Payments, lessons, evaluations, tags, and instructor assignments are moved to it. Duplicate profiles are kept as deactivated audit records.
           </DialogDescription>
         </DialogHeader>
