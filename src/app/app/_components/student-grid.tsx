@@ -86,10 +86,10 @@ export function StudentGrid() {
   };
   
   const handleDelete = async (studentId: string) => {
-    await deleteStudent(studentId);
     setSelectedStudent(null);
     setIsDetailsOpen(false);
     router.replace('/app/students');
+    await deleteStudent(studentId);
   };
 
   return (

@@ -1127,7 +1127,16 @@ export function StudentDetailsDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={async () => { setIsDeleteOpen(false); await handleDelete(); }} className="rounded-full bg-red-600 text-white shadow-md hover:bg-red-700">Delete</AlertDialogAction>
+          <AlertDialogAction
+            onClick={async () => {
+              setIsDeleteOpen(false);
+              onOpenChange(false);
+              await handleDelete();
+            }}
+            className="rounded-full bg-red-600 text-white shadow-md hover:bg-red-700"
+          >
+            Delete
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
