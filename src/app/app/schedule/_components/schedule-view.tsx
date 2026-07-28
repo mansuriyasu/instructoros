@@ -126,6 +126,7 @@ export function ScheduleView() {
 
   const firestore = useFirestore();
   const { activeTenantId, canManageTenant, tenant, user } = useSession();
+  const isSchoolTenant = tenant?.type === 'school';
   const { events: allEvents, loading: isEventsLoading, addEvent, updateEvent: updateEventFirestore, deleteEvent: deleteEventFirestore } = useEvents();
   const { students: allStudents, updateStudent } = useStudents();
   const { payments, addPayment, updatePayment, getPaymentById, loading: paymentsLoading } = usePayments();
@@ -176,11 +177,12 @@ export function ScheduleView() {
   }, [activeMembers, user]);
 
   const instructorNameById = useMemo(() => {
+    if (!isSchoolTenant) return {};
     return instructorOptions.reduce<Record<string, string>>((acc, instructor) => {
       acc[instructor.uid] = instructor.displayName || instructor.email || 'Instructor';
       return acc;
     }, {});
-  }, [instructorOptions]);
+  }, [instructorOptions, isSchoolTenant]);
 
   const mobileWeekDays = useMemo(() => {
     return eachDayOfInterval({
@@ -1136,7 +1138,7 @@ export function ScheduleView() {
               </Button>
             </div>
 
-            {canManageTenant && instructorOptions.length > 0 && (
+            {isSchoolTenant && canManageTenant && instructorOptions.length > 0 && (
               <div className="w-full">
                 <Select value={selectedInstructorId} onValueChange={setSelectedInstructorId}>
                   <SelectTrigger className="h-10 bg-background">
@@ -1224,7 +1226,7 @@ export function ScheduleView() {
         isOpen={isDetailsDialogOpen}
         onOpenChange={setIsDetailsDialogOpen}
         event={selectedEvent}
-        instructorName={selectedEvent?.instructorId ? instructorNameById[selectedEvent.instructorId] : undefined}
+        instructorName={isSchoolTenant && selectedEvent?.instructorId ? instructorNameById[selectedEvent.instructorId] : undefined}
         onEdit={handleEditClick}
         onDelete={handleDeleteEvent}
         onBookNext={handleBookNext}
@@ -1241,8 +1243,8 @@ export function ScheduleView() {
         selectedDate={selectedDateTime}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}
-        instructors={instructorOptions}
-        canManageInstructorSchedules={canManageTenant}
+        instructors={isSchoolTenant ? instructorOptions : []}
+        canManageInstructorSchedules={isSchoolTenant && canManageTenant}
       />
 
       <ExamSchedulerDialog
@@ -1251,8 +1253,8 @@ export function ScheduleView() {
         onSave={handleSaveEvent}
         initialStudentId={examStudentIdForDialog}
         initialDate={currentDate}
-        instructors={instructorOptions}
-        canManageInstructorSchedules={canManageTenant}
+        instructors={isSchoolTenant ? instructorOptions : []}
+        canManageInstructorSchedules={isSchoolTenant && canManageTenant}
       />
 
       <MissingPhoneDialog
