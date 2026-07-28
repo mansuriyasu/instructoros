@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { useMemo } from 'react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltipContent, ChartLegendContent } from '@/components/ui/chart';
 import { Payment } from '@/lib/types';
-import { format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, subDays, startOfWeek, endOfWeek, startOfToday, endOfDay, startOfYear, endOfYear } from 'date-fns';
+import { format, eachMonthOfInterval, eachDayOfInterval, endOfDay, startOfYear, endOfYear } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import { DateRangePicker } from './date-range-picker';
 import { DateRange } from 'react-day-picker';
@@ -20,8 +20,6 @@ interface RevenueReportProps {
 }
 
 export function RevenueReport({ payments, statusFilter, dateRange, setDateRange }: RevenueReportProps) {
-  const today = new Date();
-
   const { filteredPayments, totalRevenue, totalCost, netProfit, outstandingPayments } = useMemo(() => {
     if (!dateRange?.from) {
       return { filteredPayments: [], totalRevenue: 0, totalCost: 0, netProfit: 0, outstandingPayments: 0 };
@@ -185,37 +183,65 @@ export function RevenueReport({ payments, statusFilter, dateRange, setDateRange 
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 space-y-0 pb-2">
-          <CardTitle>Financial Overview</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+      <Card className="overflow-hidden">
+        <CardHeader className="space-y-4 border-b bg-muted/10 pb-5">
+          <div>
+            <CardTitle>Financial Overview</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">Compare collected revenue, operating cost, and profit over time.</p>
+          </div>
+          <div className="grid gap-4 rounded-xl border bg-background p-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-start">
             <Select onValueChange={handleYearChange}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                    <SelectValue placeholder="Select Year" />
-                </SelectTrigger>
-                <SelectContent>
-                    {availableYears.map(year => (
-                        <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                    ))}
-                </SelectContent>
+              <SelectTrigger className="h-11 w-full">
+                <SelectValue placeholder="Select year" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
             <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
           </div>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[250px] w-full">
-            <ResponsiveContainer>
-              <BarChart data={chartData}>
-                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                <Tooltip content={<ChartTooltipContent formatter={(value, name) => `${formatCurrency(value as number)}`} />} />
-                <Legend content={<ChartLegendContent />} />
-                <Bar dataKey="profit" fill="var(--color-profit)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="cost" fill="var(--color-cost)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+        <CardContent className="p-4 pt-6 sm:p-6">
+          {chartData.length === 0 ? (
+            <div className="flex h-[300px] items-center justify-center rounded-xl border border-dashed bg-muted/10 text-center text-sm text-muted-foreground">
+              Choose a date range to view financial activity.
+            </div>
+          ) : (
+            <ChartContainer config={chartConfig} className="h-[300px] w-full sm:h-[360px]">
+              <ResponsiveContainer>
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }} barGap={4} barCategoryGap="18%">
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/60" />
+                  <XAxis
+                    dataKey="name"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={chartData.length > 14 ? Math.floor(chartData.length / 8) : 0}
+                    tickMargin={10}
+                  />
+                  <YAxis
+                    width={58}
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => value >= 1000 ? `$${(value / 1000).toFixed(1)}k` : `$${value}`}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted) / 0.45)' }}
+                    content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value) || 0)} />}
+                  />
+                  <Legend verticalAlign="top" align="left" height={34} content={<ChartLegendContent />} />
+                  <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[5, 5, 0, 0]} maxBarSize={24} />
+                  <Bar dataKey="profit" fill="var(--color-profit)" radius={[5, 5, 0, 0]} maxBarSize={24} />
+                  <Bar dataKey="cost" fill="var(--color-cost)" radius={[5, 5, 0, 0]} maxBarSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          )}
         </CardContent>
       </Card>
     </div>
