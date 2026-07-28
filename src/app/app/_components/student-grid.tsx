@@ -12,11 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
+import { DuplicateMergeDialog } from './duplicate-merge-dialog';
+import { GitMerge } from 'lucide-react';
+import { useSession } from '@/firebase';
 
 export type StudentStatusFilter = StudentStatus | 'all' | 'current';
 
 export function StudentGrid() {
-  const { students, loading, updateStudent, deleteStudent } = useStudents();
+  const { students, loading, updateStudent, deleteStudent, mergeStudents } = useStudents();
+  const { role } = useSession();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>('current');
@@ -25,6 +29,23 @@ export function StudentGrid() {
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isDuplicateMergeOpen, setIsDuplicateMergeOpen] = useState(false);
+
+  const duplicateGroups = useMemo(() => {
+    const groups = new Map<string, Student[]>();
+    (students || []).forEach(student => {
+      if (student.status === 'deactivated') return;
+      const name = (student.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const phone = (student.mobileNumber || '').replace(/\D/g, '');
+      const license = (student.licenseNumber || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+      const email = (student.email || '').trim().toLowerCase();
+      const identifier = license ? `license:${license}` : phone ? `phone:${phone}` : email ? `email:${email}` : '';
+      if (!name || !identifier) return;
+      const key = `${name}|${identifier}`;
+      groups.set(key, [...(groups.get(key) || []), student]);
+    });
+    return [...groups.values()].filter(group => group.length > 1);
+  }, [students]);
 
   const filteredStudents = useMemo(() => {
     let studentList = students || [];
@@ -100,6 +121,13 @@ export function StudentGrid() {
         </div>
         <div className="flex items-center gap-2">
           <StudentIntakeLinkDialog />
+          {(role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin') && duplicateGroups.length > 0 && (
+            <Button variant="outline" onClick={() => setIsDuplicateMergeOpen(true)} className="h-10 gap-2 px-3">
+              <GitMerge className="h-4 w-4" />
+              <span className="hidden sm:inline">Merge duplicates ({duplicateGroups.length})</span>
+              <span className="sm:hidden">Merge ({duplicateGroups.length})</span>
+            </Button>
+          )}
           <StudentGridActions />
         </div>
       </div>
@@ -156,6 +184,14 @@ export function StudentGrid() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onStatusChange={handleStatusChange}
+      />
+      <DuplicateMergeDialog
+        groups={duplicateGroups}
+        open={isDuplicateMergeOpen}
+        onOpenChange={setIsDuplicateMergeOpen}
+        onMerge={async (primary, duplicates) => {
+          await mergeStudents(primary.id, duplicates.map(duplicate => duplicate.id));
+        }}
       />
     </div>
   );

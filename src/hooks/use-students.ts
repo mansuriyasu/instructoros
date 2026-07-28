@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useSession, useTenantCollectionPath } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { getWorkspaceAccess } from '@/lib/workspace-access';
+import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 
 export function useStudents() {
   const firestore = useFirestore();
@@ -134,5 +135,19 @@ export function useStudents() {
     return deleteDocumentNonBlocking(studentRef);
   };
 
-  return { students, loading: isUserLoading || (isSchoolInstructor ? assignedStudentsLoading : isLoading) || isSessionLoading, addStudent, updateStudent, deleteStudent };
+  const mergeStudents = async (primaryId: string, duplicateIds: string[]) => {
+    if (!user || !activeTenantId) {
+      throw new Error('Your workspace is not ready yet. Please try again.');
+    }
+    const response = await fetch('/api/students/merge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
+      body: JSON.stringify({ tenantId: activeTenantId, primaryId, duplicateIds }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Could not merge students.');
+    return result as { mergedStudentCount: number; reassignedRecordCount: number };
+  };
+
+  return { students, loading: isUserLoading || (isSchoolInstructor ? assignedStudentsLoading : isLoading) || isSessionLoading, addStudent, updateStudent, deleteStudent, mergeStudents };
 }
