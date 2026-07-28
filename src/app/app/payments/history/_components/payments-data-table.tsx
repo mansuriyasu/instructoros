@@ -512,7 +512,7 @@ export function PaymentsDataTable({
                     {formatCurrency(payment.total)}
                   </TableCell>
                   <TableCell onClick={() => handleEditClick(payment)} className="cursor-pointer">
-                    {formatCurrency(payment.totalCost)}
+                    {formatCurrency(Number.isFinite(payment.totalCost) ? payment.totalCost : 0)}
                   </TableCell>
                   <TableCell
                     onClick={() => handleEditClick(payment)}
