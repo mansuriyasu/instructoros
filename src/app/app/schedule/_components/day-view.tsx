@@ -19,14 +19,13 @@ interface DayViewProps {
   onEventClick: (event: CalendarEvent) => void;
   onSlotClick: (date: Date) => void;
   onEventDrop: (eventId: string, newStart: Date, newEnd: Date) => void;
-  searchQuery?: string;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
 const HOUR_HEIGHT_IN_PIXELS = 100;
 
-export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, searchQuery, selectedInstructorId = 'all', instructorNameById = {} }: DayViewProps) {
+export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, selectedInstructorId = 'all', instructorNameById = {} }: DayViewProps) {
   const dayStart = useMemo(() => startOfDay(currentDate), [currentDate]);
   const dayEnd = useMemo(() => endOfDay(currentDate), [currentDate]);
   
@@ -45,16 +44,8 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
     if (selectedInstructorId !== 'all') {
       filteredEvents = filteredEvents.filter(event => event.instructorId === selectedInstructorId);
     }
-    if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredEvents = filteredEvents.filter(e => 
-            e.studentName?.toLowerCase().includes(query) || 
-            e.title?.toLowerCase().includes(query) ||
-            (e.instructorId && instructorNameById[e.instructorId]?.toLowerCase().includes(query))
-        );
-    }
     return filteredEvents.sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-  }, [events, instructorNameById, searchQuery, selectedInstructorId]);
+  }, [events, selectedInstructorId]);
 
   const hours = Array.from({ length: 14 }, (_, i) => i + 8); // 8 AM to 9 PM
   

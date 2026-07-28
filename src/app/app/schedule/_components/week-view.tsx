@@ -19,14 +19,13 @@ interface WeekViewProps {
   onEventClick: (event: CalendarEvent) => void;
   onSlotClick: (date: Date) => void;
   onEventDrop: (eventId: string, newStart: Date, newEnd: Date) => void;
-  searchQuery?: string;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
 const HOUR_HEIGHT_IN_PIXELS = 80;
 
-export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, searchQuery, selectedInstructorId = 'all', instructorNameById = {} }: WeekViewProps) {
+export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, selectedInstructorId = 'all', instructorNameById = {} }: WeekViewProps) {
   const weekStart = useMemo(() => startOfWeek(currentDate), [currentDate]);
   const weekEnd = useMemo(() => endOfWeek(currentDate), [currentDate]);
   const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
@@ -48,15 +47,6 @@ export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, 
     if (selectedInstructorId !== 'all') {
       filteredEvents = filteredEvents.filter(event => event.instructorId === selectedInstructorId);
     }
-    if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredEvents = filteredEvents.filter(e => 
-            e.studentName?.toLowerCase().includes(query) || 
-            e.title?.toLowerCase().includes(query) ||
-            (e.instructorId && instructorNameById[e.instructorId]?.toLowerCase().includes(query))
-        );
-    }
-
     filteredEvents.forEach(event => {
       const dayKey = format(new Date(event.start), 'yyyy-MM-dd');
       if (!map.has(dayKey)) map.set(dayKey, []);
@@ -64,7 +54,7 @@ export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, 
     });
     map.forEach(dayEvents => dayEvents.sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime()));
     return map;
-  }, [events, instructorNameById, searchQuery, selectedInstructorId]);
+  }, [events, selectedInstructorId]);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, event: CalendarEvent) => {
     e.dataTransfer.setData('application/json', JSON.stringify(event));

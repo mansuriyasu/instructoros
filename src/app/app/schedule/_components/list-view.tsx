@@ -15,12 +15,11 @@ interface ListViewProps {
   currentDate: Date;
   onEventClick: (event: CalendarEvent) => void;
   onEvaluate: (event: CalendarEvent) => void;
-  searchQuery?: string;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
-export function ListView({ currentDate, onEventClick, onEvaluate, searchQuery, selectedInstructorId = 'all', instructorNameById = {} }: ListViewProps) {
+export function ListView({ currentDate, onEventClick, onEvaluate, selectedInstructorId = 'all', instructorNameById = {} }: ListViewProps) {
   const dayStart = useMemo(() => startOfDay(currentDate), [currentDate]);
   const dayEnd = useMemo(() => endOfDay(currentDate), [currentDate]);
 
@@ -31,16 +30,8 @@ export function ListView({ currentDate, onEventClick, onEvaluate, searchQuery, s
     if (selectedInstructorId !== 'all') {
       filteredEvents = filteredEvents.filter(event => event.instructorId === selectedInstructorId);
     }
-    if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredEvents = filteredEvents.filter(e => 
-            e.studentName?.toLowerCase().includes(query) || 
-            e.title?.toLowerCase().includes(query) ||
-            (e.instructorId && instructorNameById[e.instructorId]?.toLowerCase().includes(query))
-        );
-    }
     return filteredEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-  }, [events, instructorNameById, searchQuery, selectedInstructorId]);
+  }, [events, selectedInstructorId]);
 
   const dayRouteUrl = useMemo(() => {
     const stops = dayEvents

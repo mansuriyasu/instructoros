@@ -20,12 +20,11 @@ interface MonthViewProps {
   currentDate: Date;
   onEventClick: (event: CalendarEvent) => void;
   onDayClick: (date: Date) => void;
-  searchQuery?: string;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
-export function MonthView({ currentDate, onEventClick, onDayClick, searchQuery, selectedInstructorId = 'all', instructorNameById = {} }: MonthViewProps) {
+export function MonthView({ currentDate, onEventClick, onDayClick, selectedInstructorId = 'all', instructorNameById = {} }: MonthViewProps) {
   const firstDayOfMonth = startOfMonth(currentDate);
   const lastDayOfMonth = endOfMonth(currentDate);
   
@@ -46,15 +45,6 @@ export function MonthView({ currentDate, onEventClick, onDayClick, searchQuery, 
     if (selectedInstructorId !== 'all') {
       filteredEvents = filteredEvents.filter(event => event.instructorId === selectedInstructorId);
     }
-    if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredEvents = filteredEvents.filter(e => 
-            e.studentName?.toLowerCase().includes(query) || 
-            e.title?.toLowerCase().includes(query) ||
-            (e.instructorId && instructorNameById[e.instructorId]?.toLowerCase().includes(query))
-        );
-    }
-
     filteredEvents.forEach(event => {
       const dayKey = format(new Date(event.start), 'yyyy-MM-dd');
       if (!map.has(dayKey)) {
@@ -65,7 +55,7 @@ export function MonthView({ currentDate, onEventClick, onDayClick, searchQuery, 
     // Sort events within each day
     map.forEach(dayEvents => dayEvents.sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime()));
     return map;
-  }, [events, instructorNameById, searchQuery, selectedInstructorId]);
+  }, [events, selectedInstructorId]);
 
   if (loading) {
       return (

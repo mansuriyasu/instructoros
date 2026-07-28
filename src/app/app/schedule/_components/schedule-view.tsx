@@ -13,10 +13,10 @@ import {
   endOfWeek,
   eachDayOfInterval,
   isSameDay,
-  addMinutes,
+  parse,
+  isValid,
 } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CalendarEvent, InstructorOption, LessonStatus, PaymentMethod } from '@/lib/types';
@@ -30,8 +30,6 @@ import { MonthView } from './month-view';
 import { WeekView } from './week-view';
 import { DayView } from './day-view';
 import { EventDetailsDialog } from './event-details-dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { ExamSchedulerDialog } from './exam-scheduler-dialog';
 import { ListView } from './list-view';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
@@ -53,12 +51,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, query, where } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase, useSession } from '@/firebase';
@@ -104,14 +96,11 @@ const toGoogleLocalDateTime = (dateValue: string) => {
 export function ScheduleView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('day');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstructorId, setSelectedInstructorId] = useState('all');
 
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isExamDialogOpen, setIsExamDialogOpen] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isMobileCalendarOpen, setIsMobileCalendarOpen] = useState(false);
 
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [conflictData, setConflictData] = useState<{
@@ -368,7 +357,6 @@ export function ScheduleView() {
   const isScheduleOverlayOpen = isFormDialogOpen
     || isDetailsDialogOpen
     || isExamDialogOpen
-    || isCalendarOpen
     || Boolean(conflictData)
     || Boolean(missingPhoneStudent);
 
@@ -1046,13 +1034,13 @@ export function ScheduleView() {
   const renderView = () => {
     switch (view) {
       case 'month':
-        return <MonthView currentDate={currentDate} onEventClick={handleEventClick} onDayClick={handleSlotClick} searchQuery={searchQuery} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <MonthView currentDate={currentDate} onEventClick={handleEventClick} onDayClick={handleSlotClick} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'week':
-        return <WeekView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} searchQuery={searchQuery} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <WeekView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'day':
-        return <DayView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} searchQuery={searchQuery} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <DayView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'list':
-        return <ListView currentDate={currentDate} onEventClick={handleEventClick} onEvaluate={handleEvaluate} searchQuery={searchQuery} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <ListView currentDate={currentDate} onEventClick={handleEventClick} onEvaluate={handleEvaluate} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       default:
         return null;
     }
@@ -1130,35 +1118,19 @@ export function ScheduleView() {
               <Button variant="ghost" className="h-9 rounded-lg px-4 text-sm font-semibold" onClick={handleToday}>
                 Today
               </Button>
-              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hidden h-9 w-9 rounded-lg md:inline-flex">
-                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto rounded-2xl p-0" align="center">
-                  <Calendar
-                    mode="single"
-                    selected={currentDate}
-                    onSelect={(date) => {
-                      if (date) {
-                        setCurrentDate(date);
-                        setIsCalendarOpen(false);
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-lg md:hidden"
-                onClick={() => setIsMobileCalendarOpen(true)}
-                aria-label="Choose date"
-              >
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              </Button>
+              <label className="flex h-9 items-center rounded-lg px-2 md:h-10 md:px-3" aria-label="Choose date">
+                <CalendarDays className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                <input
+                  type="date"
+                  value={format(currentDate, 'yyyy-MM-dd')}
+                  onChange={(event) => {
+                    const nextDate = parse(event.target.value, 'yyyy-MM-dd', new Date());
+                    if (event.target.value && isValid(nextDate)) setCurrentDate(nextDate);
+                  }}
+                  className="min-w-0 bg-transparent text-sm font-semibold outline-none [color-scheme:light]"
+                  aria-label="Schedule date"
+                />
+              </label>
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={handleNext} aria-label="Next date">
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -1181,15 +1153,6 @@ export function ScheduleView() {
                 </Select>
               </div>
             )}
-
-            <div className="md:px-2 w-full flex">
-              <Input
-                placeholder="Search schedule by student or instructor..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-background h-10 border-border"
-              />
-            </div>
 
             <div className="grid grid-cols-4 rounded-lg border bg-muted/40 p-1">
               {viewModes.map(mode => (
@@ -1256,36 +1219,6 @@ export function ScheduleView() {
       <div className="flex-1">
         {renderView()}
       </div>
-
-      <Dialog open={isMobileCalendarOpen} onOpenChange={setIsMobileCalendarOpen}>
-        <DialogContent className="bottom-0 top-auto max-h-[86vh] translate-y-0 gap-3 rounded-t-3xl border-x-0 border-b-0 p-4 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom sm:hidden">
-          <DialogHeader className="pr-8 text-left">
-            <DialogTitle>Choose date</DialogTitle>
-          </DialogHeader>
-          <Calendar
-            mode="single"
-            selected={currentDate}
-            onSelect={(date) => {
-              if (date) {
-                setCurrentDate(date);
-                setView('day');
-                setIsMobileCalendarOpen(false);
-              }
-            }}
-            initialFocus
-            className="w-full p-0"
-            classNames={{
-              month: "w-full space-y-4",
-              table: "w-full border-collapse",
-              head_row: "grid grid-cols-7",
-              head_cell: "flex h-9 items-center justify-center rounded-md text-xs font-semibold text-muted-foreground",
-              row: "grid grid-cols-7 gap-1 mt-1",
-              cell: "relative flex aspect-square items-center justify-center p-0",
-              day: "h-full w-full rounded-2xl p-0 text-sm font-semibold",
-            }}
-          />
-        </DialogContent>
-      </Dialog>
 
       <EventDetailsDialog
         isOpen={isDetailsDialogOpen}
