@@ -20,6 +20,7 @@ type CalendarConfig = {
   clientSecret?: string;
   refreshToken?: string;
   calendarId: string;
+  connectedEmail?: string;
 };
 
 type UserCalendarState = {
@@ -120,6 +121,7 @@ export function createUserGoogleCalendarAuthUrl(params: {
   email?: string;
   origin: string;
   returnTo?: string;
+  forceAccountSelection?: boolean;
 }) {
   const config = getGoogleCalendarConfig();
   if (!config.clientId || !config.clientSecret) {
@@ -132,7 +134,7 @@ export function createUserGoogleCalendarAuthUrl(params: {
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('scope', GOOGLE_CALENDAR_SCOPES);
   authUrl.searchParams.set('access_type', 'offline');
-  authUrl.searchParams.set('prompt', 'consent');
+  authUrl.searchParams.set('prompt', params.forceAccountSelection ? 'consent select_account' : 'consent');
   authUrl.searchParams.set('include_granted_scopes', 'true');
   authUrl.searchParams.set('state', createUserCalendarState({
     uid: params.uid,
@@ -212,7 +214,18 @@ export async function getUserGoogleCalendarConnection(uid: string): Promise<Cale
     clientSecret: config.clientSecret,
     refreshToken: connection.refreshToken,
     calendarId: connection.calendarId || 'primary',
+    connectedEmail: connection.connectedEmail || '',
   };
+}
+
+export async function deleteUserGoogleCalendarConnection(uid: string) {
+  await getAdminFirestore()
+    .collection('users')
+    .doc(uid)
+    .collection('integrations')
+    .doc('googleCalendar')
+    .delete();
+  cachedAccessTokens.delete(uid);
 }
 
 export async function checkUserGoogleCalendarConnection(uid: string) {
@@ -244,6 +257,7 @@ export async function checkUserGoogleCalendarConnection(uid: string) {
       configured: true,
       refreshTokenConfigured: true,
       calendarId: connection.calendarId,
+      connectedEmail: connection.connectedEmail || null,
       connected: true,
       error: null,
     };

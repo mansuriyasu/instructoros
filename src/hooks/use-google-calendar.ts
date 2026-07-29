@@ -26,6 +26,7 @@ type GoogleCalendarStatus = {
   configured: boolean;
   connected?: boolean;
   error?: string | null;
+  connectedEmail?: string | null;
 };
 
 type GoogleCalendarErrorPayload = {
@@ -55,6 +56,7 @@ export function useGoogleCalendar() {
   const [isClientLoaded, setIsClientLoaded] = useState(false);
   const [isServerConfigured, setIsServerConfigured] = useState(false);
   const [isServerConnected, setIsServerConnected] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [gEvents, setGEvents] = useState<GoogleCalendarEvent[]>([]);
   const { toast } = useToast();
@@ -65,6 +67,7 @@ export function useGoogleCalendar() {
       if (!user) {
         setIsServerConfigured(false);
         setIsServerConnected(false);
+        setConnectedEmail(null);
         setConnectionError(isUserLoading ? null : 'Sign in before connecting Google Calendar.');
         return { configured: false, connected: false, error: null } satisfies GoogleCalendarStatus;
       }
@@ -78,6 +81,7 @@ export function useGoogleCalendar() {
       const status = await response.json() as GoogleCalendarStatus;
       setIsServerConfigured(Boolean(status.configured));
       setIsServerConnected(Boolean(status.connected));
+      setConnectedEmail(status.connectedEmail || null);
       setConnectionError(status.error || null);
       return status;
     } catch (error) {
@@ -197,6 +201,49 @@ export function useGoogleCalendar() {
     return true;
   }, [refreshStatus, toast, user]);
 
+  const changeAccount = useCallback(async () => {
+    if (!user) {
+      toast({ title: 'Sign in required', description: 'Sign in before changing your Google Calendar account.', variant: 'destructive' });
+      return false;
+    }
+
+    const response = await fetch('/api/google-calendar/auth', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({ returnTo: '/app/schedule', forceAccountSelection: true }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.url) {
+      toast({ title: 'Could not change Google account', description: data.error || 'Try again in a moment.', variant: 'destructive' });
+      return false;
+    }
+
+    window.location.assign(data.url);
+    return true;
+  }, [toast, user]);
+
+  const disconnect = useCallback(async () => {
+    if (!user) return false;
+    const response = await fetch(GOOGLE_CALENDAR_API, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      toast({ title: 'Could not disconnect Google Calendar', description: data.error || 'Try again in a moment.', variant: 'destructive' });
+      return false;
+    }
+    setIsServerConnected(false);
+    setConnectedEmail(null);
+    setConnectionError('Connect your Google Calendar before syncing.');
+    setGEvents([]);
+    toast({ title: 'Google Calendar disconnected' });
+    return true;
+  }, [toast, user]);
+
   const createEvent = async (event: Partial<GoogleCalendarEvent>) => {
     try {
       const data = await serverRequest<{ id?: string }>({ action: 'create', event });
@@ -263,7 +310,10 @@ export function useGoogleCalendar() {
 
   return {
     connect,
+    changeAccount,
+    disconnect,
     isConnected: isServerConnected,
+    connectedEmail,
     isConfigured: isServerConfigured,
     connectionError,
     isClientLoaded,

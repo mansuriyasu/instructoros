@@ -133,9 +133,11 @@ export function ScheduleView() {
   const { services: allServices, loading: servicesLoading } = useServices();
   const {
     connect,
+    changeAccount,
     isConnected,
     isConfigured: isGoogleConfigured,
     connectionError: googleConnectionError,
+    connectedEmail: googleConnectedEmail,
     isClientLoaded,
     fetchEvents: fetchGEvents,
     createEvent: createGEvent,
@@ -1087,6 +1089,18 @@ export function ScheduleView() {
               >
                 {isSyncingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
               </Button>
+              {isConnected && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void changeAccount()}
+                  className="h-10 gap-2 rounded-full border-emerald-200 bg-emerald-50/70 px-3 text-xs font-semibold text-emerald-800 shadow-inner hover:bg-emerald-100"
+                  title={googleConnectedEmail ? `Connected to ${googleConnectedEmail}` : 'Change Google Calendar account'}
+                >
+                  <span className="hidden max-w-36 truncate sm:inline">{googleConnectedEmail || 'Google account'}</span>
+                  <span className="sm:hidden">Change</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -1175,7 +1189,7 @@ export function ScheduleView() {
 
             <div className="hidden text-right text-sm text-muted-foreground md:block">
               {isConnected
-                ? 'Google connected'
+                ? googleConnectedEmail ? `Google: ${googleConnectedEmail}` : 'Google connected'
                 : isGoogleConfigured
                   ? 'Connect your Google Calendar'
                   : 'Google setup missing'}

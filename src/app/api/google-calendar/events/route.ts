@@ -78,3 +78,22 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const token = getBearerToken(request);
+    if (!token) {
+      return NextResponse.json({ error: 'Please sign in before disconnecting Google Calendar.' }, { status: 401 });
+    }
+
+    const decoded = await getAdminAuth().verifyIdToken(token);
+    const { deleteUserGoogleCalendarConnection } = await import('@/lib/google-calendar-server');
+    await deleteUserGoogleCalendarConnection(decoded.uid);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Google Calendar disconnect failed.' },
+      { status: 500 }
+    );
+  }
+}

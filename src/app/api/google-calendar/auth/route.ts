@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       email: decoded.email,
       origin: getGoogleCalendarAppOrigin(request.nextUrl.origin),
       returnTo: typeof body.returnTo === 'string' ? body.returnTo : '/app/schedule',
+      forceAccountSelection: body.forceAccountSelection === true,
     });
 
     return NextResponse.json({ url });
