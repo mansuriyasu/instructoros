@@ -107,7 +107,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
           <button
             type="button"
             className={cn(
-              'relative flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-2xl border border-[#FFD1D7] bg-[#FFF1F2] p-3 text-center shadow-sm transition-transform outline-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'relative flex h-full w-full flex-col items-center justify-center gap-2 rounded-[20px] border border-[#FFD1D7] bg-[#FFF1F2] p-3 text-center shadow-elevated transition-transform outline-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               className
             )}
           >

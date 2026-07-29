@@ -294,7 +294,7 @@ function ActionTile({ href, icon: Icon, label, tone }: { href: string; icon: Ele
 
 function NotificationsTile() {
   return (
-    <div className="aspect-square min-w-0">
+    <div className="min-w-0 aspect-square">
       <NotificationsSheet triggerType="tile" className="h-full" />
     </div>
   );
