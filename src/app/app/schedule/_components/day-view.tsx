@@ -144,9 +144,9 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
           </div>
         )}
         {!compact && event.studentAddress && (
-          <div className="mt-1 flex items-center gap-1.5 text-xs opacity-80">
-            <MapPin className="h-3.5 w-3.5" />
-            <span className="truncate">{event.studentAddress}</span>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs opacity-80">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 truncate" title={event.studentAddress}>{event.studentAddress}</span>
           </div>
         )}
       </>
@@ -232,7 +232,7 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
                         </>
                       )}
                     </div>
-                    <div className="relative pl-4">
+                    <div className="relative min-w-0 pl-4">
                       <span className="absolute bottom-0 left-0 top-0 w-px bg-border" />
                       <span className="absolute left-[-4px] top-4 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
                       <div
@@ -246,7 +246,7 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
                           }
                         }}
                         className={cn(
-                          "w-full rounded-2xl border-l-4 p-3 text-left shadow-sm transition active:scale-[0.99]",
+                          "w-full min-w-0 overflow-hidden rounded-2xl border-l-4 p-3 text-left shadow-sm transition active:scale-[0.99]",
                           eventColorClass(event)
                         )}
                       >
@@ -319,7 +319,7 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
                 draggable
                 onDragStart={(e) => handleDragStart(e, event)}
                 className={cn(
-                  "absolute left-3 w-[calc(100%-1.5rem)] cursor-pointer overflow-hidden rounded-lg border-l-4 p-2.5 shadow-sm transition-all hover:z-20 hover:shadow-md",
+                  "absolute left-3 min-w-0 w-[calc(100%-1.5rem)] cursor-pointer overflow-hidden rounded-lg border-l-4 p-2.5 shadow-sm transition-all hover:z-20 hover:shadow-md",
                   eventColorClass(event)
                 )}
                 style={{ top: `${top}px`, height: `${height}px` }}
