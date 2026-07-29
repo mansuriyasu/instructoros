@@ -17,7 +17,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
         <Header />
         {!workspaceAccess.canWrite && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:px-8">
@@ -34,7 +34,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         )}
-        <main className="flex flex-1 flex-col gap-4 p-4 pb-24 sm:px-5 md:px-8 md:pt-6 lg:px-[30px] lg:pt-[26px] lg:pb-[60px]">
+        <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-x-hidden p-4 pb-24 sm:px-5 md:px-8 md:pt-6 lg:px-[30px] lg:pt-[26px] lg:pb-[60px]">
           {children}
         </main>
       </div>

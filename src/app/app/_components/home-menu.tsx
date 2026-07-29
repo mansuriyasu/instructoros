@@ -76,7 +76,7 @@ export function HomeMenu() {
   const showTrialPaymentPrompt = canManageTenant && tenant?.subscriptionStatus === 'trialing' && !tenant.stripeSubscriptionId;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-32">
+    <div className="mx-auto flex min-w-0 w-full max-w-6xl flex-col gap-5 overflow-x-hidden pb-32">
       <section className="flex items-end justify-between gap-3 px-1">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your workspace</p>
@@ -88,7 +88,7 @@ export function HomeMenu() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
           icon={CalendarDays}
           label="Today"
@@ -139,8 +139,8 @@ export function HomeMenu() {
         </section>
       )}
 
-      <section className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
+      <section className="grid min-w-0 gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="min-w-0 overflow-hidden rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold">Next lesson</h2>
@@ -183,7 +183,7 @@ export function HomeMenu() {
           )}
         </div>
 
-        <div className="rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
+        <div className="min-w-0 overflow-hidden rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold">Today list</h2>
