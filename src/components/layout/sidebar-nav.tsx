@@ -54,16 +54,16 @@ export function SidebarNav() {
             key={label}
             href={href}
             className={cn(
-              "relative flex items-center gap-3 h-[42px] px-3 rounded-[11px] text-[14px] transition-colors",
+              "relative flex items-center gap-3 h-[44px] px-3 rounded-2xl text-[14px] transition-all",
               isActive
-                ? "bg-[#FFF8E7] text-[#191B20] font-bold"
-                : "text-[#6B7280] font-normal hover:bg-gray-50 hover:text-[#191B20]"
+                ? "bg-card text-foreground font-bold shadow-elevated"
+                : "text-muted-foreground font-normal hover:bg-secondary/70 hover:text-foreground"
             )}
           >
             {isActive && (
-              <span className="absolute -left-[3px] top-[11px] bottom-[11px] w-[3px] rounded-full bg-[#FACC15]" />
+                <span className="absolute -left-[3px] top-[12px] bottom-[12px] w-[3px] rounded-full bg-primary" />
             )}
-            <Icon className={cn("w-[19px] h-[19px] shrink-0", isActive ? "stroke-[#191B20]" : "stroke-[#9CA3AF]")} strokeWidth={1.9} />
+            <Icon className={cn("w-[19px] h-[19px] shrink-0", isActive ? "stroke-primary" : "stroke-muted-foreground")} strokeWidth={1.9} />
             {label}
           </Link>
         )

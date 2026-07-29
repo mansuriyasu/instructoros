@@ -1063,7 +1063,7 @@ export function ScheduleView() {
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0">
-        <div className="rounded-2xl border bg-card p-3 shadow-sm md:rounded-lg md:p-4">
+        <div className="rounded-[22px] border border-white/75 bg-card p-3 shadow-elevated md:p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -1078,7 +1078,7 @@ export function ScheduleView() {
                 onClick={handleGoogleSync}
                 disabled={!isClientLoaded || isSyncingGoogle}
                 className={cn(
-                  "h-10 w-10 rounded-xl",
+                  "h-10 w-10 rounded-2xl shadow-inner",
                   isConnected && "border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
                   isGoogleConfigured && !isConnected && "border-amber-500 bg-amber-50 text-amber-800 hover:bg-amber-100"
                 )}
@@ -1091,7 +1091,7 @@ export function ScheduleView() {
                 variant="outline"
                 size="sm"
                 onClick={handleOptimizeRoute}
-                className="h-10 gap-2 border-primary/20 text-primary hover:bg-primary/5 hidden sm:flex"
+                className="h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 text-primary shadow-inner hover:bg-secondary hidden sm:flex"
               >
                 <Sparkles className="h-4 w-4 text-purple-500" />
                 <span className="hidden md:inline">Optimize Timing</span>
@@ -1100,12 +1100,12 @@ export function ScheduleView() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsExamDialogOpen(true)}
-                className="h-10 gap-2 rounded-xl border-primary/20 text-primary hover:bg-primary/5"
+                className="h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 text-primary shadow-inner hover:bg-secondary"
               >
                 <Car className="h-4 w-4" />
                 <span className="hidden sm:inline">Schedule Exam</span>
               </Button>
-              <Button onClick={handleAddNewClick} className="h-10 gap-2 rounded-xl">
+              <Button onClick={handleAddNewClick} className="h-10 gap-2 rounded-full shadow-elevated">
                 <Plus className="h-4 w-4" />
                 <span>Add</span>
               </Button>
@@ -1113,14 +1113,14 @@ export function ScheduleView() {
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-[auto_1fr_auto] lg:grid-cols-[auto_minmax(13rem,18rem)_1fr_auto] md:items-center">
-            <div className="flex items-center justify-between rounded-xl border bg-background p-1 md:w-fit">
+            <div className="flex items-center justify-between rounded-full border border-white/70 bg-secondary/55 p-1 shadow-inner md:w-fit">
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={handlePrev} aria-label="Previous date">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button variant="ghost" className="h-9 rounded-lg px-4 text-sm font-semibold" onClick={handleToday}>
                 Today
               </Button>
-              <label className="flex h-9 items-center rounded-lg px-2 md:h-10 md:px-3" aria-label="Choose date">
+              <label className="flex h-9 items-center rounded-full px-2 md:h-10 md:px-3" aria-label="Choose date">
                 <CalendarDays className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
                 <input
                   type="date"
@@ -1156,7 +1156,7 @@ export function ScheduleView() {
               </div>
             )}
 
-            <div className="grid grid-cols-4 rounded-lg border bg-muted/40 p-1">
+            <div className="grid grid-cols-4 rounded-full border border-white/70 bg-secondary/55 p-1 shadow-inner">
               {viewModes.map(mode => (
                 <Button
                   key={mode}
@@ -1164,8 +1164,8 @@ export function ScheduleView() {
                   variant="ghost"
                   onClick={() => setView(mode)}
                   className={cn(
-                    "h-9 rounded-md px-2 text-xs font-semibold capitalize md:text-sm",
-                    view === mode && "bg-background text-foreground shadow-sm"
+                    "h-9 rounded-full px-2 text-xs font-semibold capitalize md:text-sm",
+                    view === mode && "bg-card text-foreground shadow-elevated"
                   )}
                 >
                   {mode}
@@ -1196,7 +1196,7 @@ export function ScheduleView() {
                     setView('day');
                   }}
                   className={cn(
-                    "flex min-w-14 flex-col items-center rounded-2xl border px-3 py-2 text-sm transition active:scale-[0.98]",
+                    "flex min-w-14 flex-col items-center rounded-2xl border px-3 py-2 text-sm shadow-elevated transition active:scale-[0.98]",
                     selected
                       ? "border-primary bg-primary text-primary-foreground shadow-sm"
                       : "border-border bg-background text-foreground"

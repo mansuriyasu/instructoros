@@ -76,7 +76,18 @@ export function HomeMenu() {
   const showTrialPaymentPrompt = canManageTenant && tenant?.subscriptionStatus === 'trialing' && !tenant.stripeSubscriptionId;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 pb-24">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-24">
+      <section className="flex items-end justify-between gap-3 px-1">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your workspace</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">Keep today moving</h1>
+          <p className="mt-1 text-sm text-muted-foreground">A quick view of the people, lessons, and payments that need attention.</p>
+        </div>
+        <div className="hidden h-12 w-12 items-center justify-center rounded-full bg-card text-sm font-black text-foreground shadow-elevated sm:flex">
+          {format(new Date(), 'd')}
+        </div>
+      </section>
+
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
           icon={CalendarDays}
@@ -109,7 +120,7 @@ export function HomeMenu() {
       </section>
 
       {showTrialPaymentPrompt && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+        <section className="rounded-[22px] border border-amber-200/80 bg-[#fff8df] p-4 shadow-elevated">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-bold text-amber-950">Free trial is active</h2>
@@ -119,7 +130,7 @@ export function HomeMenu() {
             </div>
             <Link
               href="/app/billing"
-              className="inline-flex h-10 items-center justify-center rounded-full bg-[#0D1B2A] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#132840]"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-[#102033] px-4 text-sm font-semibold text-white shadow-elevated transition-transform hover:-translate-y-0.5"
             >
               Manage billing
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -129,7 +140,7 @@ export function HomeMenu() {
       )}
 
       <section className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+        <div className="rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold">Next lesson</h2>
@@ -143,36 +154,42 @@ export function HomeMenu() {
           {nextLesson ? (
             <Link
               href={`/app/schedule?eventId=${nextLesson.id}`}
-              className="flex items-center gap-3 rounded-xl bg-muted/40 p-3 transition-colors hover:bg-muted"
+              className="rounded-[18px] bg-secondary/55 p-3 transition-transform hover:-translate-y-0.5"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#EAF3FF] text-[#2563EB]">
-                <Clock3 className="h-5 w-5" />
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e8f1ff] text-[#2563eb] shadow-elevated">
+                  <Clock3 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-base font-bold">{nextLesson.studentName || nextLesson.title}</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-foreground/75">
+                    {format(new Date(nextLesson.start), 'EEE, MMM d')} · {format(new Date(nextLesson.start), 'h:mm a')}
+                  </p>
+                  {nextLesson.studentAddress && (
+                    <p className="mt-1 truncate text-xs text-muted-foreground">{nextLesson.studentAddress}</p>
+                  )}
+                </div>
+                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{nextLesson.studentName || nextLesson.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {format(new Date(nextLesson.start), 'EEE, MMM d')} at {format(new Date(nextLesson.start), 'h:mm a')}
-                </p>
-                {nextLesson.studentAddress && (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{nextLesson.studentAddress}</p>
-                )}
+              <div className="mt-3 flex gap-2 text-[11px] font-bold">
+                <span className="rounded-full bg-white/75 px-3 py-1.5 text-muted-foreground shadow-sm">View booking</span>
+                {nextLesson.studentAddress && <span className="rounded-full bg-[#102033] px-3 py-1.5 text-white">Navigate</span>}
               </div>
-              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             </Link>
           ) : (
-            <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <div className="rounded-[18px] border border-dashed border-border p-4 text-sm text-muted-foreground">
               No upcoming lesson found.
             </div>
           )}
         </div>
 
-        <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+        <div className="rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold">Today list</h2>
               <p className="text-xs text-muted-foreground">Quick count of your current day.</p>
             </div>
-            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-muted-foreground shadow-inner">
               {todayLessons.length}
             </span>
           </div>
@@ -181,7 +198,7 @@ export function HomeMenu() {
               <Link
                 key={lesson.id}
                 href={`/app/schedule?eventId=${lesson.id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2 text-sm hover:bg-muted/50"
+                className="flex items-center justify-between gap-3 rounded-xl bg-secondary/45 px-3 py-2.5 text-sm shadow-sm transition-colors hover:bg-secondary"
               >
                 <span className="min-w-0 truncate font-medium">{lesson.studentName || lesson.title}</span>
                 <span className="shrink-0 text-xs font-semibold text-muted-foreground">
@@ -200,8 +217,8 @@ export function HomeMenu() {
 
       <section>
         <div className="mb-3">
-          <h2 className="text-base font-bold">Menu</h2>
-          <p className="text-xs text-muted-foreground">Fast actions for daily work.</p>
+          <h2 className="text-base font-bold">Quick actions</h2>
+          <p className="text-xs text-muted-foreground">The tools you use most often.</p>
         </div>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
           <ActionTile href="/app/students" icon={Users} label="Students" tone="gold" />
@@ -263,10 +280,10 @@ function ActionTile({ href, icon: Icon, label, tone }: { href: string; icon: Ele
   return (
     <Link
       href={href}
-      className={`aspect-square rounded-2xl border p-3 shadow-sm transition-transform active:scale-[0.98] ${classes.card}`}
+    className={`aspect-square rounded-[20px] border p-3 shadow-elevated transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${classes.card}`}
     >
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${classes.icon}`}>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm ${classes.icon}`}>
           <Icon className="h-5 w-5" />
         </div>
         <span className="text-xs font-bold leading-tight text-foreground">{label}</span>
