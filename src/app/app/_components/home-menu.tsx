@@ -76,7 +76,7 @@ export function HomeMenu() {
   const showTrialPaymentPrompt = canManageTenant && tenant?.subscriptionStatus === 'trialing' && !tenant.stripeSubscriptionId;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-24">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-32">
       <section className="flex items-end justify-between gap-3 px-1">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your workspace</p>
