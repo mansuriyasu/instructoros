@@ -77,7 +77,7 @@ export default {
       },
       boxShadow: {
         glow: '0 0 0 1px hsl(var(--primary) / 0.35), 0 8px 24px -12px hsl(var(--primary) / 0.65)',
-        elevated: '0 8px 24px -18px hsl(214 45% 18% / 0.35)',
+        elevated: 'var(--shadow-elevated)',
       },
       backgroundImage: {
         'gradient-primary': 'linear-gradient(135deg, hsl(var(--highlight)), hsl(var(--primary)))',

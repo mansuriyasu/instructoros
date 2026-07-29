@@ -15,7 +15,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const billingActionLabel = tenant?.subscriptionStatus === 'checkout_pending' ? 'Continue trial setup' : 'Start free trial';
 
   return (
-    <div className="flex min-h-screen bg-[#F5F5F5]">
+    <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex flex-1 flex-col min-w-0">
         <Header />

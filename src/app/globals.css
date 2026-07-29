@@ -8,26 +8,26 @@ body {
 
 @layer base {
   :root {
-    /* InstructorOS navy and amber palette */
-    --background: 210 33% 98%;
-    --foreground: 214 34% 13%;
-    --card: 0 0% 100%;
+    /* InstructorOS soft-surface design system */
+    --background: 210 24% 93%;
+    --foreground: 213 52% 16%;
+    --card: 214 27% 95%;
     --card-foreground: 214 34% 13%;
-    --popover: 0 0% 100%;
+    --popover: 214 27% 95%;
     --popover-foreground: 214 34% 13%;
-    --primary: 40 94% 49%;
-    --primary-foreground: 214 34% 13%;
-    --secondary: 212 26% 94%;
+    --primary: 48 96% 53%;
+    --primary-foreground: 45 85% 13%;
+    --secondary: 213 24% 90%;
     --secondary-foreground: 214 34% 13%;
-    --muted: 212 24% 95%;
-    --muted-foreground: 215 14% 43%;
-    --accent: 42 100% 95%;
+    --muted: 213 22% 91%;
+    --muted-foreground: 215 20% 43%;
+    --accent: 48 96% 93%;
     --accent-foreground: 214 34% 13%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 213 22% 88%;
-    --input: 213 22% 88%;
-    --ring: 40 94% 49%;
+    --border: 213 22% 85%;
+    --input: 213 22% 85%;
+    --ring: 48 96% 53%;
     --chart-1: 214 45% 18%;
     --chart-2: 40 94% 49%;
     --chart-3: 205 72% 45%;
@@ -38,14 +38,15 @@ body {
     --highlight: 214 45% 18%;
     --highlight-foreground: 0 0% 100%;
 
-    --sidebar-background: 214 45% 13%;
-    --sidebar-foreground: 210 22% 88%;
-    --sidebar-primary: 40 94% 49%;
-    --sidebar-primary-foreground: 214 34% 13%;
-    --sidebar-accent: 214 31% 20%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 214 26% 23%;
-    --sidebar-ring: 40 94% 49%;
+    --sidebar-background: 214 27% 95%;
+    --sidebar-foreground: 213 52% 16%;
+    --sidebar-primary: 48 96% 53%;
+    --sidebar-primary-foreground: 45 85% 13%;
+    --sidebar-accent: 48 96% 93%;
+    --sidebar-accent-foreground: 213 52% 16%;
+    --sidebar-border: 213 22% 85%;
+    --sidebar-ring: 48 96% 53%;
+    --shadow-elevated: 6px 6px 14px rgba(16, 32, 51, .13), -6px -6px 14px rgba(255, 255, 255, .95);
   }
 
   .dark {
@@ -73,6 +74,7 @@ body {
     --chart-3: 150 58% 48%;
     --chart-4: 0 72% 62%;
     --chart-5: 210 25% 88%;
+    --shadow-elevated: 6px 6px 14px rgba(4, 9, 16, .62), -6px -6px 14px rgba(255, 255, 255, .045);
   }
 }
 
