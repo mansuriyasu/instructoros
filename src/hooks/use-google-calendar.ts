@@ -252,7 +252,7 @@ export function useGoogleCalendar() {
     } catch (error) {
       console.error("Failed to create Google Calendar event", error);
       toast({
-        title: "Google Calendar create failed",
+        title: "Google Calendar sync delayed",
         description: getCalendarErrorMessage(error),
         variant: "destructive"
       });
@@ -268,7 +268,7 @@ export function useGoogleCalendar() {
     } catch (error) {
       console.error("Failed to update Google Calendar event", error);
       toast({
-        title: "Google Calendar update failed",
+        title: "Google Calendar sync delayed",
         description: getCalendarErrorMessage(error),
         variant: "destructive"
       });
@@ -285,7 +285,7 @@ export function useGoogleCalendar() {
     } catch (error) {
       console.error("Failed to delete Google Calendar event", error);
       toast({
-        title: "Google Calendar delete failed",
+        title: "Google Calendar sync delayed",
         description: getCalendarErrorMessage(error),
         variant: "destructive"
       });

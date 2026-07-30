@@ -7,6 +7,8 @@ const GOOGLE_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars';
 const SPARKON_EVENT_ID_PROPERTY = 'sparkonEventId';
 const SPARKON_DESCRIPTION_MARKER = 'Synced from InstructorOS.';
 const GOOGLE_CALENDAR_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+const GOOGLE_REQUEST_TIMEOUT_MS = 8000;
+const GOOGLE_RETRY_DELAYS_MS = [350, 900];
 
 type TokenResponse = {
   access_token?: string;
@@ -348,40 +350,85 @@ export async function checkGoogleCalendarConnection() {
 
 async function googleCalendarRequest<T>(path: string, init: RequestInit = {}, config = getGoogleCalendarConfig()) {
   const accessToken = await getAccessToken(config);
-  const response = await fetch(`${GOOGLE_EVENTS_URL}/${encodeURIComponent(config.calendarId)}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      ...init.headers,
-    },
-  });
+  const method = (init.method || 'GET').toUpperCase();
+  const canRetry = method === 'GET' || method === 'PATCH';
+  let lastError: unknown;
 
-  if (response.status === 204) return null as T;
+  for (let attempt = 0; attempt <= (canRetry ? GOOGLE_RETRY_DELAYS_MS.length : 0); attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GOOGLE_REQUEST_TIMEOUT_MS);
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error?.message || 'Google Calendar request failed.');
+    try {
+      const response = await fetch(`${GOOGLE_EVENTS_URL}/${encodeURIComponent(config.calendarId)}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          ...init.headers,
+        },
+      });
+
+      if (response.status >= 500 && attempt < GOOGLE_RETRY_DELAYS_MS.length && canRetry) {
+        await new Promise(resolve => setTimeout(resolve, GOOGLE_RETRY_DELAYS_MS[attempt]));
+        continue;
+      }
+
+      if (response.status === 204) return null as T;
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Google Calendar request failed.');
+      }
+
+      return data as T;
+    } catch (error) {
+      lastError = error instanceof DOMException && error.name === 'AbortError'
+        ? new Error('Google Calendar request timed out.')
+        : error;
+      if (attempt >= GOOGLE_RETRY_DELAYS_MS.length || !canRetry) throw lastError;
+      await new Promise(resolve => setTimeout(resolve, GOOGLE_RETRY_DELAYS_MS[attempt]));
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
-  return data as T;
+  throw lastError instanceof Error ? lastError : new Error('Google Calendar request failed.');
 }
 
 async function googleCalendarDelete(path: string, config = getGoogleCalendarConfig()) {
   const accessToken = await getAccessToken(config);
-  const response = await fetch(`${GOOGLE_EVENTS_URL}/${encodeURIComponent(config.calendarId)}${path}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  for (let attempt = 0; attempt <= GOOGLE_RETRY_DELAYS_MS.length; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GOOGLE_REQUEST_TIMEOUT_MS);
 
-  if (response.ok || response.status === 404 || response.status === 410) {
-    return;
+    try {
+      const response = await fetch(`${GOOGLE_EVENTS_URL}/${encodeURIComponent(config.calendarId)}${path}`, {
+        method: 'DELETE',
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (response.ok || response.status === 404 || response.status === 410) return;
+      if (response.status >= 500 && attempt < GOOGLE_RETRY_DELAYS_MS.length) {
+        await new Promise(resolve => setTimeout(resolve, GOOGLE_RETRY_DELAYS_MS[attempt]));
+        continue;
+      }
+
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error?.message || 'Google Calendar request failed.');
+    } catch (error) {
+      if (attempt >= GOOGLE_RETRY_DELAYS_MS.length) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          throw new Error('Google Calendar request timed out.');
+        }
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, GOOGLE_RETRY_DELAYS_MS[attempt]));
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
-
-  const data = await response.json().catch(() => ({}));
-  throw new Error(data.error?.message || 'Google Calendar request failed.');
 }
 
 export async function fetchGoogleCalendarEvents(config?: CalendarConfig) {
