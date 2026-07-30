@@ -149,7 +149,7 @@ export default function MarketingHomePage() {
               The AI-powered workspace for driving schools
             </div>
             <h1 className="max-w-xl text-4xl font-black leading-[1.05] tracking-normal text-[#102033] sm:text-5xl lg:text-6xl">
-              The AI app built for
+              InstructorOS: the AI app built for
               <br />
               <span className="text-[#f59e0b]">driving schools.</span>
             </h1>
