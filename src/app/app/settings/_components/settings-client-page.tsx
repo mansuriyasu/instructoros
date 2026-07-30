@@ -5,7 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImportExportClientPage } from './import-export-client-page';
 import { WorkspaceProfileSettings } from './workspace-profile-settings';
 import { StudentTagSettings } from './student-tag-settings';
-import { Database, Settings2 } from 'lucide-react';
+import { GoogleCalendarSettings } from './google-calendar-settings';
+import { CalendarDays, Database, Settings2 } from 'lucide-react';
 import { useSession } from '@/firebase';
 
 export function SettingsClientPage() {
@@ -13,10 +14,12 @@ export function SettingsClientPage() {
   const [tab, setTab] = useState('workspace');
   const canImportExport = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
   const canManageWorkspace = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
+  const canManageIntegrations = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
   const visibleTabs = useMemo(() => [
     { value: 'workspace', label: 'Workspace', icon: Settings2, visible: canManageWorkspace },
+    { value: 'integrations', label: 'Integrations', icon: CalendarDays, visible: canManageIntegrations },
     { value: 'import-export', label: 'Import / Export', icon: Database, visible: canImportExport },
-  ].filter(item => item.visible), [canImportExport, canManageWorkspace]);
+  ].filter(item => item.visible), [canImportExport, canManageIntegrations, canManageWorkspace]);
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
@@ -58,6 +61,9 @@ export function SettingsClientPage() {
         <div className="mt-6">
             <TabsContent value="workspace">
                 {canManageWorkspace ? <div className="space-y-5"><WorkspaceProfileSettings /><StudentTagSettings /></div> : null}
+            </TabsContent>
+            <TabsContent value="integrations">
+                {canManageIntegrations ? <GoogleCalendarSettings /> : null}
             </TabsContent>
             <TabsContent value="import-export">
                 {canImportExport ? <ImportExportClientPage /> : null}

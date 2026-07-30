@@ -133,7 +133,6 @@ export function ScheduleView() {
   const { services: allServices, loading: servicesLoading } = useServices();
   const {
     connect,
-    changeAccount,
     isConnected,
     isConfigured: isGoogleConfigured,
     connectionError: googleConnectionError,
@@ -1089,23 +1088,13 @@ export function ScheduleView() {
               >
                 {isSyncingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
               </Button>
-              {isConnected && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void changeAccount()}
-                  className="h-10 gap-2 rounded-full border-emerald-200 bg-emerald-50/70 px-3 text-xs font-semibold text-emerald-800 shadow-inner hover:bg-emerald-100"
-                  title={googleConnectedEmail ? `Connected to ${googleConnectedEmail}` : 'Change Google Calendar account'}
-                >
-                  <span className="hidden max-w-36 truncate sm:inline">{googleConnectedEmail || 'Google account'}</span>
-                  <span className="sm:hidden">Change</span>
-                </Button>
-              )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleOptimizeRoute}
-                className="h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 text-primary shadow-inner hover:bg-secondary hidden sm:flex"
+                aria-label="Optimize route timing"
+                title="Optimize route timing"
+                className="flex h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 text-primary shadow-inner hover:bg-secondary"
               >
                 <Sparkles className="h-4 w-4 text-purple-500" />
                 <span className="hidden md:inline">Optimize Timing</span>
