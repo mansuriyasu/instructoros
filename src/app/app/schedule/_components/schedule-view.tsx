@@ -132,13 +132,7 @@ export function ScheduleView() {
   const { payments, addPayment, updatePayment, getPaymentById, loading: paymentsLoading } = usePayments();
   const { services: allServices, loading: servicesLoading } = useServices();
   const {
-    connect,
-    changeAccount,
     isConnected,
-    isConfigured: isGoogleConfigured,
-    connectionError: googleConnectionError,
-    connectedEmail: googleConnectedEmail,
-    isClientLoaded,
     fetchEvents: fetchGEvents,
     createEvent: createGEvent,
     updateEvent: updateGEvent,
@@ -972,16 +966,6 @@ export function ScheduleView() {
     updateGEvent,
   ]);
 
-  const handleGoogleSync = async () => {
-    if (!isConnected) {
-      window.sessionStorage.setItem(PENDING_GOOGLE_SYNC_KEY, '1');
-      await connect();
-      return;
-    }
-
-    await syncGoogleEvents();
-  };
-
   useEffect(() => {
     if (!isConnected || isSyncingGoogle || isEventsLoading) return;
     if (window.sessionStorage.getItem(PENDING_GOOGLE_SYNC_KEY) !== '1') return;
@@ -1076,39 +1060,13 @@ export function ScheduleView() {
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <Button
                 variant="outline"
-                size="icon"
-                onClick={handleGoogleSync}
-                disabled={!isClientLoaded || isSyncingGoogle}
-                className={cn(
-                  "h-10 w-10 rounded-2xl shadow-inner",
-                  isConnected && "border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-                  isGoogleConfigured && !isConnected && "border-amber-500 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                )}
-                aria-label={isConnected ? "Sync Google Calendar" : "Connect Google Calendar"}
-                title={googleConnectionError || (isConnected ? "Sync Google Calendar" : "Connect your Google Calendar")}
-              >
-                {isSyncingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
-              </Button>
-              {isConnected && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void changeAccount()}
-                  className="h-10 gap-2 rounded-full border-emerald-200 bg-emerald-50/70 px-3 text-xs font-semibold text-emerald-800 shadow-inner hover:bg-emerald-100"
-                  title={googleConnectedEmail ? `Connected to ${googleConnectedEmail}` : 'Change Google Calendar account'}
-                >
-                  <span className="hidden max-w-36 truncate sm:inline">{googleConnectedEmail || 'Google account'}</span>
-                  <span className="sm:hidden">Change</span>
-                </Button>
-              )}
-              <Button
-                variant="outline"
                 size="sm"
                 onClick={handleOptimizeRoute}
-                className="h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 text-primary shadow-inner hover:bg-secondary hidden sm:flex"
+                className="h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 px-3 text-primary shadow-inner hover:bg-secondary"
               >
                 <Sparkles className="h-4 w-4 text-purple-500" />
-                <span className="hidden md:inline">Optimize Timing</span>
+                <span className="sm:hidden">Optimize</span>
+                <span className="hidden sm:inline">Optimize Timing</span>
               </Button>
               <Button
                 variant="outline"
@@ -1187,13 +1145,6 @@ export function ScheduleView() {
               ))}
             </div>
 
-            <div className="hidden text-right text-sm text-muted-foreground md:block">
-              {isConnected
-                ? googleConnectedEmail ? `Google: ${googleConnectedEmail}` : 'Google connected'
-                : isGoogleConfigured
-                  ? 'Connect your Google Calendar'
-                  : 'Google setup missing'}
-            </div>
           </div>
 
           <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden">

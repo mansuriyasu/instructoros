@@ -333,9 +333,9 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] p-4 md:p-8">
+    <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-[22px] border border-white/75 bg-card p-6 shadow-elevated sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0D1B2A] text-white">
               <Shield className="h-6 w-6" />
@@ -505,7 +505,7 @@ export default function AdminPage() {
 
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {(readiness?.items || []).map(item => (
-                <div key={item.key} className="rounded-xl border bg-white p-4">
+                <div key={item.key} className="rounded-2xl border border-white/75 bg-card p-4 shadow-elevated">
                   <div className="flex items-center gap-2">
                     {item.state === 'ready' ? (
                       <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -600,7 +600,7 @@ export default function AdminPage() {
             <div className="space-y-3">
               {promoCodesLoading && <p className="text-sm text-muted-foreground">Loading promo codes...</p>}
               {(promoCodes || []).map(promo => (
-                <div key={promo.id} className="flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div key={promo.id} className="flex flex-col gap-3 rounded-2xl border border-white/75 bg-card p-4 shadow-elevated sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-black">{promo.code}</p>
@@ -627,7 +627,7 @@ export default function AdminPage() {
           <CardContent className="space-y-3">
             {tenantsLoading && <p className="text-sm text-muted-foreground">Loading tenants...</p>}
             {(tenants || []).map(tenant => (
-              <div key={tenant.id} className="flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div key={tenant.id} className="flex flex-col gap-3 rounded-2xl border border-white/75 bg-card p-4 shadow-elevated sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
                     {tenant.type === 'school' ? <Building2 className="h-5 w-5" /> : <UserRound className="h-5 w-5" />}
@@ -681,7 +681,7 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {(users || []).map(profile => (
-              <div key={profile.uid} className="flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div key={profile.uid} className="flex flex-col gap-3 rounded-2xl border border-white/75 bg-card p-4 shadow-elevated sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-semibold">{profile.displayName || profile.email || 'Unnamed account'}</p>
                   <p className="text-xs text-muted-foreground">{profile.email} · {profile.uid}</p>

@@ -5,8 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImportExportClientPage } from './import-export-client-page';
 import { WorkspaceProfileSettings } from './workspace-profile-settings';
 import { StudentTagSettings } from './student-tag-settings';
-import { Database, Settings2 } from 'lucide-react';
+import { CalendarDays, Database, Settings2 } from 'lucide-react';
 import { useSession } from '@/firebase';
+import { GoogleCalendarSettings } from './google-calendar-settings';
 
 export function SettingsClientPage() {
   const { role } = useSession();
@@ -15,6 +16,7 @@ export function SettingsClientPage() {
   const canManageWorkspace = role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin';
   const visibleTabs = useMemo(() => [
     { value: 'workspace', label: 'Workspace', icon: Settings2, visible: canManageWorkspace },
+    { value: 'integrations', label: 'Integrations', icon: CalendarDays, visible: true },
     { value: 'import-export', label: 'Import / Export', icon: Database, visible: canImportExport },
   ].filter(item => item.visible), [canImportExport, canManageWorkspace]);
 
@@ -29,13 +31,13 @@ export function SettingsClientPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-card rounded-2xl p-8 border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="rounded-[22px] border border-white/75 bg-card p-5 shadow-elevated sm:p-7">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Settings & Data
+          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+            Settings
           </h1>
           <p className="text-muted-foreground mt-2 max-w-xl">
-            Manage your workspace details and securely back up or restore your data.
+            Manage your workspace, integrations, tags, and data tools from one place.
           </p>
         </div>
       </div>
@@ -47,9 +49,9 @@ export function SettingsClientPage() {
           </div>
         ) : (
         <>
-        <TabsList className="grid w-full max-w-2xl" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
+        <TabsList className="grid h-auto w-full max-w-3xl rounded-2xl bg-secondary/55 p-1 shadow-inner" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
           {visibleTabs.map(({ value, label, icon: Icon }) => (
-            <TabsTrigger key={value} value={value} className="flex items-center gap-2">
+            <TabsTrigger key={value} value={value} className="flex min-h-10 items-center justify-center gap-2 rounded-xl text-xs sm:text-sm">
               <Icon className="h-4 w-4" />
               <span>{label}</span>
             </TabsTrigger>
@@ -61,6 +63,9 @@ export function SettingsClientPage() {
             </TabsContent>
             <TabsContent value="import-export">
                 {canImportExport ? <ImportExportClientPage /> : null}
+            </TabsContent>
+            <TabsContent value="integrations">
+                <GoogleCalendarSettings />
             </TabsContent>
         </div>
         </>
