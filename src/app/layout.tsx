@@ -17,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="google-site-verification" content="dxxq5DGEPG_014JW_b6x-BUcippWf9BFu5Ktz3Q-97c" />
         <script src="https://accounts.google.com/gsi/client" async defer></script>
       </head>
       <body className={cn("font-body antialiased", "min-h-screen bg-background font-sans")} suppressHydrationWarning>
