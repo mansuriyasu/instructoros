@@ -7,6 +7,9 @@ import { FirebaseClientProvider } from '@/firebase';
 export const metadata: Metadata = {
   title: 'InstructorOS',
   description: 'A comprehensive app for driving instructors to manage students, payments, and schedules.',
+  verification: {
+    google: 'dxxq5DGEPG_014JW_b6x-BUcippWf9BFu5Ktz3Q-97c',
+  },
 };
 
 export default function RootLayout({
