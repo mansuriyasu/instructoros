@@ -30,9 +30,9 @@ export function WhatsAppLogsTable() {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-          <p className="text-lg font-medium text-muted-foreground">No WhatsApp activity found</p>
+          <p className="text-lg font-medium text-muted-foreground">No message activity found</p>
           <p className="text-sm text-muted-foreground mt-1">
-            WhatsApp messages opened from InstructorOS will appear here.
+            WhatsApp and SMS messages sent from InstructorOS will appear here.
           </p>
         </CardContent>
       </Card>
@@ -42,8 +42,8 @@ export function WhatsAppLogsTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>WhatsApp Activity</CardTitle>
-        <CardDescription>A log of WhatsApp messages opened from the app.</CardDescription>
+        <CardTitle>Message Activity</CardTitle>
+        <CardDescription>A log of WhatsApp messages opened and SMS messages sent from the app.</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[600px] rounded-md border">
@@ -79,10 +79,10 @@ export function WhatsAppLogsTable() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1.5 items-start">
-                      {log.channel === 'whatsapp' ? (
-                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
+                      {log.channel === 'sms' ? (
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">
                           <MessageCircle className="h-3 w-3 mr-1" />
-                          WhatsApp
+                          SMS
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">

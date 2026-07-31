@@ -378,7 +378,7 @@ export function EventDialog({
             {needsStudentPhone && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950 flex gap-2">
                 <p className="text-sm">
-                  <strong>Missing Phone Number:</strong> This student has no phone number on file. WhatsApp messages cannot be opened. You can update this in their profile.
+                    <strong>Missing Phone Number:</strong> This student has no phone number on file. SMS cannot be sent. You can update this in their profile.
                 </p>
               </div>
             )}
@@ -554,9 +554,9 @@ export function EventDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Open WhatsApp after saving</FormLabel>
+                    <FormLabel>Send SMS after saving</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Saves the schedule, then opens WhatsApp with a ready-to-send appointment message. It will not send automatically.
+                      Saves the schedule, then sends a ready-to-send appointment message by SMS.
                     </p>
                   </div>
                 </FormItem>

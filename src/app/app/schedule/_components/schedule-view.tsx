@@ -26,6 +26,7 @@ import { usePayments } from '@/hooks/use-payments';
 import { useServices } from '@/hooks/use-services';
 import { useStudents } from '@/hooks/use-students';
 import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
+import { useTwilioSms } from '@/hooks/use-twilio-sms';
 import { MonthView } from './month-view';
 import { WeekView } from './week-view';
 import { DayView } from './day-view';
@@ -141,6 +142,7 @@ export function ScheduleView() {
   } = useGoogleCalendar();
   const { toast } = useToast();
   const { sendAndLogWhatsApp } = useWhatsAppLogs();
+  const { sendSms: sendTwilioSms } = useTwilioSms();
 
   const membersQuery = useMemoFirebase(
     () => (firestore && activeTenantId && canManageTenant
@@ -838,23 +840,20 @@ export function ScheduleView() {
     if (!mobileNumber) return;
 
     const body = buildScheduleSmsMessage(eventData, isUpdate);
-    const result = await sendAndLogWhatsApp(mobileNumber, body, {
-      templateKey: 'schedule',
-      variables: buildScheduleWhatsappVariables(eventData, isUpdate),
-    });
-
-    if (!result.ok) {
+    try {
+      await sendTwilioSms(mobileNumber, body);
+    } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'WhatsApp not opened',
-        description: result.error || 'Could not open the schedule message.',
+        title: 'SMS not sent',
+        description: error instanceof Error ? error.message : 'Could not send the schedule message.',
       });
       return;
     }
 
     toast({
-      title: 'WhatsApp message opened',
-      description: `Schedule message is ready for ${eventData.studentName}.`,
+      title: 'SMS sent',
+      description: `Schedule message sent to ${eventData.studentName}.`,
     });
   };
 

@@ -263,6 +263,6 @@ export interface WhatsAppLog {
   to: string;
   body: string;
   status: 'sent' | 'error';
-  channel?: 'whatsapp';
+  channel?: 'whatsapp' | 'sms';
   errorMessage?: string;
 }

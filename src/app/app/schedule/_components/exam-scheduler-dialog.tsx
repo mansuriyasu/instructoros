@@ -573,7 +573,7 @@ export function ExamSchedulerDialog({
 
                 <label className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-3 text-sm">
                     <Checkbox checked={sendSms} onCheckedChange={checked => setSendSms(Boolean(checked))} />
-                    <span className="font-medium">Open WhatsApp schedule message after saving</span>
+                    <span className="font-medium">Send SMS schedule message after saving</span>
                 </label>
 
                 <div className="flex justify-end gap-2 pt-2">

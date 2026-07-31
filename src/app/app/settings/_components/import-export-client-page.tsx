@@ -73,7 +73,7 @@ const COLLECTIONS = [
   { name: 'payments', label: 'Payments & History', restorable: true },
   { name: 'services', label: 'Services', restorable: true },
   { name: 'serviceCategories', label: 'Service Categories', restorable: true },
-  { name: 'smsLogs', label: 'WhatsApp Logs', restorable: true },
+  { name: 'smsLogs', label: 'Message Logs', restorable: true },
   { name: 'finance_years', label: 'Finance Years', restorable: true },
   { name: 'finance_assets', label: 'Finance Assets', restorable: true },
   { name: 'finance_liabilities', label: 'Finance Liabilities', restorable: true },
@@ -579,7 +579,7 @@ export function ImportExportClientPage() {
           <CardHeader>
             <CardTitle>Complete Backup</CardTitle>
             <CardDescription>
-              Download one JSON file containing workspace profile, students, schedule, payments, services, WhatsApp logs, finance records, members, and invites where your role has access.
+              Download one JSON file containing workspace profile, students, schedule, payments, services, message logs, finance records, members, and invites where your role has access.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">

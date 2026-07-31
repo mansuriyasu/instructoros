@@ -35,6 +35,7 @@ import { useStorage } from '@/hooks/use-storage';
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LicenseImagePreviewDialog } from '@/app/app/_components/license-image-preview-dialog';
+import { useTwilioSms } from '@/hooks/use-twilio-sms';
 
 const studentSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -71,6 +72,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
   const { addStudent, updateStudent } = useStudents();
   const { user, isUserLoading } = useUser();
   const { tenant } = useSession();
+  const { sendSms: sendTwilioSms } = useTwilioSms();
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sendWelcomeSms, setSendWelcomeSms] = useState(false);
@@ -150,9 +152,16 @@ We look forward to helping you become a safe and confident driver!
 Thank you!
 ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor'}${tenant?.receiptWebsite ? `\n🌐 ${tenant.receiptWebsite}` : ''}`;
 
-    const cleanedNumber = mobileNumber.replace(/\D/g, '');
-    const url = `https://api.whatsapp.com/send?phone=1${cleanedNumber}&text=${encodeURIComponent(body)}`;
-    window.open(url, '_blank');
+    try {
+      await sendTwilioSms(mobileNumber, body);
+      toast({ title: 'Welcome SMS sent', description: `Welcome message sent to ${studentName}.` });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Welcome SMS not sent',
+        description: error instanceof Error ? error.message : 'Could not send the welcome message.',
+      });
+    }
   };
 
   const handleViewSavedLicense = () => {
@@ -528,10 +537,10 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
                             />
                             <div className="space-y-1 leading-none">
                               <label htmlFor="sendWelcomeSms" className="text-sm font-medium leading-none cursor-pointer">
-                                Open WhatsApp welcome message
+                                Send SMS welcome message
                               </label>
                               <p className="text-sm text-muted-foreground">
-                                Opens WhatsApp with a ready welcome message after saving.
+                                Sends a ready welcome message after saving.
                               </p>
                             </div>
                           </div>
