@@ -24,9 +24,17 @@ export async function createEnhancedFaceThumbnail(licenseFile: string, faceBound
 
     if (!metadata.width || !metadata.height) return '';
 
-    const [ymin, xmin, ymax, xmax] = faceBoundingBox.map(value =>
-      Math.max(0, Math.min(1000, Number(value) || 0))
+    const rawBox = faceBoundingBox.map(value => Number(value));
+    if (rawBox.some(value => !Number.isFinite(value))) return '';
+
+    // Vision models occasionally return normalized 0-1 coordinates even when
+    // the prompt requests the 0-1000 format.
+    const coordinateScale = rawBox.every(value => Math.abs(value) <= 1) ? 1000 : 1;
+    const [ymin, xmin, ymax, xmax] = rawBox.map(value =>
+      Math.max(0, Math.min(1000, value * coordinateScale))
     );
+
+    if (ymax <= ymin || xmax <= xmin) return '';
 
     const left = Math.floor((xmin / 1000) * metadata.width);
     const top = Math.floor((ymin / 1000) * metadata.height);

@@ -332,10 +332,11 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
                 accept="image/*,.heic,.heif,.pdf,application/pdf"
               />
               {scannedAvatarUrl && (
-                <div className="mb-2 flex justify-end">
+                <div className="mb-2 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
+                  <span>Profile photo from licence</span>
                   <img
                     src={scannedAvatarUrl}
-                    alt="Student face thumbnail"
+                    alt="Profile photo extracted from the student licence"
                     className="h-12 w-12 rounded-full border object-cover shadow-sm"
                   />
                 </div>
