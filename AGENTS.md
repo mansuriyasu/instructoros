@@ -42,7 +42,6 @@ Build warnings from Genkit/OpenTelemetry and the Firebase config fallback have b
 - Payments/POS: `src/app/(dashboard)/payments`
 - Payment history: `src/app/(dashboard)/payments/history`
 - Expenses: `src/app/(dashboard)/expenses`
-- iPhone license shortcut endpoint: `src/app/api/shortcuts/license-scan/route.ts`
 
 ## Product Preferences
 

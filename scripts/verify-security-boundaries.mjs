@@ -20,10 +20,6 @@ assert.match(deletion, /targetUid !== decoded\.uid && !isMainAdmin/);
 assert.match(deletion, /ownerUid === targetUid/);
 assert.match(deletion, /where\('ownerUid', '==', targetUid\)/);
 
-const shortcut = read('src/app/api/shortcuts/license-scan/route.ts');
-assert.match(shortcut, /SHORTCUT_TENANT_ID/);
-assert.match(shortcut, /tenantId !== configuredTenantId/);
-
 const inviteRoute = read('src/app/api/team/invites/route.ts');
 assert.match(inviteRoute, /seatLimit/);
 assert.match(inviteRoute, /membersSnap\.size \+ pendingInvites\.length >= seatLimit/);

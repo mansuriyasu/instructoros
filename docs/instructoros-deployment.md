@@ -53,7 +53,6 @@ Create fresh values for this project. Do not reuse production secrets from the o
 
 ```bash
 GEMINI_API_KEY=
-SHORTCUT_SECRET=
 GOOGLE_CALENDAR_SETUP_SECRET=
 GOOGLE_CALENDAR_STATE_SECRET=
 GOOGLE_CALENDAR_CLIENT_ID=
