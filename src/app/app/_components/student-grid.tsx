@@ -15,6 +15,16 @@ import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
 import { DuplicateMergeDialog } from './duplicate-merge-dialog';
 import { GitMerge } from 'lucide-react';
 import { useSession } from '@/firebase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export type StudentStatusFilter = StudentStatus | 'all' | 'current';
 
@@ -30,6 +40,9 @@ export function StudentGrid() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isDuplicateMergeOpen, setIsDuplicateMergeOpen] = useState(false);
+  const [studentPendingDelete, setStudentPendingDelete] = useState<Student | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const duplicateGroups = useMemo(() => {
     const groups = new Map<string, Student[]>();
@@ -102,11 +115,30 @@ export function StudentGrid() {
     }
   };
   
-  const handleDelete = async (studentId: string) => {
-    await deleteStudent(studentId);
+  const requestDelete = (studentId: string) => {
+    const student = students?.find(item => item.id === studentId);
+    if (!student) return;
+
     setSelectedStudent(null);
     setIsDetailsOpen(false);
-    router.refresh();
+    setStudentPendingDelete(student);
+    // Let the detail dialog and its dropdown finish closing before opening
+    // the separate confirmation dialog. This prevents competing focus locks.
+    window.setTimeout(() => setIsDeleteConfirmOpen(true), 0);
+  };
+
+  const handleDelete = async () => {
+    if (!studentPendingDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteStudent(studentPendingDelete.id);
+      setIsDeleteConfirmOpen(false);
+      setStudentPendingDelete(null);
+      router.refresh();
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -178,7 +210,7 @@ export function StudentGrid() {
         onOpenChange={setIsDetailsOpen}
         student={selectedStudent}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onDelete={requestDelete}
         onStatusChange={handleStatusChange}
       />
       <DuplicateMergeDialog
@@ -192,6 +224,42 @@ export function StudentGrid() {
           })));
         }}
       />
+      <AlertDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) {
+            setIsDeleteConfirmOpen(open);
+            if (!open) setStudentPendingDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this student?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {studentPendingDelete?.name || 'this student'} and all associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting} className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={async (event) => {
+                event.preventDefault();
+                try {
+                  await handleDelete();
+                } catch {
+                  setIsDeleteConfirmOpen(false);
+                  setStudentPendingDelete(null);
+                }
+              }}
+              className="rounded-full bg-red-600 text-white shadow-md hover:bg-red-700"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

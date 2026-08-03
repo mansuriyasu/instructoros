@@ -44,10 +44,10 @@ export async function createEnhancedFaceThumbnail(licenseFile: string, faceBound
     if (width <= 1 || height <= 1) return '';
 
     const centerX = left + width / 2;
-    const centerY = top + height / 2;
+    const centerY = top + height * 0.46;
     // Keep only a small margin around the head so the saved avatar is a
     // recognizable face thumbnail instead of a tiny licence portrait.
-    const squareSize = Math.max(width * 1.25, height * 1.35, 96);
+    const squareSize = Math.max(width * 1.08, height * 1.18, 72);
     const extractLeft = Math.max(0, Math.floor(centerX - squareSize / 2));
     const extractTop = Math.max(0, Math.floor(centerY - squareSize / 2));
     const extractSize = Math.floor(

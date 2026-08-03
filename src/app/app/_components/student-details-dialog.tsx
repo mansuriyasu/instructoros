@@ -37,7 +37,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
   } from "@/components/ui/alert-dialog"
 import { useRouter } from 'next/navigation';
 import { useStudents } from '@/hooks/use-students';
@@ -62,7 +61,7 @@ interface StudentDetailsDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   student: Student | null;
   onEdit: (student: Student) => void;
-  onDelete: (studentId: string) => Promise<void>;
+  onDelete: (studentId: string) => void;
   onStatusChange: (studentId: string, status: StudentStatus) => void;
 }
 
@@ -101,7 +100,6 @@ export function StudentDetailsDialog({
   const [newNote, setNewNote] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isAddressNavigationOpen, setIsAddressNavigationOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const profileScanInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -197,10 +195,6 @@ export function StudentDetailsDialog({
     setIsEditMode(true);
   };
   
-  const handleDelete = async () => {
-    await onDelete(student.id);
-  };
-
   const handleOpenMerge = () => {
     setMergeStudentId(mergeCandidates[0]?.id || '');
     setIsMergeOpen(true);
@@ -553,7 +547,7 @@ export function StudentDetailsDialog({
                     <GitMerge className="mr-2 h-4 w-4" />
                     <span className="font-medium">Merge Duplicate</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setIsDeleteOpen(true)} className="mt-1 rounded-md text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-red-500 dark:focus:bg-red-950/50">
+                  <DropdownMenuItem onSelect={() => onDelete(student.id)} className="mt-1 rounded-md text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-red-500 dark:focus:bg-red-950/50">
                     <Trash2 className="mr-2 h-4 w-4" />
                     <span className="font-medium">Delete Student</span>
                   </DropdownMenuItem>
@@ -1117,38 +1111,6 @@ export function StudentDetailsDialog({
         </div>
       </SheetContent>
     </Sheet>
-    <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-      <AlertDialogContent className="rounded-2xl">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete this student?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will permanently delete {student.name} and all associated data. This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={async (event) => {
-              event.preventDefault();
-              try {
-                await handleDelete();
-                setIsDeleteOpen(false);
-                onOpenChange(false);
-              } catch {
-                toast({
-                  variant: 'destructive',
-                  title: 'Could not delete student',
-                  description: 'The student was not deleted. Please try again.',
-                });
-              }
-            }}
-            className="rounded-full bg-red-600 text-white shadow-md hover:bg-red-700"
-          >
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
     </>
   );
 }
