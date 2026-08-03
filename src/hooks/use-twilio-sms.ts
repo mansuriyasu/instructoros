@@ -27,11 +27,13 @@ export function useTwilioSms() {
         headers: { 'Content-Type': 'application/json', ...await getAuthenticatedHeaders() },
         body: JSON.stringify({ to, body }),
       });
-      const data = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; sid?: string };
+      const data = await response.json().catch(() => ({})) as { ok?: boolean; error?: string; code?: number | string; sid?: string };
       if (!response.ok || !data.ok) {
-        log({ to, body, status: 'error', channel: 'sms', errorMessage: data.error || 'Could not send SMS.', date: new Date().toISOString() });
+        const message = data.error || 'Could not send SMS.';
+        const errorMessage = data.code ? `${message} (Twilio code ${data.code})` : message;
+        log({ to, body, status: 'error', channel: 'sms', errorMessage, date: new Date().toISOString() });
         failureLogged = true;
-        throw new Error(data.error || 'Could not send SMS.');
+        throw new Error(errorMessage);
       }
       log({ to, body, status: 'sent', channel: 'sms', date: new Date().toISOString() });
       return data;

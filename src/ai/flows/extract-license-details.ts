@@ -43,7 +43,7 @@ export async function extractLicenseDetails(
         text: `You are an expert at extracting information from driver's licenses and screenshots. 
                Extract the name, address, birthdate (in YYYYMMDD format), license number, and expiry date (in YYYYMMDD format) from the provided image.
                The image might be a driver's license, a text screenshot, or any other document containing student details. Extract whatever fields you can find and leave missing ones blank.
-               Also, if there is a clear face photo of the person in the licence image, provide a tight bounding box around the actual face photo in [ymin, xmin, ymax, xmax] format scaled from 0 to 1000. Prefer the printed licence portrait, not the whole card or document.`,
+               Also, if there is a clear face photo of the person in the licence image, provide a tight bounding box around the person's head and face inside the printed licence portrait in [ymin, xmin, ymax, xmax] format scaled from 0 to 1000. Exclude the licence card, text, and most shoulders; include only a small margin around the head. Prefer the printed licence portrait, not the whole card or document.`,
       },
       { media: { url: photoDataUri } },
     ],

@@ -154,6 +154,9 @@ async function getReadinessItems(): Promise<ReadinessItem[]> {
   const hasGoogleCalendar = hasEnv('GOOGLE_CALENDAR_CLIENT_ID')
     && hasEnv('GOOGLE_CALENDAR_CLIENT_SECRET')
     && hasEnv('GOOGLE_CALENDAR_STATE_SECRET');
+  const hasTwilioSms = hasEnv('TWILIO_ACCOUNT_SID')
+    && hasEnv('TWILIO_AUTH_TOKEN')
+    && (hasEnv('TWILIO_MESSAGING_SERVICE_SID') || hasEnv('TWILIO_FROM_NUMBER'));
   const [emailPasswordCheck, googleCheck] = await Promise.all([
     checkEmailPasswordAuthProvider(),
     checkFederatedFirebaseAuthProvider('google.com', 'Google sign-in'),
@@ -215,6 +218,13 @@ async function getReadinessItems(): Promise<ReadinessItem[]> {
       state: 'ready',
       detail: 'WhatsApp messages open in the user’s WhatsApp app. No messaging provider setup is required.',
     },
+    item(
+      'twilio-sms',
+      'Twilio SMS',
+      hasTwilioSms,
+      'Twilio SMS is configured on the server using a Messaging Service or sender number.',
+      'Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and either TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER to the server environment.'
+    ),
     item(
       'gemini',
       'Gemini AI',

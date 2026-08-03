@@ -62,7 +62,7 @@ interface StudentDetailsDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   student: Student | null;
   onEdit: (student: Student) => void;
-  onDelete: (studentId: string) => void;
+  onDelete: (studentId: string) => Promise<void>;
   onStatusChange: (studentId: string, status: StudentStatus) => void;
 }
 
@@ -197,9 +197,9 @@ export function StudentDetailsDialog({
     setIsEditMode(true);
   };
   
-  const handleDelete = () => {
-      onDelete(student.id);
-  }
+  const handleDelete = async () => {
+    await onDelete(student.id);
+  };
 
   const handleOpenMerge = () => {
     setMergeStudentId(mergeCandidates[0]?.id || '');
@@ -1128,10 +1128,19 @@ export function StudentDetailsDialog({
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={async () => {
-              setIsDeleteOpen(false);
-              onOpenChange(false);
-              await handleDelete();
+            onClick={async (event) => {
+              event.preventDefault();
+              try {
+                await handleDelete();
+                setIsDeleteOpen(false);
+                onOpenChange(false);
+              } catch {
+                toast({
+                  variant: 'destructive',
+                  title: 'Could not delete student',
+                  description: 'The student was not deleted. Please try again.',
+                });
+              }
             }}
             className="rounded-full bg-red-600 text-white shadow-md hover:bg-red-700"
           >
