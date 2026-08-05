@@ -28,6 +28,12 @@ import {
 
 export type StudentStatusFilter = StudentStatus | 'all' | 'current';
 
+type StudentRecord = Student & { mergedIntoStudentId?: string; mergedAt?: string };
+
+function isMergedAuditRecord(student: Student) {
+  return Boolean((student as StudentRecord).mergedIntoStudentId);
+}
+
 export function StudentGrid() {
   const { students, loading, updateStudent, deleteStudent, mergeStudentGroups } = useStudents();
   const { canManageTenant } = useSession();
@@ -47,7 +53,7 @@ export function StudentGrid() {
   const duplicateGroups = useMemo(() => {
     const groups = new Map<string, Student[]>();
     (students || []).forEach(student => {
-      if ((student as Student & { mergedIntoStudentId?: string }).mergedIntoStudentId) return;
+      if (isMergedAuditRecord(student)) return;
       const name = (student.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
       if (!name) return;
       const key = name;
@@ -57,7 +63,7 @@ export function StudentGrid() {
   }, [students]);
 
   const filteredStudents = useMemo(() => {
-    let studentList = students || [];
+    let studentList = (students || []).filter(student => !isMergedAuditRecord(student));
     if (searchTerm.trim() !== '') {
         return studentList.filter(student => 
             (student.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -79,7 +85,7 @@ export function StudentGrid() {
 
   const availableTags = useMemo(() => {
     return Array.from(
-      new Set((students || []).flatMap(student => Array.isArray(student.tags) ? student.tags.filter(t => t && typeof t === 'string') : []))
+      new Set((students || []).filter(student => !isMergedAuditRecord(student)).flatMap(student => Array.isArray(student.tags) ? student.tags.filter(t => t && typeof t === 'string') : []))
     ).sort((a, b) => a.localeCompare(b));
   }, [students]);
 
