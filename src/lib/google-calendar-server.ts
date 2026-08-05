@@ -455,17 +455,32 @@ async function googleCalendarDelete(path: string, config = getGoogleCalendarConf
   }
 }
 
-export async function fetchGoogleCalendarEvents(config?: CalendarConfig) {
-  const timeMin = new Date();
-  timeMin.setMonth(timeMin.getMonth() - 1);
+export async function fetchGoogleCalendarEvents(
+  config?: CalendarConfig,
+  range?: { timeMin?: Date; timeMax?: Date },
+) {
+  const defaultTimeMin = new Date();
+  defaultTimeMin.setMonth(defaultTimeMin.getMonth() - 1);
   const params = new URLSearchParams({
-    timeMin: timeMin.toISOString(),
+    timeMin: (range?.timeMin || defaultTimeMin).toISOString(),
     singleEvents: 'true',
     orderBy: 'startTime',
+    maxResults: '2500',
   });
+  if (range?.timeMax) params.set('timeMax', range.timeMax.toISOString());
 
-  const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[] }>(`/events?${params.toString()}`, {}, config);
-  return data.items || [];
+  const items: GoogleCalendarEvent[] = [];
+  let pageToken: string | undefined;
+  let pageCount = 0;
+  do {
+    if (pageToken) params.set('pageToken', pageToken);
+    const data = await googleCalendarRequest<{ items?: GoogleCalendarEvent[]; nextPageToken?: string }>(`/events?${params.toString()}`, {}, config);
+    items.push(...(data.items || []));
+    pageToken = data.nextPageToken;
+    pageCount += 1;
+  } while (pageToken && pageCount < 10);
+
+  return items;
 }
 
 function dateTimeMinute(value?: string) {
@@ -587,6 +602,38 @@ export async function syncGoogleCalendarEvents(
   const calendarConfig = config || getGoogleCalendarConfig();
   await getAccessToken(calendarConfig);
 
+  const entriesWithoutIds = entries.filter(entry => !entry.googleEventId);
+  let existingGoogleEvents: GoogleCalendarEvent[] = [];
+  if (entriesWithoutIds.length > 0) {
+    const timestamps = entriesWithoutIds.flatMap(entry => [entry.event.start?.dateTime, entry.event.end?.dateTime])
+      .map(value => value ? new Date(value).getTime() : Number.NaN)
+      .filter(value => Number.isFinite(value));
+    const timeMin = timestamps.length ? new Date(Math.min(...timestamps) - 24 * 60 * 60 * 1000) : undefined;
+    const timeMax = timestamps.length ? new Date(Math.max(...timestamps) + 24 * 60 * 60 * 1000) : undefined;
+    existingGoogleEvents = await fetchGoogleCalendarEvents(calendarConfig, { timeMin, timeMax });
+  }
+
+  const existingBySparkonId = new Map<string, string>();
+  for (const event of existingGoogleEvents) {
+    const localId = event.extendedProperties?.private?.[SPARKON_EVENT_ID_PROPERTY];
+    if (localId && event.id && isActiveGoogleEvent(event)) existingBySparkonId.set(localId, event.id);
+  }
+  const claimedGoogleEventIds = new Set<string>();
+
+  const findExistingEventId = (entry: GoogleCalendarSyncEntry) => {
+    const markedId = existingBySparkonId.get(entry.localId);
+    if (markedId && !claimedGoogleEventIds.has(markedId)) return markedId;
+
+    const fallbackEvent = entry.event;
+    const fallbackId = existingGoogleEvents.find(event => (
+      event.id
+      && !claimedGoogleEventIds.has(event.id)
+      && isSparkonGeneratedEvent(event)
+      && googleEventMatchesFallback(event, fallbackEvent)
+    ))?.id;
+    return fallbackId || null;
+  };
+
   const results: GoogleCalendarSyncResult[] = [];
   let nextIndex = 0;
   const workerCount = Math.min(4, Math.max(entries.length, 1));
@@ -608,9 +655,10 @@ export async function syncGoogleCalendarEvents(
     }
 
     if (!googleEventId) {
-      const matchedGoogleEventId = await findGoogleCalendarEvent(entry.localId, entry.event, calendarConfig);
+      const matchedGoogleEventId = findExistingEventId(entry);
       if (matchedGoogleEventId) {
         googleEventId = matchedGoogleEventId;
+        claimedGoogleEventIds.add(googleEventId);
         await updateGoogleCalendarEvent(googleEventId, entry.event, calendarConfig);
       } else {
         googleEventId = await createGoogleCalendarEvent(entry.event, calendarConfig);
