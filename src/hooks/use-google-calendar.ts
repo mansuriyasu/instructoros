@@ -106,9 +106,9 @@ export function useGoogleCalendar() {
     void refreshStatus();
   }, [refreshStatus]);
 
-  const serverRequest = async <T,>(body: Record<string, unknown>) => {
+  const serverRequest = async <T,>(body: Record<string, unknown>, requestTimeoutMs = GOOGLE_CALENDAR_TIMEOUT_MS) => {
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), GOOGLE_CALENDAR_TIMEOUT_MS);
+    const timeoutId = window.setTimeout(() => controller.abort(), requestTimeoutMs);
 
     try {
       const response = await fetch(GOOGLE_CALENDAR_API, {
@@ -326,7 +326,7 @@ export function useGoogleCalendar() {
         created?: number;
         updated?: number;
         failed?: number;
-      }>({ action: 'sync', entries });
+      }>({ action: 'sync', entries }, 90000);
       setConnectionError(null);
       return {
         results: data.results || [],

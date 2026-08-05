@@ -603,24 +603,27 @@ export async function syncGoogleCalendarEvents(
   await getAccessToken(calendarConfig);
 
   const entriesWithoutIds = entries.filter(entry => !entry.googleEventId);
-  let existingGoogleEvents: GoogleCalendarEvent[] = [];
-  if (entriesWithoutIds.length > 0) {
-    const timestamps = entriesWithoutIds.flatMap(entry => [entry.event.start?.dateTime, entry.event.end?.dateTime])
-      .map(value => value ? new Date(value).getTime() : Number.NaN)
-      .filter(value => Number.isFinite(value));
-    const timeMin = timestamps.length ? new Date(Math.min(...timestamps) - 24 * 60 * 60 * 1000) : undefined;
-    const timeMax = timestamps.length ? new Date(Math.max(...timestamps) + 24 * 60 * 60 * 1000) : undefined;
-    existingGoogleEvents = await fetchGoogleCalendarEvents(calendarConfig, { timeMin, timeMax });
-  }
+  const existingGoogleEventsPromise: Promise<GoogleCalendarEvent[] | null> = entriesWithoutIds.length > 0
+    ? (async () => {
+      const timestamps = entriesWithoutIds.flatMap(entry => [entry.event.start?.dateTime, entry.event.end?.dateTime])
+        .map(value => value ? new Date(value).getTime() : Number.NaN)
+        .filter(value => Number.isFinite(value));
+      const timeMin = timestamps.length ? new Date(Math.min(...timestamps) - 24 * 60 * 60 * 1000) : undefined;
+      const timeMax = timestamps.length ? new Date(Math.max(...timestamps) + 24 * 60 * 60 * 1000) : undefined;
+      const lookup = fetchGoogleCalendarEvents(calendarConfig, { timeMin, timeMax });
+      const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 5000));
+      return Promise.race([lookup, timeout]);
+    })()
+    : Promise.resolve([]);
 
-  const existingBySparkonId = new Map<string, string>();
-  for (const event of existingGoogleEvents) {
-    const localId = event.extendedProperties?.private?.[SPARKON_EVENT_ID_PROPERTY];
-    if (localId && event.id && isActiveGoogleEvent(event)) existingBySparkonId.set(localId, event.id);
-  }
   const claimedGoogleEventIds = new Set<string>();
 
-  const findExistingEventId = (entry: GoogleCalendarSyncEntry) => {
+  const findExistingEventId = (entry: GoogleCalendarSyncEntry, existingGoogleEvents: GoogleCalendarEvent[]) => {
+    const existingBySparkonId = new Map<string, string>();
+    for (const event of existingGoogleEvents) {
+      const localId = event.extendedProperties?.private?.[SPARKON_EVENT_ID_PROPERTY];
+      if (localId && event.id && isActiveGoogleEvent(event)) existingBySparkonId.set(localId, event.id);
+    }
     const markedId = existingBySparkonId.get(entry.localId);
     if (markedId && !claimedGoogleEventIds.has(markedId)) return markedId;
 
@@ -640,6 +643,7 @@ export async function syncGoogleCalendarEvents(
 
   const syncEntry = async (entry: GoogleCalendarSyncEntry) => {
     let googleEventId = entry.googleEventId;
+    const hadKnownGoogleEventId = Boolean(googleEventId);
     let action: 'created' | 'updated' = 'updated';
 
     if (googleEventId) {
@@ -655,7 +659,12 @@ export async function syncGoogleCalendarEvents(
     }
 
     if (!googleEventId) {
-      const matchedGoogleEventId = findExistingEventId(entry);
+      const existingGoogleEvents = await existingGoogleEventsPromise;
+      if (!existingGoogleEvents && !hadKnownGoogleEventId) {
+        throw new Error('Google Calendar lookup timed out; no duplicate event was created. Try sync again later.');
+      }
+
+      const matchedGoogleEventId = findExistingEventId(entry, existingGoogleEvents || []);
       if (matchedGoogleEventId) {
         googleEventId = matchedGoogleEventId;
         claimedGoogleEventIds.add(googleEventId);
