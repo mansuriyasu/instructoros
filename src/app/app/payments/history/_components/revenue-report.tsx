@@ -8,7 +8,7 @@ import { Payment } from '@/lib/types';
 import { eachDayOfInterval, eachMonthOfInterval, endOfDay, endOfMonth, format, startOfDay, startOfMonth } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
-import { getCollectedAmount, getEffectivePaymentStatus, getOutstandingAmount, isAdvanceCreditPayment } from '@/lib/payment-utils';
+import { getCollectedAmount, getEffectivePaymentStatus, isAdvanceCreditPayment } from '@/lib/payment-utils';
 
 interface RevenueReportProps {
   payments: Payment[];
@@ -60,21 +60,22 @@ export function RevenueReport({ payments, statusFilter, dateRange }: RevenueRepo
           : interval === 'month'
             ? format(date, 'yyyy-MM')
             : format(date, 'yyyy');
-        if (!acc[unit]) acc[unit] = { collected: 0, due: 0 };
-        acc[unit].collected += getCollectedAmount(payment);
-        acc[unit].due += getOutstandingAmount(payment);
+        if (!acc[unit]) acc[unit] = { profit: 0, cost: 0 };
+        const cost = Number.isFinite(payment.totalCost) ? payment.totalCost : 0;
+        acc[unit].cost += cost;
+        acc[unit].profit += getCollectedAmount(payment) - cost;
         return acc;
-      }, {} as Record<string, { collected: number; due: number }>);
+      }, {} as Record<string, { profit: number; cost: number }>);
 
     if (interval === 'day') {
       eachDayOfInterval({ start: chartRange.from, end: chartRange.to }).forEach(day => {
         const key = format(day, 'yyyy-MM-dd');
-        if (!dataByUnit[key]) dataByUnit[key] = { collected: 0, due: 0 };
+        if (!dataByUnit[key]) dataByUnit[key] = { profit: 0, cost: 0 };
       });
     } else if (interval === 'month') {
       eachMonthOfInterval({ start: chartRange.from, end: chartRange.to }).forEach(month => {
         const key = format(month, 'yyyy-MM');
-        if (!dataByUnit[key]) dataByUnit[key] = { collected: 0, due: 0 };
+        if (!dataByUnit[key]) dataByUnit[key] = { profit: 0, cost: 0 };
       });
     }
 
@@ -95,15 +96,15 @@ export function RevenueReport({ payments, statusFilter, dateRange }: RevenueRepo
   }, [chartRange, filteredPayments]);
 
   const chartConfig = {
-    collected: { label: 'Collected', color: 'hsl(var(--chart-1))' },
-    due: { label: 'Outstanding', color: 'hsl(var(--chart-4))' },
+    profit: { label: 'Net profit', color: 'hsl(var(--chart-1))' },
+    cost: { label: 'Recorded costs', color: 'hsl(var(--chart-4))' },
   };
 
   return (
     <Card className="overflow-hidden">
       <CardHeader className="border-b bg-muted/10 pb-4">
-        <CardTitle>Collection trend</CardTitle>
-        <p className="text-sm text-muted-foreground">Compare money collected with balances still outstanding.</p>
+        <CardTitle>Profit trend</CardTitle>
+        <p className="text-sm text-muted-foreground">Compare net profit with recorded bill costs over time.</p>
       </CardHeader>
       <CardContent className="p-4 pt-6 sm:p-6">
         {chartData.length === 0 ? (
@@ -137,8 +138,8 @@ export function RevenueReport({ payments, statusFilter, dateRange }: RevenueRepo
                   content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value) || 0)} />}
                 />
                 <Legend verticalAlign="top" align="left" height={34} content={<ChartLegendContent />} />
-                <Bar dataKey="collected" fill="var(--color-collected)" radius={[5, 5, 0, 0]} maxBarSize={28} />
-                <Bar dataKey="due" fill="var(--color-due)" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="profit" fill="var(--color-profit)" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="cost" fill="var(--color-cost)" radius={[5, 5, 0, 0]} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>

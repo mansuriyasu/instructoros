@@ -14,7 +14,7 @@ import { PaymentDetailsDialog } from './payment-details-dialog';
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { DateRangePicker } from './date-range-picker';
 import { formatCurrency } from '@/lib/utils';
-import { AlertTriangle, ArrowRight, Banknote, CircleDollarSign, CreditCard, Eye, EyeOff, FileText, PiggyBank, ReceiptText, WalletCards } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CircleDollarSign, CreditCard, Eye, EyeOff, FileText, PiggyBank, ReceiptText, WalletCards } from 'lucide-react';
 import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, getCollectedAmount, getOutstandingAmount, isAdvanceCreditPayment } from '@/lib/payment-utils';
 import { Button } from '@/components/ui/button';
 import { endOfDay, startOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -84,12 +84,14 @@ export function PaymentHistoryClientPage() {
 
     return {
       collected,
+      cost,
       outstanding,
       billCount: billPayments.length,
       dueCount: duePayments.length,
       partialCount: partialPayments.length,
       averagePayment: paymentCount > 0 ? collected / paymentCount : 0,
       netAfterCost: collected - cost,
+      profitMargin: collected > 0 ? ((collected - cost) / collected) * 100 : 0,
       methodAmounts: Object.fromEntries(
         Object.entries(methodAmounts).map(([method, amount]) => [method, Math.max(0, amount)])
       ) as typeof methodAmounts,
@@ -225,11 +227,11 @@ export function PaymentHistoryClientPage() {
         <Card className="rounded-lg">
           <CardContent className="p-4">
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
-              <CircleDollarSign className="h-4 w-4" />
+              <PiggyBank className="h-4 w-4" />
             </div>
-            <p className="text-xs text-muted-foreground">Collected</p>
-            <p className="mt-1 text-xl font-semibold">{renderAmount(paymentSummary.collected)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Selected period</p>
+            <p className="text-xs text-muted-foreground">Net profit</p>
+            <p className="mt-1 text-xl font-semibold">{renderAmount(paymentSummary.netAfterCost)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">After recorded bill costs</p>
           </CardContent>
         </Card>
         <Card className="rounded-lg">
@@ -267,9 +269,9 @@ export function PaymentHistoryClientPage() {
         <Card className="rounded-lg">
           <CardContent className="flex items-center justify-between gap-3 p-4">
             <div>
-              <p className="text-xs text-muted-foreground">Average payment</p>
-              <p className="mt-1 text-lg font-semibold">{renderAmount(paymentSummary.averagePayment)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Paid bills in selected period</p>
+              <p className="text-xs text-muted-foreground">Recorded costs</p>
+              <p className="mt-1 text-lg font-semibold">{renderAmount(paymentSummary.cost)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Selected period</p>
             </div>
             <ReceiptText className="h-5 w-5 text-muted-foreground" />
           </CardContent>
@@ -277,9 +279,9 @@ export function PaymentHistoryClientPage() {
         <Card className="rounded-lg">
           <CardContent className="flex items-center justify-between gap-3 p-4">
             <div>
-              <p className="text-xs text-muted-foreground">Net after costs</p>
-              <p className="mt-1 text-lg font-semibold">{renderAmount(paymentSummary.netAfterCost)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Collected minus recorded costs</p>
+              <p className="text-xs text-muted-foreground">Profit margin</p>
+              <p className="mt-1 text-lg font-semibold">{paymentSummary.collected > 0 ? `${paymentSummary.profitMargin.toFixed(1)}%` : '—'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">After recorded bill costs</p>
             </div>
             <PiggyBank className="h-5 w-5 text-muted-foreground" />
           </CardContent>
@@ -315,32 +317,20 @@ export function PaymentHistoryClientPage() {
           <CardContent className="p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-semibold">Payment mix</h2>
-                <p className="text-sm text-muted-foreground">Recorded money by payment method.</p>
+                <h2 className="font-semibold">Profit breakdown</h2>
+                <p className="text-sm text-muted-foreground">How the selected period contributes to profit.</p>
               </div>
-              <Banknote className="h-5 w-5 text-emerald-600" />
+              <CircleDollarSign className="h-5 w-5 text-emerald-600" />
             </div>
             <div className="space-y-3">
-              {([
-                ['Cash', paymentSummary.methodAmounts.Cash, 'bg-emerald-500'],
-                ['E-Transfer', paymentSummary.methodAmounts['E-Transfer'], 'bg-sky-500'],
-                ['Other', paymentSummary.methodAmounts.Other, 'bg-slate-500'],
-                ['Advance', paymentSummary.methodAmounts.Advance, 'bg-amber-500'],
-              ] as const).map(([label, amount, color]) => {
-                const methodTotal = Object.values(paymentSummary.methodAmounts).reduce((sum, value) => sum + value, 0);
-                const percentage = methodTotal > 0 ? Math.min(100, (amount / methodTotal) * 100) : 0;
-                return (
-                  <div key={label}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span>{label}</span>
-                      <span className="font-medium">{renderAmount(amount)}</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div className={`h-full rounded-full ${color}`} style={{ width: `${percentage}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="flex items-center justify-between rounded-lg border bg-background p-3 text-sm">
+                <span>Recorded costs</span>
+                <span className="font-semibold">{renderAmount(paymentSummary.cost)}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border bg-emerald-50 p-3 text-sm text-emerald-900">
+                <span>Net profit</span>
+                <span className="font-semibold">{renderAmount(paymentSummary.netAfterCost)}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
