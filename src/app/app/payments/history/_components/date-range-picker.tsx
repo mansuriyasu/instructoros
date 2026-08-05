@@ -74,36 +74,36 @@ export function DateRangePicker({
   }
 
   return (
-    <div className={cn('grid gap-3', className)}>
+    <div className={cn('grid w-full gap-3', className)}>
       <div>
         <p className="text-sm font-semibold text-foreground">Report period</p>
-        <p className="mt-1 text-xs text-muted-foreground">Choose the first and last day to include.</p>
+        <p className="mt-1 hidden text-xs text-muted-foreground sm:block">Choose the first and last day to include.</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium sm:text-sm">
           From
           <Input
             type="date"
             value={inputDate(dateRange?.from)}
             onChange={(event) => updateFrom(event.target.value)}
-            className="h-12 w-full text-base [color-scheme:light]"
+            className="h-11 w-full min-w-0 px-2 text-sm [color-scheme:light] sm:px-3 sm:text-base"
             aria-label="Report start date"
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium sm:text-sm">
           To
           <Input
             type="date"
             value={inputDate(dateRange?.to)}
             onChange={(event) => updateTo(event.target.value)}
-            className="h-12 w-full text-base [color-scheme:light]"
+            className="h-11 w-full min-w-0 px-2 text-sm [color-scheme:light] sm:px-3 sm:text-base"
             aria-label="Report end date"
             disabled={!dateRange?.from}
           />
         </label>
       </div>
       <Select onValueChange={handlePresetChange}>
-        <SelectTrigger className="h-11 w-full sm:w-[220px]">
+        <SelectTrigger className="h-10 w-full text-sm sm:w-[220px]">
           <SelectValue placeholder="Quick range" />
         </SelectTrigger>
         <SelectContent>

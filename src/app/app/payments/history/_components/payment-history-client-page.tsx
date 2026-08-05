@@ -210,17 +210,19 @@ export function PaymentHistoryClientPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold">Financial snapshot</p>
-          <p className="text-xs text-muted-foreground">Use the period selector to focus the numbers below.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
+      <div className="rounded-xl border bg-muted/20 p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Financial snapshot</p>
+            <p className="text-xs text-muted-foreground">Choose a period to update the profit figures.</p>
+          </div>
           <Button variant="outline" size="sm" onClick={() => setIsTotalsHidden(!isTotalsHidden)}>
-          {isTotalsHidden ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
-          {isTotalsHidden ? 'Show Totals' : 'Hide Totals'}
+            {isTotalsHidden ? <Eye className="h-4 w-4 sm:mr-2" /> : <EyeOff className="h-4 w-4 sm:mr-2" />}
+            <span className="hidden sm:inline">{isTotalsHidden ? 'Show Totals' : 'Hide Totals'}</span>
           </Button>
+        </div>
+        <div className="mt-3 w-full">
+          <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
