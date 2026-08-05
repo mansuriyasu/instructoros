@@ -721,6 +721,70 @@ export function StudentDetailsDialog({
                 )}
 
               </div>
+
+              <div className="relative z-10 rounded-2xl border border-border/50 bg-muted/30 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Tag className="h-4 w-4 text-[#C9A84C]" />
+                  Tags
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {localTags.length > 0 ? (
+                    localTags.map(tag => (
+                      <Badge
+                        key={tag}
+                        variant="outline"
+                        className="gap-1 border-border bg-background text-foreground hover:bg-muted"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTag(tag)}
+                          className="ml-1 rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                          aria-label={`Remove ${tag} tag`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No tags yet</span>
+                  )}
+                </div>
+                {quickTags.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {quickTags.map(tag => (
+                      <Button
+                        key={tag}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleAddTag(tag)}
+                        className="h-7 rounded-full border border-border/50 bg-background px-3 text-xs text-foreground shadow-sm hover:bg-muted"
+                      >
+                        <Plus className="mr-1 h-3 w-3" />
+                        {tag}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+                <form
+                  className="mt-4 flex gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleAddTag(newTagName);
+                  }}
+                >
+                  <Input
+                    value={newTagName}
+                    onChange={(event) => setNewTagName(event.target.value)}
+                    placeholder="Add custom tag"
+                    className="h-9 border-border bg-background text-foreground placeholder:text-muted-foreground"
+                  />
+                  <Button type="submit" size="sm" className="h-9 bg-[#C9A84C] text-[#0D1B2A] hover:bg-[#F0D080]">
+                    Add
+                  </Button>
+                </form>
+              </div>
             </TabsContent>
 
             <TabsContent value="lessons" className="outline-none focus-visible:ring-0 animate-in fade-in duration-300">
@@ -949,69 +1013,6 @@ export function StudentDetailsDialog({
             </TabsContent>
           </Tabs>
 
-          <div className="mt-6 relative z-10 rounded-2xl border border-border/50 bg-muted/30 p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Tag className="h-4 w-4 text-[#C9A84C]" />
-              Tags
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {localTags.length > 0 ? (
-                localTags.map(tag => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
-                    className="gap-1 border-border bg-background text-foreground hover:bg-muted"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label={`Remove ${tag} tag`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-sm text-muted-foreground">No tags yet</span>
-              )}
-            </div>
-            {quickTags.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {quickTags.map(tag => (
-                  <Button
-                    key={tag}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleAddTag(tag)}
-                    className="h-7 rounded-full bg-background border border-border/50 px-3 text-xs text-foreground hover:bg-muted shadow-sm"
-                  >
-                    <Plus className="mr-1 h-3 w-3" />
-                    {tag}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <form
-              className="mt-4 flex gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleAddTag(newTagName);
-              }}
-            >
-              <Input
-                value={newTagName}
-                onChange={(event) => setNewTagName(event.target.value)}
-                placeholder="Add custom tag"
-                className="h-9 border-border bg-background text-foreground placeholder:text-muted-foreground"
-              />
-              <Button type="submit" size="sm" className="h-9 bg-[#C9A84C] text-[#0D1B2A] hover:bg-[#F0D080]">
-                Add
-              </Button>
-            </form>
-          </div>
         </div>
 
       </DialogContent>
