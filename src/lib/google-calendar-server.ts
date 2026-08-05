@@ -7,7 +7,7 @@ const GOOGLE_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars';
 const SPARKON_EVENT_ID_PROPERTY = 'sparkonEventId';
 const SPARKON_DESCRIPTION_MARKER = 'Synced from InstructorOS.';
 const GOOGLE_CALENDAR_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
-const GOOGLE_REQUEST_TIMEOUT_MS = 8000;
+const GOOGLE_REQUEST_TIMEOUT_MS = 12000;
 const GOOGLE_RETRY_DELAYS_MS = [350, 900];
 
 type TokenResponse = {
@@ -45,6 +45,14 @@ export class GoogleCalendarTokenError extends Error {
     super(message);
     this.name = 'GoogleCalendarTokenError';
   }
+}
+
+type GoogleCalendarHttpError = Error & { status?: number };
+
+function getGoogleCalendarErrorStatus(error: unknown) {
+  return typeof error === 'object' && error !== null && 'status' in error
+    ? (error as GoogleCalendarHttpError).status
+    : undefined;
 }
 
 function isInvalidRefreshTokenError(data: TokenResponse) {
@@ -349,7 +357,7 @@ export async function checkGoogleCalendarConnection() {
 }
 
 async function googleCalendarRequest<T>(path: string, init: RequestInit = {}, config = getGoogleCalendarConfig()) {
-  const accessToken = await getAccessToken(config);
+  let accessToken = await getAccessToken(config);
   const method = (init.method || 'GET').toUpperCase();
   const canRetry = method === 'GET' || method === 'PATCH';
   let lastError: unknown;
@@ -369,6 +377,12 @@ async function googleCalendarRequest<T>(path: string, init: RequestInit = {}, co
         },
       });
 
+      if (response.status === 401 && attempt < GOOGLE_RETRY_DELAYS_MS.length) {
+        cachedAccessTokens.delete(config.refreshToken || '');
+        accessToken = await getAccessToken(config);
+        continue;
+      }
+
       if (response.status >= 500 && attempt < GOOGLE_RETRY_DELAYS_MS.length && canRetry) {
         await new Promise(resolve => setTimeout(resolve, GOOGLE_RETRY_DELAYS_MS[attempt]));
         continue;
@@ -378,7 +392,9 @@ async function googleCalendarRequest<T>(path: string, init: RequestInit = {}, co
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Google Calendar request failed.');
+        const error = new Error(data.error?.message || 'Google Calendar request failed.') as GoogleCalendarHttpError;
+        error.status = response.status;
+        throw error;
       }
 
       return data as T;
@@ -397,7 +413,7 @@ async function googleCalendarRequest<T>(path: string, init: RequestInit = {}, co
 }
 
 async function googleCalendarDelete(path: string, config = getGoogleCalendarConfig()) {
-  const accessToken = await getAccessToken(config);
+  let accessToken = await getAccessToken(config);
   for (let attempt = 0; attempt <= GOOGLE_RETRY_DELAYS_MS.length; attempt += 1) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), GOOGLE_REQUEST_TIMEOUT_MS);
@@ -409,6 +425,12 @@ async function googleCalendarDelete(path: string, config = getGoogleCalendarConf
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
+      if (response.status === 401 && attempt < GOOGLE_RETRY_DELAYS_MS.length) {
+        cachedAccessTokens.delete(config.refreshToken || '');
+        accessToken = await getAccessToken(config);
+        continue;
+      }
+
       if (response.ok || response.status === 404 || response.status === 410) return;
       if (response.status >= 500 && attempt < GOOGLE_RETRY_DELAYS_MS.length) {
         await new Promise(resolve => setTimeout(resolve, GOOGLE_RETRY_DELAYS_MS[attempt]));
@@ -416,7 +438,9 @@ async function googleCalendarDelete(path: string, config = getGoogleCalendarConf
       }
 
       const data = await response.json().catch(() => ({}));
-      throw new Error(data.error?.message || 'Google Calendar request failed.');
+      const error = new Error(data.error?.message || 'Google Calendar request failed.') as GoogleCalendarHttpError;
+      error.status = response.status;
+      throw error;
     } catch (error) {
       if (attempt >= GOOGLE_RETRY_DELAYS_MS.length) {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -536,4 +560,82 @@ export async function updateGoogleCalendarEvent(eventId: string, event: Partial<
 
 export async function deleteGoogleCalendarEvent(eventId: string, config?: CalendarConfig) {
   await googleCalendarDelete(`/events/${encodeURIComponent(eventId)}`, config);
+}
+
+export type GoogleCalendarSyncEntry = {
+  localId: string;
+  googleEventId?: string;
+  event: Partial<GoogleCalendarEvent>;
+};
+
+export type GoogleCalendarSyncResult = {
+  localId: string;
+  googleEventId?: string;
+  action?: 'created' | 'updated';
+  error?: string;
+};
+
+/**
+ * Reconciles a schedule in one authenticated server request. Keeping the
+ * Google API work server-side avoids a long chain of browser requests and
+ * makes imported schedules idempotent when an old Google event ID is stale.
+ */
+export async function syncGoogleCalendarEvents(
+  entries: GoogleCalendarSyncEntry[],
+  config?: CalendarConfig,
+) {
+  const calendarConfig = config || getGoogleCalendarConfig();
+  await getAccessToken(calendarConfig);
+
+  const results: GoogleCalendarSyncResult[] = [];
+  let nextIndex = 0;
+  const workerCount = Math.min(4, Math.max(entries.length, 1));
+
+  const syncEntry = async (entry: GoogleCalendarSyncEntry) => {
+    let googleEventId = entry.googleEventId;
+    let action: 'created' | 'updated' = 'updated';
+
+    if (googleEventId) {
+      try {
+        await updateGoogleCalendarEvent(googleEventId, entry.event, calendarConfig);
+      } catch (error) {
+        const status = getGoogleCalendarErrorStatus(error);
+        if (status !== 404 && status !== 410) throw error;
+        // The event was deleted in Google Calendar. Recreate it and repair the
+        // local mapping instead of leaving future edits permanently broken.
+        googleEventId = undefined;
+      }
+    }
+
+    if (!googleEventId) {
+      const matchedGoogleEventId = await findGoogleCalendarEvent(entry.localId, entry.event, calendarConfig);
+      if (matchedGoogleEventId) {
+        googleEventId = matchedGoogleEventId;
+        await updateGoogleCalendarEvent(googleEventId, entry.event, calendarConfig);
+      } else {
+        googleEventId = await createGoogleCalendarEvent(entry.event, calendarConfig);
+        action = 'created';
+      }
+    }
+
+    results.push({ localId: entry.localId, googleEventId, action });
+  };
+
+  const worker = async () => {
+    while (nextIndex < entries.length) {
+      const entry = entries[nextIndex];
+      nextIndex += 1;
+      try {
+        await syncEntry(entry);
+      } catch (error) {
+        results.push({
+          localId: entry.localId,
+          error: error instanceof Error ? error.message : 'Google Calendar event sync failed.',
+        });
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results.sort((a, b) => a.localId.localeCompare(b.localId));
 }

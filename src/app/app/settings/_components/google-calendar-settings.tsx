@@ -42,9 +42,7 @@ export function GoogleCalendarSettings() {
     isConfigured,
     connectedEmail,
     connectionError,
-    createEvent,
-    updateEvent: updateGoogleEvent,
-    findEvent,
+    syncEvents,
     refreshStatus,
   } = useGoogleCalendar();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -59,32 +57,28 @@ export function GoogleCalendarSettings() {
 
     setIsSyncing(true);
     try {
-      let created = 0;
-      let updated = 0;
-      for (const event of (events || []) as CalendarEvent[]) {
-        const googleEvent = toGoogleEvent(event);
-        const savedGoogleId = event.googleEventIds?.[user.uid] || event.googleEventId;
-        if (savedGoogleId) {
-          if (await updateGoogleEvent(savedGoogleId, googleEvent)) updated += 1;
-          continue;
-        }
+      const result = await syncEvents(((events || []) as CalendarEvent[]).map(event => ({
+        localId: event.id,
+        googleEventId: event.googleEventIds?.[user.uid] || event.googleEventId,
+        event: toGoogleEvent(event),
+      })));
 
-        const existingGoogleId = await findEvent(event.id, googleEvent);
-        if (existingGoogleId) {
-          if (await updateGoogleEvent(existingGoogleId, googleEvent)) {
-            await updateEvent({ id: event.id, [`googleEventIds.${user.uid}`]: existingGoogleId } as Partial<CalendarEvent> & { id: string });
-            updated += 1;
-          }
-          continue;
-        }
+      if (!result) return;
 
-        const googleEventId = await createEvent(googleEvent);
-        if (googleEventId) {
-          await updateEvent({ id: event.id, [`googleEventIds.${user.uid}`]: googleEventId } as Partial<CalendarEvent> & { id: string });
-          created += 1;
+      for (const syncedEvent of result.results) {
+        if (syncedEvent.googleEventId) {
+          await updateEvent({
+            id: syncedEvent.localId,
+            [`googleEventIds.${user.uid}`]: syncedEvent.googleEventId,
+          } as Partial<CalendarEvent> & { id: string });
         }
       }
-      toast({ title: 'Google Calendar synced', description: `${created} added, ${updated} updated.` });
+
+      toast({
+        title: result.failed ? 'Google Calendar partly synced' : 'Google Calendar synced',
+        description: `${result.created} added, ${result.updated} updated${result.failed ? `, ${result.failed} failed` : ''}.`,
+        variant: result.failed ? 'destructive' : 'default',
+      });
     } finally {
       setIsSyncing(false);
     }

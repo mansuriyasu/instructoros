@@ -6,6 +6,7 @@ import {
   fetchGoogleCalendarEvents,
   getUserGoogleCalendarConnection,
   GoogleCalendarTokenError,
+  syncGoogleCalendarEvents,
   updateGoogleCalendarEvent,
 } from '@/lib/google-calendar-server';
 import { getAdminAuth } from '@/lib/server/firebase-admin';
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const action = body.action as 'fetch' | 'create' | 'update' | 'delete' | 'find';
+    const action = body.action as 'fetch' | 'create' | 'update' | 'delete' | 'find' | 'sync';
 
     if (action === 'fetch') {
       return NextResponse.json({ items: await fetchGoogleCalendarEvents(calendarConfig) });
@@ -56,6 +57,20 @@ export async function POST(request: NextRequest) {
     if (action === 'find') {
       const id = await findGoogleCalendarEvent(body.sparkonEventId, body.fallbackEvent, calendarConfig);
       return NextResponse.json({ id });
+    }
+
+    if (action === 'sync') {
+      if (!Array.isArray(body.entries)) {
+        return NextResponse.json({ error: 'A schedule entry list is required.' }, { status: 400 });
+      }
+
+      const results = await syncGoogleCalendarEvents(body.entries, calendarConfig);
+      return NextResponse.json({
+        results,
+        created: results.filter(result => result.action === 'created').length,
+        updated: results.filter(result => result.action === 'updated').length,
+        failed: results.filter(result => result.error).length,
+      });
     }
 
     if (action === 'delete') {

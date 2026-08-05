@@ -22,6 +22,13 @@ export type GoogleCalendarEvent = {
   };
 };
 
+export type GoogleCalendarSyncResult = {
+  localId: string;
+  googleEventId?: string;
+  action?: 'created' | 'updated';
+  error?: string;
+};
+
 type GoogleCalendarStatus = {
   configured: boolean;
   connected?: boolean;
@@ -308,6 +315,36 @@ export function useGoogleCalendar() {
     }
   };
 
+  const syncEvents = async (entries: Array<{
+    localId: string;
+    googleEventId?: string;
+    event: Partial<GoogleCalendarEvent>;
+  }>) => {
+    try {
+      const data = await serverRequest<{
+        results?: GoogleCalendarSyncResult[];
+        created?: number;
+        updated?: number;
+        failed?: number;
+      }>({ action: 'sync', entries });
+      setConnectionError(null);
+      return {
+        results: data.results || [],
+        created: data.created || 0,
+        updated: data.updated || 0,
+        failed: data.failed || 0,
+      };
+    } catch (error) {
+      console.error('Failed to sync Google Calendar schedule', error);
+      toast({
+        title: 'Google Calendar sync failed',
+        description: getCalendarErrorMessage(error),
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
   return {
     connect,
     changeAccount,
@@ -323,6 +360,7 @@ export function useGoogleCalendar() {
     updateEvent,
     deleteEvent,
     findEvent,
+    syncEvents,
     refreshStatus,
   };
 }

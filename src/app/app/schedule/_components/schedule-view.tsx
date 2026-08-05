@@ -135,10 +135,9 @@ export function ScheduleView() {
   const {
     isConnected,
     fetchEvents: fetchGEvents,
-    createEvent: createGEvent,
-    updateEvent: updateGEvent,
     deleteEvent: deleteGEvent,
     findEvent: findGEvent,
+    syncEvents: syncGoogleEventsBatch,
   } = useGoogleCalendar();
   const { toast } = useToast();
   const { sendAndLogWhatsApp } = useWhatsAppLogs();
@@ -248,12 +247,6 @@ export function ScheduleView() {
       : ({ id: eventId, googleEventId } as Partial<CalendarEvent> & { id: string });
   }, [user?.uid]);
 
-  const withUserGoogleEventId = useCallback((event: CalendarEvent, googleEventId: string) => {
-    return user?.uid
-      ? { ...event, googleEventIds: { ...(event.googleEventIds || {}), [user.uid]: googleEventId } }
-      : { ...event, googleEventId };
-  }, [user?.uid]);
-
   const googleEventMatchesLocalEvent = useCallback((
     googleEvent: { id?: string; summary?: string; description?: string; start?: { dateTime?: string }; end?: { dateTime?: string }; extendedProperties?: { private?: Record<string, string> } },
     localEvent: CalendarEvent
@@ -294,65 +287,32 @@ export function ScheduleView() {
 
   const syncGoogleEventAfterLocalSave = useCallback(async (
     savedEventId: string | undefined,
-    eventData: Omit<CalendarEvent, 'id'> | CalendarEvent,
-    previousEvent?: CalendarEvent,
-    localEventsAfterSave?: CalendarEvent[]
+    eventData: Omit<CalendarEvent, 'id'> | CalendarEvent
   ) => {
     if (!isConnected || !savedEventId) return;
 
+    // The batch endpoint handles create, update, stale Google IDs, and retry
+    // behavior in one request.
     const eventWithId = { ...eventData, id: savedEventId } as CalendarEvent;
     const googleEvent = toGoogleEvent(eventWithId);
-    const existingGoogleEventId = getUserGoogleEventId('id' in eventData ? eventData : previousEvent) || getUserGoogleEventId(previousEvent);
+    const existingGoogleEventId = getUserGoogleEventId(eventData);
+    const result = await syncGoogleEventsBatch([{
+      localId: savedEventId,
+      googleEventId: existingGoogleEventId,
+      event: googleEvent,
+    }]);
+    const syncedEvent = result?.results[0];
 
-    if (existingGoogleEventId) {
-      const updated = await updateGEvent(existingGoogleEventId, googleEvent);
-      if (updated && getUserGoogleEventId(eventData) !== existingGoogleEventId) {
-        await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, existingGoogleEventId));
-      }
-      if (updated && localEventsAfterSave) {
-        await cleanupOrphanedGoogleEvents(
-          localEventsAfterSave.map(localEvent => (
-            localEvent.id === savedEventId
-              ? withUserGoogleEventId(localEvent, existingGoogleEventId)
-              : localEvent
-          ))
-        );
-      }
-      return;
+    if (syncedEvent?.googleEventId) {
+      await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, syncedEvent.googleEventId));
+    } else if (syncedEvent?.error) {
+      toast({
+        title: 'Google Calendar update delayed',
+        description: `The lesson was saved in InstructorOS, but Google Calendar could not be updated: ${syncedEvent.error}`,
+        variant: 'destructive',
+      });
     }
-
-    const matchedGoogleEventId = await findGEvent(savedEventId, previousEvent ? toGoogleEvent(previousEvent) : undefined);
-    if (matchedGoogleEventId) {
-      const updated = await updateGEvent(matchedGoogleEventId, googleEvent);
-      if (updated) {
-        await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, matchedGoogleEventId));
-        if (localEventsAfterSave) {
-          await cleanupOrphanedGoogleEvents(
-            localEventsAfterSave.map(localEvent => (
-              localEvent.id === savedEventId
-                ? withUserGoogleEventId(localEvent, matchedGoogleEventId)
-                : localEvent
-            ))
-          );
-        }
-      }
-      return;
-    }
-
-    const googleEventId = await createGEvent(googleEvent);
-    if (googleEventId) {
-      await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, googleEventId));
-      if (localEventsAfterSave) {
-        await cleanupOrphanedGoogleEvents(
-          localEventsAfterSave.map(localEvent => (
-            localEvent.id === savedEventId
-              ? withUserGoogleEventId(localEvent, googleEventId)
-              : localEvent
-          ))
-        );
-      }
-    }
-  }, [buildGoogleEventIdUpdate, cleanupOrphanedGoogleEvents, createGEvent, findGEvent, getUserGoogleEventId, isConnected, toGoogleEvent, updateEventFirestore, updateGEvent, withUserGoogleEventId]);
+  }, [buildGoogleEventIdUpdate, getUserGoogleEventId, isConnected, syncGoogleEventsBatch, toast, toGoogleEvent, updateEventFirestore]);
 
   const isScheduleOverlayOpen = isFormDialogOpen
     || isDetailsDialogOpen
@@ -549,7 +509,7 @@ export function ScheduleView() {
     const newEvent = { ...finalData, id: savedEventId || `new-${Date.now()}` };
 
     if (savedEventId) {
-      void syncGoogleEventAfterLocalSave(savedEventId, newEvent, undefined, [...allEvents, newEvent]);
+      await syncGoogleEventAfterLocalSave(savedEventId, newEvent);
     }
 
     setCurrentDate(nextStart);
@@ -691,10 +651,7 @@ export function ScheduleView() {
     setSelectedEvent(updatedEvent);
 
     if (isConnected) {
-      const localEventsAfterStatusChange = allEvents.map(localEvent => (
-        localEvent.id === event.id ? updatedEvent : localEvent
-      ));
-      void syncGoogleEventAfterLocalSave(event.id, updatedEvent, event, localEventsAfterStatusChange);
+      await syncGoogleEventAfterLocalSave(event.id, updatedEvent);
     }
 
     toast({
@@ -877,9 +834,6 @@ export function ScheduleView() {
     const finalData = { ...eventData };
     const isUpdate = 'id' in finalData;
     let savedEventId = isUpdate ? finalData.id : undefined;
-    const previousEvent = isUpdate
-      ? allEvents.find(event => event.id === finalData.id) || selectedEvent || undefined
-      : undefined;
 
     if (isUpdate) {
       await updateEventFirestore(finalData as CalendarEvent);
@@ -891,16 +845,11 @@ export function ScheduleView() {
     const savedEventData = savedEventId
       ? ({ ...finalData, id: savedEventId } as CalendarEvent)
       : finalData;
-    const localEventsAfterSave = savedEventId
-      ? isUpdate
-        ? allEvents.map(event => event.id === savedEventId ? { ...event, ...savedEventData } as CalendarEvent : event)
-        : [...allEvents, savedEventData as CalendarEvent]
-      : allEvents;
 
     setIsFormDialogOpen(false);
     setIsExamDialogOpen(false);
     void ensureStudentAssignedToInstructor(finalData.studentId, finalData.instructorId);
-    void syncGoogleEventAfterLocalSave(savedEventId, savedEventData, previousEvent, localEventsAfterSave);
+    await syncGoogleEventAfterLocalSave(savedEventId, savedEventData);
 
     if (sendSms) {
       const student = allStudents?.find(item => item.id === finalData.studentId);
@@ -916,38 +865,26 @@ export function ScheduleView() {
   const syncGoogleEvents = useCallback(async () => {
     setIsSyncingGoogle(true);
     try {
-      let created = 0;
-      let updated = 0;
+      const result = await syncGoogleEventsBatch(allEvents.map(event => ({
+        localId: event.id,
+        googleEventId: getUserGoogleEventId(event),
+        event: toGoogleEvent(event),
+      })));
 
-      for (const event of allEvents) {
-        const googleEvent = toGoogleEvent(event);
-        const userGoogleEventId = getUserGoogleEventId(event);
-        if (userGoogleEventId) {
-          const didUpdate = await updateGEvent(userGoogleEventId, googleEvent);
-          if (didUpdate) updated += 1;
-        } else {
-          const matchedGoogleEventId = await findGEvent(event.id, googleEvent);
-          if (matchedGoogleEventId) {
-            const didUpdate = await updateGEvent(matchedGoogleEventId, googleEvent);
-            if (didUpdate) {
-              await updateEventFirestore(buildGoogleEventIdUpdate(event.id, matchedGoogleEventId));
-              updated += 1;
-            }
-          } else {
-            const googleEventId = await createGEvent(googleEvent);
-            if (googleEventId) {
-              await updateEventFirestore(buildGoogleEventIdUpdate(event.id, googleEventId));
-              created += 1;
-            }
-          }
+      if (!result) return;
+
+      for (const syncedEvent of result.results) {
+        if (syncedEvent.googleEventId) {
+          await updateEventFirestore(buildGoogleEventIdUpdate(syncedEvent.localId, syncedEvent.googleEventId));
         }
       }
 
       await cleanupOrphanedGoogleEvents(allEvents);
 
       toast({
-        title: "Google Calendar synced",
-        description: `${created} added, ${updated} updated. Old duplicates removed.`,
+        title: result.failed ? 'Google Calendar partly synced' : 'Google Calendar synced',
+        description: `${result.created} added, ${result.updated} updated${result.failed ? `, ${result.failed} failed` : ''}. Old duplicates removed.`,
+        variant: result.failed ? 'destructive' : 'default',
       });
     } finally {
       setIsSyncingGoogle(false);
@@ -956,13 +893,11 @@ export function ScheduleView() {
     allEvents,
     buildGoogleEventIdUpdate,
     cleanupOrphanedGoogleEvents,
-    createGEvent,
-    findGEvent,
     getUserGoogleEventId,
+    syncGoogleEventsBatch,
     toGoogleEvent,
     toast,
     updateEventFirestore,
-    updateGEvent,
   ]);
 
   useEffect(() => {
@@ -1008,10 +943,7 @@ export function ScheduleView() {
 
     if (event && isConnected) {
       const updatedEvent = { ...event, ...updates };
-      const localEventsAfterDrop = allEvents.map(localEvent => (
-        localEvent.id === eventId ? updatedEvent : localEvent
-      ));
-      void syncGoogleEventAfterLocalSave(eventId, updatedEvent, event, localEventsAfterDrop);
+      await syncGoogleEventAfterLocalSave(eventId, updatedEvent);
     }
   };
 
