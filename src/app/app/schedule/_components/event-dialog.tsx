@@ -33,7 +33,7 @@ import { CalendarEvent, InstructorOption } from '@/lib/types';
 import { useStudents } from '@/hooks/use-students';
 import { useServices } from '@/hooks/use-services';
 import { format, setHours, setMinutes, parse, addMinutes } from 'date-fns';
-import { Trash2, Plus, Loader2, X } from 'lucide-react';
+import { CalendarDays, Clock3, MessageSquareText, Trash2, Plus, Loader2, X } from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -296,19 +296,24 @@ export function EventDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{event ? 'Edit Event' : 'Add Event'}</DialogTitle>
+      <DialogContent className="w-[calc(100%-1rem)] max-w-xl overflow-hidden rounded-2xl border-0 bg-background p-0 shadow-2xl [&>button]:text-white sm:rounded-3xl">
+        <DialogHeader className="border-b border-border/60 bg-[#0D1B2A] px-5 py-5 pr-14 text-left text-white sm:px-7 sm:py-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#F0D080]">Schedule</p>
+          <DialogTitle className="mt-1 text-2xl font-bold tracking-tight text-white">
+            {event ? 'Edit booking' : 'New booking'}
+          </DialogTitle>
+          <p className="mt-1 text-sm text-white/65">Set the student, timing, service, and message preference.</p>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="max-h-[calc(100dvh-10rem)] overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             {canManageInstructorSchedules && (
               <FormField
                 control={form.control}
                 name="instructorId"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Instructor</FormLabel>
+                  <FormItem className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Instructor</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                       <FormControl>
                         <SelectTrigger>
@@ -332,13 +337,13 @@ export function EventDialog({
             <FormField
               control={form.control}
               name="studentId"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex justify-between items-center">
-                    <FormLabel>Student</FormLabel>
-                    <Button type="button" variant="link" size="sm" className="p-0 h-auto" onClick={handleAddNewStudent}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        New Student
+                render={({ field }) => (
+                  <FormItem>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Student</FormLabel>
+                    <Button type="button" variant="outline" size="sm" className="h-8 rounded-full px-3 text-xs" onClick={handleAddNewStudent}>
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      New student
                     </Button>
                   </div>
                   <Select onValueChange={field.onChange} value={field.value ?? 'none'}>
@@ -383,13 +388,18 @@ export function EventDialog({
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border/60 bg-card p-4">
+              <div className="mb-4 flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-[#C9A84C]" />
+                <p className="text-sm font-semibold">When is the lesson?</p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-3">
-                      <FormLabel>Date</FormLabel>
+                    <FormItem className="sm:col-span-3">
+                      <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
                       </FormControl>
@@ -402,7 +412,7 @@ export function EventDialog({
                   name="startTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>From</FormLabel>
+                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">From</FormLabel>
                       <FormControl>
                         <Input type="time" {...field} step="1800" />
                       </FormControl>
@@ -415,7 +425,7 @@ export function EventDialog({
                   name="endTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>To</FormLabel>
+                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">To</FormLabel>
                       <FormControl>
                         <Input type="time" {...field} step="1800" />
                       </FormControl>
@@ -423,10 +433,17 @@ export function EventDialog({
                     </FormItem>
                   )}
                 />
+              </div>
             </div>
 
-            <FormItem>
-              <FormLabel>Services</FormLabel>
+            <FormItem className="rounded-xl border border-border/60 bg-card p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <FormLabel className="text-sm font-semibold">Services</FormLabel>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Choose what this booking includes.</p>
+                </div>
+                <Clock3 className="h-4 w-4 text-[#C9A84C]" />
+              </div>
               <div className="space-y-2">
                 {fields.map((field, index) => (
                   <div key={field.id} className="flex items-center gap-2">
@@ -512,15 +529,15 @@ export function EventDialog({
             </FormItem>
 
 
-            <div className="rounded-lg border bg-muted/20 p-3">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <Button
                 type="button"
                 variant="ghost"
-                className="h-10 w-full justify-between px-2"
+                className="h-9 w-full justify-between px-1"
                 onClick={() => setIsNotesOpen(current => !current)}
                 aria-expanded={isNotesOpen}
               >
-                <span className="font-semibold">{isNotesOpen ? 'Hide notes' : 'Add note'}</span>
+                <span className="flex items-center gap-2 font-semibold"><MessageSquareText className="h-4 w-4 text-[#C9A84C]" />{isNotesOpen ? 'Hide notes' : 'Add note'}</span>
                 {isNotesOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               </Button>
               {isNotesOpen && (
@@ -544,7 +561,7 @@ export function EventDialog({
               control={form.control}
               name="openWhatsApp"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm bg-blue-50/50 dark:bg-blue-900/10">
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-xl border border-sky-200 bg-sky-50/70 p-4 shadow-sm dark:border-sky-900/50 dark:bg-sky-900/10">
                   <FormControl>
                     <input
                       type="checkbox"
@@ -554,21 +571,21 @@ export function EventDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Send SMS after saving</FormLabel>
+                    <FormLabel className="font-semibold">Send message after saving</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Saves the schedule, then sends a ready-to-send appointment message by SMS.
+                      Saves the schedule, then sends the appointment message to the student.
                     </p>
                   </div>
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="flex-row justify-between items-center sm:justify-between pt-4">
+            <DialogFooter className="sticky bottom-0 -mx-5 -mb-5 flex-row items-center justify-between gap-3 border-t border-border/60 bg-background/95 px-5 py-4 backdrop-blur sm:-mx-7 sm:-mb-6 sm:px-7">
                 <div>
                  {event && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive" type="button" size="icon">
+                            <Button variant="destructive" type="button" size="icon" className="h-10 w-10 rounded-xl">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </AlertDialogTrigger>
@@ -589,17 +606,18 @@ export function EventDialog({
                 </div>
 
                 <div className="flex gap-2">
-                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                    <Button type="button" variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)} disabled={isSaving}>
                         Cancel
                     </Button>
-                    <Button type="submit" disabled={isSaving}>
+                    <Button type="submit" className="rounded-xl bg-[#C9A84C] font-semibold text-[#0D1B2A] hover:bg-[#F0D080]" disabled={isSaving}>
                         {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                         {isSaving ? "Saving..." : "Save Event"}
                     </Button>
                 </div>
             </DialogFooter>
-          </form>
-        </Form>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );

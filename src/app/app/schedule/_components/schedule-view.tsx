@@ -34,7 +34,7 @@ import { EventDetailsDialog } from './event-details-dialog';
 import { ExamSchedulerDialog } from './exam-scheduler-dialog';
 import { ListView } from './list-view';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
-import { CalendarDays, Car, Sparkles } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Car, MapPin, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
@@ -1257,45 +1257,53 @@ export function ScheduleView() {
       />
 
       <AlertDialog open={!!conflictData} onOpenChange={(open) => !open && setConflictData(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Schedule Conflict Detected</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-4">
+        <AlertDialogContent className="w-[calc(100%-1rem)] max-w-lg overflow-hidden rounded-2xl border-0 p-0 shadow-2xl sm:rounded-3xl">
+          <AlertDialogHeader className="border-b border-amber-200 bg-amber-50 px-5 py-5 text-left dark:border-amber-900/50 dark:bg-amber-950/30 sm:px-7 sm:py-6">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <AlertDialogTitle className="text-xl font-bold tracking-tight text-amber-950 dark:text-amber-100">Check this booking</AlertDialogTitle>
+                <p className="mt-1 text-sm text-amber-800/80 dark:text-amber-200/75">The time or travel plan needs your attention before saving.</p>
+              </div>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogDescription asChild>
+              <div className="space-y-3 px-5 py-5 text-sm sm:px-7 sm:py-6">
                 {conflictData?.overlapList && conflictData.overlapList.length > 0 && (
-                  <div>
-                    <p className="font-medium text-foreground mb-1">This appointment overlaps with:</p>
-                    <ul className="list-disc pl-5 space-y-1">
+                  <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-900/50 dark:bg-rose-950/20">
+                    <p className="mb-2 flex items-center gap-2 font-semibold text-rose-900 dark:text-rose-200"><CalendarDays className="h-4 w-4" /> Time overlap</p>
+                    <ul className="space-y-2 text-rose-900/80 dark:text-rose-200/80">
                       {conflictData.overlapList.map((overlap, i) => (
-                        <li key={i}>{overlap}</li>
+                        <li key={i} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />{overlap}</li>
                       ))}
                     </ul>
                   </div>
                 )}
                 {conflictData?.travelWarnings && conflictData.travelWarnings.length > 0 && (
-                  <div>
-                    <p className="font-medium text-foreground mb-1">Travel time warning:</p>
-                    <ul className="list-disc pl-5 space-y-1">
+                  <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-900/50 dark:bg-sky-950/20">
+                    <p className="mb-2 flex items-center gap-2 font-semibold text-sky-900 dark:text-sky-200"><MapPin className="h-4 w-4" /> Travel time</p>
+                    <ul className="space-y-2 text-sky-900/80 dark:text-sky-200/80">
                       {conflictData.travelWarnings.map((warning, i) => (
-                        <li key={i}>{warning}</li>
+                        <li key={i} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />{warning}</li>
                       ))}
                     </ul>
                   </div>
                 )}
-                <p className="font-medium text-foreground mt-4">Do you still want to schedule it?</p>
+                <p className="rounded-xl bg-muted/60 px-4 py-3 font-semibold text-foreground">Review the details, then choose whether to save this booking anyway.</p>
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
+          </AlertDialogDescription>
+          <AlertDialogFooter className="border-t border-border/60 bg-background px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+            <AlertDialogCancel className="mt-0 w-full rounded-xl sm:w-auto">Go back</AlertDialogCancel>
+            <AlertDialogAction className="w-full rounded-xl bg-[#C9A84C] font-semibold text-[#0D1B2A] hover:bg-[#F0D080] sm:w-auto" onClick={() => {
               const pendingConflict = conflictData;
               setConflictData(null);
               if (pendingConflict) {
                 performSaveEvent(pendingConflict.eventData, pendingConflict.sendSms);
               }
             }}>
-              Continue Anyway
+              Save anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
