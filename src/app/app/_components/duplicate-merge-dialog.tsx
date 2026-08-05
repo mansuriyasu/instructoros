@@ -52,8 +52,13 @@ export function DuplicateMergeDialog({ groups, open, onOpenChange, onMerge }: Du
             Payments, lessons, evaluations, tags, and instructor assignments are moved to it. Duplicate profiles are kept as deactivated audit records.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 py-2">
-          {groups.map((group, groupIndex) => {
+        {groups.length === 0 ? (
+          <div className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+            No exact duplicate names were found in the contacts currently loaded for this workspace. The merge action will appear with a count when matching records are available.
+          </div>
+        ) : (
+          <div className="space-y-3 py-2">
+            {groups.map((group, groupIndex) => {
             const sorted = [...group].sort(primaryFirst);
             return (
               <div key={group.map(student => student.id).join('-')} className="rounded-xl border bg-muted/20 p-3">
@@ -71,11 +76,12 @@ export function DuplicateMergeDialog({ groups, open, onOpenChange, onMerge }: Du
                 </div>
               </div>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
         <DialogFooter className="gap-2 sm:justify-between">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isMerging}>Cancel</Button>
-          <Button onClick={mergeAll} disabled={isMerging} className="gap-2">
+          <Button onClick={mergeAll} disabled={isMerging || groups.length === 0} className="gap-2">
             {isMerging ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitMerge className="h-4 w-4" />}
             {isMerging ? 'Merging…' : `Merge ${groups.length} group${groups.length === 1 ? '' : 's'}`}
           </Button>

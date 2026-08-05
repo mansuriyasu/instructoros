@@ -30,7 +30,7 @@ export type StudentStatusFilter = StudentStatus | 'all' | 'current';
 
 export function StudentGrid() {
   const { students, loading, updateStudent, deleteStudent, mergeStudentGroups } = useStudents();
-  const { role } = useSession();
+  const { canManageTenant } = useSession();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>('current');
@@ -149,11 +149,11 @@ export function StudentGrid() {
         </div>
         <div className="flex items-center gap-2">
           <StudentIntakeLinkDialog />
-          {(role === 'schoolAdmin' || role === 'soloInstructor' || role === 'mainAdmin') && duplicateGroups.length > 0 && (
+          {canManageTenant && (
             <Button variant="outline" onClick={() => setIsDuplicateMergeOpen(true)} className="h-10 gap-2 px-3">
               <GitMerge className="h-4 w-4" />
-              <span className="hidden sm:inline">Merge duplicates ({duplicateGroups.length})</span>
-              <span className="sm:hidden">Merge ({duplicateGroups.length})</span>
+              <span className="hidden sm:inline">Merge duplicates{duplicateGroups.length > 0 ? ` (${duplicateGroups.length})` : ''}</span>
+              <span className="sm:hidden">Merge{duplicateGroups.length > 0 ? ` (${duplicateGroups.length})` : ''}</span>
             </Button>
           )}
           <StudentGridActions />
