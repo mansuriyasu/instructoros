@@ -298,6 +298,12 @@ export function ExamSchedulerDialog({
             return;
         }
 
+        // Keep both billable choices on the event so POS can import the exam
+        // service and the selected exam-centre/location charge together.
+        const eventServices = selectedExamCenterService && selectedExamCenterService.id !== examService.id
+          ? [examService, selectedExamCenterService]
+          : [examService];
+
         if (canManageInstructorSchedules && instructors.length > 0 && !selectedInstructorId) {
             toast({ title: "Validation Error", description: "Please select the instructor for this exam schedule." });
             setIsProcessing(false);
@@ -311,13 +317,13 @@ export function ExamSchedulerDialog({
             instructorId: selectedInstructorId || null,
             studentId: selectedStudentId || null,
             studentName: student?.name || studentName || 'N/A',
-            services: [{
-                id: examService.id,
-                name: examService.name,
-                price: examService.price,
-                cost: examService.cost || 0,
-                discount: examService.discount || 0,
-            }],
+            services: eventServices.map(service => ({
+                id: service.id,
+                name: service.name,
+                price: service.price,
+                cost: service.cost || 0,
+                discount: service.discount || 0,
+            })),
             notes: `Pickup at ${student?.address || newStudentAddress}.\nTravel (${travelMins}m) -> Lesson (${lessonMins}m) -> Early Arrival (${earlyMins}m) -> Exam at ${examTime} (${examMins}m) -> Travel back (${travelMins}m).`,
             lessonStatus: 'scheduled',
             examCenter: finalExamCenter,

@@ -157,7 +157,9 @@ export function PaymentsDataTable({
     return (payments || []).filter((payment) => {
       let matchesDate = true;
       // Always show all unpaid records regardless of the selected date range
-      if (from && statusFilter !== 'unpaid') {
+      // A search is an explicit request to find a record across the full history,
+      // regardless of the currently selected report period.
+      if (from && statusFilter !== 'unpaid' && !normalizedSearch) {
         const pDate = new Date(payment.paymentDate);
         matchesDate = pDate >= from && pDate <= endOfDay(to!);
       }

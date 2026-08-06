@@ -8,13 +8,13 @@ import { PaymentsDataTable } from './payments-data-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PaymentDetailsDialog } from './payment-details-dialog';
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { DateRangePicker } from './date-range-picker';
 import { formatCurrency } from '@/lib/utils';
-import { AlertTriangle, ArrowRight, CircleDollarSign, CreditCard, Eye, EyeOff, FileText, Percent, PiggyBank, ReceiptText, WalletCards } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CircleDollarSign, CreditCard, Eye, EyeOff, FileText, TrendingUp, WalletCards } from 'lucide-react';
 import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, getCollectedAmount, getOutstandingAmount, isAdvanceCreditPayment } from '@/lib/payment-utils';
 import { Button } from '@/components/ui/button';
 import { endOfDay, startOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -37,6 +37,7 @@ export function PaymentHistoryClientPage() {
   const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [isTotalsHidden, setIsTotalsHidden] = useState(true);
+  const paymentsTableRef = useRef<HTMLDivElement>(null);
 
   const paymentSummary = useMemo(() => {
     const safePayments = payments || [];
@@ -54,7 +55,6 @@ export function PaymentHistoryClientPage() {
     const outstanding = safePayments.reduce((sum, payment) => sum + getOutstandingAmount(payment), 0);
     const duePayments = safePayments.filter(payment => getOutstandingAmount(payment) > 0.009);
     const partialPayments = duePayments.filter(payment => getCollectedAmount(payment) > 0.009);
-    const paymentCount = billPayments.filter(payment => getCollectedAmount(payment) > 0.009).length;
     const methodAmounts: Record<'Cash' | 'E-Transfer' | 'Other' | 'Advance', number> = {
       Cash: 0,
       'E-Transfer': 0,
@@ -89,9 +89,7 @@ export function PaymentHistoryClientPage() {
       billCount: billPayments.length,
       dueCount: duePayments.length,
       partialCount: partialPayments.length,
-      averagePayment: paymentCount > 0 ? collected / paymentCount : 0,
       netAfterCost: collected - cost,
-      profitMargin: collected > 0 ? ((collected - cost) / collected) * 100 : 0,
       methodAmounts: Object.fromEntries(
         Object.entries(methodAmounts).map(([method, amount]) => [method, Math.max(0, amount)])
       ) as typeof methodAmounts,
@@ -188,6 +186,13 @@ export function PaymentHistoryClientPage() {
     setIsRecordPaymentOpen(true);
   };
 
+  const handleViewUnpaidBills = () => {
+    setStatusFilter('unpaid');
+    window.setTimeout(() => {
+      paymentsTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
 
   if (loading) {
     return (
@@ -229,7 +234,7 @@ export function PaymentHistoryClientPage() {
         <Card className="rounded-lg">
           <CardContent className="p-4">
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
-              <PiggyBank className="h-4 w-4" />
+              <TrendingUp className="h-4 w-4" />
             </div>
             <p className="text-xs text-muted-foreground">Net profit</p>
             <p className="mt-1 text-xl font-semibold">{renderAmount(paymentSummary.netAfterCost)}</p>
@@ -267,28 +272,6 @@ export function PaymentHistoryClientPage() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card className="rounded-lg">
-          <CardContent className="flex items-center justify-between gap-3 p-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Recorded costs</p>
-              <p className="mt-1 text-lg font-semibold">{renderAmount(paymentSummary.cost)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Selected period</p>
-            </div>
-            <ReceiptText className="h-5 w-5 text-muted-foreground" />
-          </CardContent>
-        </Card>
-        <Card className="rounded-lg">
-          <CardContent className="flex items-center justify-between gap-3 p-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Profit margin</p>
-              <p className="mt-1 text-lg font-semibold">{paymentSummary.collected > 0 ? `${paymentSummary.profitMargin.toFixed(1)}%` : '—'}</p>
-              <p className="mt-1 text-xs text-muted-foreground">After recorded bill costs</p>
-            </div>
-            <Percent className="h-5 w-5 text-muted-foreground" />
-          </CardContent>
-        </Card>
-      </div>
       <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <Card className="rounded-lg">
           <CardContent className="p-4">
@@ -300,11 +283,11 @@ export function PaymentHistoryClientPage() {
               <AlertTriangle className="h-5 w-5 text-amber-600" />
             </div>
             <div className="space-y-2">
-              <button type="button" onClick={() => setStatusFilter('unpaid')} className="flex w-full items-center justify-between rounded-lg border bg-background p-3 text-left transition-colors hover:bg-muted/40">
+              <button type="button" onClick={handleViewUnpaidBills} className="flex w-full items-center justify-between rounded-lg border bg-background p-3 text-left transition-colors hover:bg-muted/40">
                 <span className="text-sm">Bills with a remaining balance</span>
                 <span className="flex items-center gap-2 text-sm font-semibold">{paymentSummary.dueCount}<ArrowRight className="h-4 w-4" /></span>
               </button>
-              <button type="button" onClick={() => setStatusFilter('unpaid')} className="flex w-full items-center justify-between rounded-lg border bg-background p-3 text-left transition-colors hover:bg-muted/40">
+              <button type="button" onClick={handleViewUnpaidBills} className="flex w-full items-center justify-between rounded-lg border bg-background p-3 text-left transition-colors hover:bg-muted/40">
                 <span className="text-sm">Partially paid bills</span>
                 <span className="flex items-center gap-2 text-sm font-semibold">{paymentSummary.partialCount}<ArrowRight className="h-4 w-4" /></span>
               </button>
@@ -341,7 +324,7 @@ export function PaymentHistoryClientPage() {
         <Button variant="outline" size="sm" onClick={() => router.push('/app/payments')}>
           <CreditCard className="mr-2 h-4 w-4" /> Open POS
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setStatusFilter('unpaid')}>
+        <Button variant="outline" size="sm" onClick={handleViewUnpaidBills}>
           <WalletCards className="mr-2 h-4 w-4" /> View unpaid bills
         </Button>
       </div>
@@ -352,16 +335,18 @@ export function PaymentHistoryClientPage() {
           dateRange={dateRange}
         />
       </div>
-      <PaymentsDataTable 
-        payments={payments} 
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        dateRange={dateRange}
-        onRecordPayment={handleOpenRecordPayment}
-        onDelete={handleDeletePayment} 
-        onViewDetails={handleViewDetails}
-        onUpdatePayment={handleUpdatePayment}
-      />
+      <div ref={paymentsTableRef} className="scroll-mt-4">
+        <PaymentsDataTable
+          payments={payments}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          dateRange={dateRange}
+          onRecordPayment={handleOpenRecordPayment}
+          onDelete={handleDeletePayment}
+          onViewDetails={handleViewDetails}
+          onUpdatePayment={handleUpdatePayment}
+        />
+      </div>
       <PaymentDetailsDialog
         isOpen={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
