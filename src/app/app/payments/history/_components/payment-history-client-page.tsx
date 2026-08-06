@@ -14,7 +14,7 @@ import { PaymentDetailsDialog } from './payment-details-dialog';
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { DateRangePicker } from './date-range-picker';
 import { formatCurrency } from '@/lib/utils';
-import { AlertTriangle, ArrowRight, CircleDollarSign, CreditCard, Eye, EyeOff, FileText, PiggyBank, ReceiptText, WalletCards } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CircleDollarSign, CreditCard, Eye, EyeOff, FileText, Percent, PiggyBank, ReceiptText, WalletCards } from 'lucide-react';
 import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, getCollectedAmount, getOutstandingAmount, isAdvanceCreditPayment } from '@/lib/payment-utils';
 import { Button } from '@/components/ui/button';
 import { endOfDay, startOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -285,7 +285,7 @@ export function PaymentHistoryClientPage() {
               <p className="mt-1 text-lg font-semibold">{paymentSummary.collected > 0 ? `${paymentSummary.profitMargin.toFixed(1)}%` : '—'}</p>
               <p className="mt-1 text-xs text-muted-foreground">After recorded bill costs</p>
             </div>
-            <PiggyBank className="h-5 w-5 text-muted-foreground" />
+            <Percent className="h-5 w-5 text-muted-foreground" />
           </CardContent>
         </Card>
       </div>
