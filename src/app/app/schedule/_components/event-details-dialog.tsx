@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { CalendarEvent, LessonStatus } from '@/lib/types';
 import { format } from 'date-fns';
 import { CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle, ClipboardCheck, CalendarDays, MapPin, CarFront } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +37,11 @@ interface EventDetailsDialogProps {
   onEdit: (event: CalendarEvent) => void;
   onDelete: (eventId: string) => void;
   onBookNext: (event: CalendarEvent) => void;
-  onMarkPayment: (event: CalendarEvent, status: 'paid' | 'unpaid') => void;
+  onMarkPayment: (
+    event: CalendarEvent,
+    status: 'paid' | 'unpaid',
+    options?: { paymentMethod?: CalendarEvent['paymentMethod']; applyTax?: boolean }
+  ) => void;
   onMarkLessonStatus: (event: CalendarEvent, status: LessonStatus) => void;
   onSendWhatsApp?: (event: CalendarEvent) => void;
   onEvaluate: (event: CalendarEvent) => void;
@@ -76,8 +81,8 @@ export function EventDetailsDialog({
     onMarkPayment(event, 'unpaid');
   };
 
-  const handleMarkPaid = () => {
-    onMarkPayment(event, 'paid');
+  const handleMarkPaid = (paymentMethod: NonNullable<CalendarEvent['paymentMethod']>, applyTax: boolean) => {
+    onMarkPayment(event, 'paid', { paymentMethod, applyTax });
   };
 
   const handleMarkNoShow = () => {
@@ -196,19 +201,33 @@ export function EventDetailsDialog({
               <Receipt className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
               Mark Unpaid
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleMarkPaid}
-              disabled={!canAddToBill}
-              className={cn(
-                "h-9 px-2 text-xs sm:h-10 sm:text-sm",
-                event.paymentStatus === 'paid' && "bg-emerald-600 text-white hover:bg-emerald-700"
-              )}
-            >
-              <CheckCircle2 className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
-              {event.paymentStatus === 'paid' ? 'Paid' : 'Cash Paid'}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!canAddToBill}
+                  className={cn(
+                    "h-9 px-2 text-xs sm:h-10 sm:text-sm",
+                    event.paymentStatus === 'paid' && "bg-emerald-600 text-white hover:bg-emerald-700"
+                  )}
+                >
+                  <CheckCircle2 className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
+                  Paid
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onSelect={() => handleMarkPaid('Cash', false)}>
+                  Cash Paid
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleMarkPaid('E-Transfer', false)}>
+                  E-transfer Paid
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleMarkPaid('E-Transfer', true)}>
+                  E-transfer with Tax
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
 

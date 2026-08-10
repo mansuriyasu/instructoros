@@ -39,7 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 import { createPaymentTransaction, getStudentAdvanceCredit } from '@/lib/payment-utils';
-import { roundCurrency } from '@/lib/tax';
+import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, calculateTaxAmount, roundCurrency } from '@/lib/tax';
 import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { Student } from '@/lib/types';
 import {
@@ -526,7 +526,11 @@ export function ScheduleView() {
     });
   };
 
-  const handleMarkPayment = async (event: CalendarEvent, status: 'paid' | 'unpaid') => {
+  const handleMarkPayment = async (
+    event: CalendarEvent,
+    status: 'paid' | 'unpaid',
+    options: { paymentMethod?: PaymentMethod; applyTax?: boolean } = {}
+  ) => {
     if (paymentsLoading || servicesLoading) {
       toast({
         title: 'Still loading',
@@ -571,17 +575,27 @@ export function ScheduleView() {
 
     const subtotal = existingPayment?.subtotal ?? roundCurrency(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
     const discount = existingPayment?.discount ?? 0;
-    const tax = existingPayment?.tax ?? 0;
-    const total = existingPayment?.total ?? roundCurrency(subtotal);
+    const hasExplicitPaymentChoice = options.paymentMethod !== undefined || options.applyTax !== undefined;
+    const applyTax = status === 'paid'
+      ? Boolean(options.applyTax)
+      : existingPayment ? existingPayment.tax > 0 : false;
+    const taxRate = tenant?.taxRate ?? ONTARIO_HST_RATE;
+    const taxLabel = tenant?.taxLabel || DEFAULT_TAX_LABEL;
+    const tax = hasExplicitPaymentChoice
+      ? (applyTax ? calculateTaxAmount(Math.max(0, subtotal - discount), taxRate) : 0)
+      : (existingPayment?.tax ?? 0);
+    const total = hasExplicitPaymentChoice
+      ? roundCurrency(Math.max(0, subtotal - discount) + tax)
+      : (existingPayment?.total ?? roundCurrency(subtotal));
     const totalCost = existingPayment?.totalCost ?? roundCurrency(items.reduce((sum, item) => sum + (item.cost || 0) * item.quantity, 0));
     const isPaid = status === 'paid';
-    // Cash payments are collected without HST (business practice), so this
-    // quick-mark flow intentionally records no tax on new payments.
+    // The Paid menu makes tax explicit: cash and regular e-transfer are
+    // recorded without HST, while the tax option uses the workspace rate.
     const availableCredit = isPaid && !existingPayment ? getStudentAdvanceCredit(payments, event.studentId) : 0;
     const creditApplied = existingPayment ? (existingPayment.creditApplied || 0) : Math.min(availableCredit, total);
     const cashCollected = isPaid ? Math.max(0, total - (existingPayment ? 0 : creditApplied)) : 0;
     const paymentMethod: PaymentMethod = isPaid
-      ? (!existingPayment && cashCollected <= 0 && creditApplied > 0 ? 'Advance' : 'Cash')
+      ? (!existingPayment && cashCollected <= 0 && creditApplied > 0 ? 'Advance' : options.paymentMethod || 'Cash')
       : 'Unpaid';
 
     const paymentData = {
@@ -600,6 +614,8 @@ export function ScheduleView() {
       status,
       notes: event.notes ? `From schedule: ${event.notes}` : 'From schedule.',
       instructorId: event.instructorId || user?.uid || null,
+      taxLabel: tax > 0 ? taxLabel : null,
+      taxRate: tax > 0 ? taxRate : null,
       creditApplied,
       transactions: [
         ...(existingPayment?.transactions || []),
@@ -635,7 +651,7 @@ export function ScheduleView() {
     setSelectedEvent({ ...event, ...eventUpdates });
 
     toast({
-      title: isPaid ? 'Marked cash paid' : 'Marked unpaid',
+      title: isPaid ? `Marked ${paymentMethod === 'E-Transfer' ? 'E-transfer' : paymentMethod.toLowerCase()} paid` : 'Marked unpaid',
       description: 'This is now connected to Payment History.',
     });
   };

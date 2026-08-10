@@ -64,8 +64,8 @@ export interface Payment {
   subtotal: number;
   discount: number;
   tax: number;
-  taxLabel?: string;
-  taxRate?: number;
+  taxLabel?: string | null;
+  taxRate?: number | null;
   total: number;
   totalCost: number;
   paidAmount: number;
