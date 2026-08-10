@@ -266,3 +266,75 @@ export interface WhatsAppLog {
   channel?: 'whatsapp' | 'sms';
   errorMessage?: string;
 }
+
+export interface AvailabilityWindow {
+  weekday: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime: string; // 'HH:mm'
+  endTime: string;   // 'HH:mm'
+}
+
+export interface AvailabilityOverride {
+  date: string;      // YYYY-MM-DD
+  startTime?: string; // 'HH:mm', optional if !available
+  endTime?: string;   // 'HH:mm', optional if !available
+  available: boolean;
+}
+
+export interface StudentAvailability {
+  studentId: string;
+  tenantId: string;
+  timezone: string; // e.g. 'America/Toronto'
+  weeklyWindows: AvailabilityWindow[];
+  overrides: AvailabilityOverride[];
+  tokenHash?: string;
+  tokenCreatedAt?: string; // ISO 8601
+  tokenEnabled?: boolean;
+  updatedAt?: string; // ISO 8601
+}
+
+export interface ScheduleCandidate {
+  studentId: string;
+  studentName: string;
+  studentAddress: string;
+  studentLat?: number;
+  studentLng?: number;
+  serviceId: string;
+  serviceName?: string;
+  servicePrice?: number;
+  serviceCost?: number;
+  serviceDiscount?: number;
+  duration: number; // minutes
+  availableWindows: { start: string, end: string }[]; // ISO strings
+}
+
+export interface ScheduleLockedEvent {
+  id: string;
+  start: string;
+  end: string;
+  address?: string;
+}
+
+export interface ProposedLesson {
+  eventId: string;
+  studentId: string;
+  studentName: string;
+  studentAddress: string;
+  serviceId: string;
+  serviceName: string;
+  servicePrice?: number;
+  serviceCost?: number;
+  serviceDiscount?: number;
+  suggestedStartTime: string;
+  suggestedEndTime: string;
+  travelMinutes: number;
+  bufferMinutes: number;
+}
+
+export interface ScheduleProposal {
+  id: string; // random ID
+  candidates: ProposedLesson[];
+  totalTravelMinutes: number;
+  totalDuration: number;
+  exclusions: { studentId: string; reason: string }[];
+  explanation: string;
+}

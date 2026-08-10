@@ -12,7 +12,9 @@ import { cn, getServiceColorName } from '@/lib/utils';
 import { CalendarEvent } from '@/lib/types';
 import { useEvents } from '@/hooks/use-events';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Clock, MapPin, Navigation, Package, UserRound } from 'lucide-react';
+import { Clock, MapPin, Navigation, Package, UserRound, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AiSchedulePreview } from './ai-schedule-preview';
 
 interface DayViewProps {
   currentDate: Date;
@@ -28,17 +30,18 @@ const HOUR_HEIGHT_IN_PIXELS = 100;
 export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, selectedInstructorId = 'all', instructorNameById = {} }: DayViewProps) {
   const dayStart = useMemo(() => startOfDay(currentDate), [currentDate]);
   const dayEnd = useMemo(() => endOfDay(currentDate), [currentDate]);
-  
+
   const { events, loading } = useEvents(dayStart, dayEnd);
 
   const [dragOverSlot, setDragOverSlot] = useState<Date | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showAiPreview, setShowAiPreview] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-  
+
   const dayEvents = useMemo(() => {
     let filteredEvents = events;
     if (selectedInstructorId !== 'all') {
@@ -48,12 +51,12 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
   }, [events, selectedInstructorId]);
 
   const hours = Array.from({ length: 14 }, (_, i) => i + 8); // 8 AM to 9 PM
-  
+
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, event: CalendarEvent) => {
     e.dataTransfer.setData('application/json', JSON.stringify(event));
     e.dataTransfer.effectAllowed = 'move';
   };
-  
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>, slotDate: Date) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -182,8 +185,19 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
               </p>
               <h2 className="text-lg font-bold">{format(currentDate, 'MMMM d')}</h2>
             </div>
-            <div className="rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground">
-              {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAiPreview(true)}
+                className="rounded-full text-indigo-600 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 h-8 text-xs whitespace-nowrap"
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                AI Schedule
+              </Button>
+              <div className="rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground flex items-center">
+                {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
+              </div>
             </div>
           </div>
         </div>
@@ -268,6 +282,17 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
         )}
       </div>
 
+      <div className="hidden md:flex justify-end mb-4">
+              <Button
+          variant="outline"
+          onClick={() => setShowAiPreview(true)}
+          className="rounded-full text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 shadow-sm transition-all"
+        >
+          <Sparkles className="h-4 w-4 mr-2 text-indigo-500" />
+          Auto-Schedule Day (AI)
+        </Button>
+      </div>
+
       <div className="hidden overflow-auto rounded-lg border bg-background md:block">
         <div className="relative grid grid-cols-[4.5rem_1fr]">
         {hours.map((hour, hourIndex) => {
@@ -280,7 +305,7 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
               <div className="pr-3 pt-2 text-right">
                 <span className="text-xs text-muted-foreground">{format(slotDate, 'h a')}</span>
               </div>
-              <div 
+              <div
                 className={cn(
                   "h-20 cursor-pointer border-l transition-colors hover:bg-muted/40",
                   hourIndex % 2 === 0 ? 'bg-muted/15' : '',
@@ -306,7 +331,7 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
           {dayEvents.map(event => {
             const start = new Date(event.start);
             const end = new Date(event.end);
-            
+
             const startMinutes = (start.getHours() - 8) * 60 + start.getMinutes();
             const top = (startMinutes / 60) * HOUR_HEIGHT_IN_PIXELS;
 
@@ -332,6 +357,14 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
         </div>
         </div>
       </div>
+
+      {showAiPreview && (
+        <AiSchedulePreview
+          currentDate={currentDate}
+          selectedInstructorId={selectedInstructorId}
+          onClose={() => setShowAiPreview(false)}
+        />
+      )}
     </>
   );
 }

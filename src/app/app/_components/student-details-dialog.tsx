@@ -55,6 +55,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { StudentForm } from '@/app/app/students/form/_components/student-form';
 import { LicenseImagePreviewDialog } from './license-image-preview-dialog';
+import { StudentAvailabilityPanel } from './student-availability-panel';
 
 interface StudentDetailsDialogProps {
   isOpen: boolean;
@@ -194,7 +195,7 @@ export function StudentDetailsDialog({
   const handleEdit = () => {
     setIsEditMode(true);
   };
-  
+
   const handleOpenMerge = () => {
     setMergeStudentId(mergeCandidates[0]?.id || '');
     setIsMergeOpen(true);
@@ -261,7 +262,7 @@ export function StudentDetailsDialog({
   const handleStatusChange = (status: StudentStatus) => {
     onStatusChange(student.id, status);
   };
-  
+
   const handleAddToBill = () => {
     if (student) {
       onOpenChange(false);
@@ -331,7 +332,7 @@ export function StudentDetailsDialog({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     toast({ title: 'Contact downloaded', description: 'Open the file to save to your contacts.' });
   };
 
@@ -424,8 +425,8 @@ export function StudentDetailsDialog({
     if (!newNote.trim() || !student) return;
     setIsSavingNote(true);
     try {
-      const updatedComments = student.comments 
-        ? `${student.comments}\n\n[${format(new Date(), 'MMM dd, yyyy')}]\n${newNote.trim()}` 
+      const updatedComments = student.comments
+        ? `${student.comments}\n\n[${format(new Date(), 'MMM dd, yyyy')}]\n${newNote.trim()}`
         : `[${format(new Date(), 'MMM dd, yyyy')}]\n${newNote.trim()}`;
       await updateStudent({ id: student.id, comments: updatedComments });
       setNewNote('');
@@ -455,11 +456,11 @@ export function StudentDetailsDialog({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent 
+      <DialogContent
         onEscapeKeyDown={(e) => { e.preventDefault(); onOpenChange(false); }}
         className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border border-border/50 shadow-2xl bg-background rounded-2xl sm:rounded-[2rem]"
       >
-        
+
         {/* Header Section */}
         <div className="bg-[#0D1B2A] text-white p-6 sm:p-8 pb-10 relative">
           <input
@@ -471,7 +472,7 @@ export function StudentDetailsDialog({
             onChange={handleProfileLicenseScan}
           />
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#C9A84C]/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-          
+
           <div className="flex justify-between items-start relative z-10">
             <div className="flex items-center gap-4 sm:gap-5">
               <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-bold shadow-xl border-4 border-[#0D1B2A] ring-2 ring-white/10 shrink-0 overflow-hidden relative group">
@@ -563,9 +564,9 @@ export function StudentDetailsDialog({
         <div className="px-6 sm:px-8 -mt-6 relative z-10">
           <div className="bg-card border border-border/60 rounded-2xl shadow-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative overflow-hidden backdrop-blur-sm bg-background/95">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#C9A84C]/10 to-transparent rounded-bl-full -z-10 pointer-events-none" />
-            
+
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-4">
-              
+
               <div className="group">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1.5 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#C9A84C]" /> License Number
@@ -574,9 +575,9 @@ export function StudentDetailsDialog({
                   <p className="text-xl sm:text-2xl font-mono font-bold tracking-tight text-foreground">
                     {student.licenseNumber}
                   </p>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors rounded-full"
                     onClick={() => handleCopyToClipboard(student.licenseNumber, 'License')}
                     title="Copy License Number"
@@ -593,9 +594,9 @@ export function StudentDetailsDialog({
                     <p className="text-lg sm:text-xl font-mono font-semibold text-foreground">
                       {student.licenseExpiry.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}
                     </p>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors rounded-full"
                       onClick={() => handleCopyToClipboard(student.licenseExpiry, 'Expiry')}
                       title="Copy Expiry Date"
@@ -660,10 +661,10 @@ export function StudentDetailsDialog({
               <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2">Notes</TabsTrigger>
               <TabsTrigger value="payments" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2">Payments</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="contact" className="space-y-4 outline-none focus-visible:ring-0 animate-in fade-in duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
+
                 {student.mobileNumber && (
                   <div className="flex items-start gap-4 p-4 rounded-xl border border-border/50 bg-card/30 hover:bg-card/80 transition-colors">
                     <div className="bg-primary/10 p-2.5 rounded-full mt-0.5 text-primary">
@@ -785,6 +786,11 @@ export function StudentDetailsDialog({
                   </Button>
                 </form>
               </div>
+
+              <StudentAvailabilityPanel
+                studentId={student.id}
+                studentName={student.name}
+              />
             </TabsContent>
 
             <TabsContent value="lessons" className="outline-none focus-visible:ring-0 animate-in fade-in duration-300">
@@ -845,8 +851,8 @@ export function StudentDetailsDialog({
                       const isPackageCovered = packageData.coveredEventIds.has(lesson.id);
                       const canBillLesson = isPastLesson && lessonStatus !== 'cancelled' && lessonStatus !== 'no-show' && lesson.paymentStatus !== 'paid' && !isPackageCovered && (lesson.services || []).length > 0;
                       return (
-                        <div 
-                          key={lesson.id} 
+                        <div
+                          key={lesson.id}
                           className="p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
                           onClick={() => {
                             onOpenChange(false);
@@ -950,8 +956,8 @@ export function StudentDetailsDialog({
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Textarea 
-                    placeholder="Add a new note..." 
+                  <Textarea
+                    placeholder="Add a new note..."
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     className="min-h-[80px]"
@@ -983,8 +989,8 @@ export function StudentDetailsDialog({
                           <TableCell className="py-3 text-sm font-medium">{format(new Date(payment.paymentDate), 'MMM dd, yyyy')}</TableCell>
                           <TableCell className="py-3 font-semibold text-sm">{formatCurrency(payment.total)}</TableCell>
                           <TableCell className="py-3 text-right pr-6">
-                            <Badge 
-                              variant={payment.status === 'paid' ? 'default' : 'destructive'} 
+                            <Badge
+                              variant={payment.status === 'paid' ? 'default' : 'destructive'}
                               className={cn(
                                 "capitalize font-semibold shadow-none",
                                 payment.status === 'paid' ? "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400" : ""
@@ -1103,10 +1109,10 @@ export function StudentDetailsDialog({
         </SheetHeader>
         <div className="mt-6">
           {isEditMode && student && (
-            <StudentForm 
-              student={student} 
-              onSuccess={() => setIsEditMode(false)} 
-              onCancel={() => setIsEditMode(false)} 
+            <StudentForm
+              student={student}
+              onSuccess={() => setIsEditMode(false)}
+              onCancel={() => setIsEditMode(false)}
             />
           )}
         </div>

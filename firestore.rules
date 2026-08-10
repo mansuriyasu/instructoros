@@ -241,6 +241,21 @@ service cloud.firestore {
         allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
       }
 
+      match /studentAvailability/{docId} {
+        allow get: if isTenantAdmin(tenantId)
+          || (isSchoolInstructor(tenantId)
+            && get(/databases/$(database)/documents/tenants/$(tenantId)/students/$(docId)).data.assignedInstructorIds is list
+            && request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)/students/$(docId)).data.assignedInstructorIds);
+        allow list: if isTenantAdmin(tenantId);
+        allow create, update: if billingWritable(tenantId)
+          && (isTenantAdmin(tenantId)
+            || (isSchoolInstructor(tenantId)
+              && request.resource.data.studentId == docId
+              && get(/databases/$(database)/documents/tenants/$(tenantId)/students/$(docId)).data.assignedInstructorIds is list
+              && request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)/students/$(docId)).data.assignedInstructorIds));
+        allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+
       match /payments/{docId} {
         allow get: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
         allow list: if isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedRecordToInstructor());
