@@ -46,7 +46,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'You can only request availability for assigned students.' }, { status: 403 });
     }
 
-    const rawToken = crypto.randomBytes(32).toString('hex');
+    // Include the tenant in the opaque link so public reads can stay scoped to
+    // one tenant collection instead of using a collection-group query.
+    const rawToken = `${tenantId}.${crypto.randomBytes(32).toString('hex')}`;
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
     const availabilityRef = db.collection('tenants').doc(tenantId).collection('studentAvailability').doc(studentId);

@@ -4,8 +4,27 @@ import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import crypto from 'crypto';
 import { StudentAvailability } from '@/lib/types';
 import { z } from 'zod';
+import type { Firestore } from 'firebase-admin/firestore';
 
 const availabilityEligibleStatuses = new Set(['active', 'booked']);
+
+function parseAvailabilityToken(token: string) {
+  const match = token.match(/^([A-Za-z0-9_-]{1,128})\.([a-f0-9]{64})$/);
+  if (!match) return null;
+  return { tenantId: match[1], tokenHash: crypto.createHash('sha256').update(token).digest('hex') };
+}
+
+async function findAvailabilityDocument(db: Firestore, token: string) {
+  const parsed = parseAvailabilityToken(token);
+  if (!parsed) return null;
+
+  const snapshot = await db.collection('tenants').doc(parsed.tenantId)
+    .collection('studentAvailability')
+    .where('tokenHash', '==', parsed.tokenHash)
+    .limit(1)
+    .get();
+  return snapshot.empty ? null : snapshot.docs[0];
+}
 
 const availabilitySchema = z.object({
   weeklyWindows: z.array(z.object({
@@ -36,19 +55,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
       return NextResponse.json({ ok: false, error: 'Invalid token.' }, { status: 400 });
     }
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const db = getAdminFirestore();
+    const doc = await findAvailabilityDocument(db, token);
 
-    const snapshot = await db.collectionGroup('studentAvailability')
-      .where('tokenHash', '==', tokenHash)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
+    if (!doc) {
       return NextResponse.json({ ok: false, error: 'Link is invalid or expired.' }, { status: 404 });
     }
 
-    const data = snapshot.docs[0].data() as StudentAvailability;
+    const data = doc.data() as StudentAvailability;
     if (!data.tokenEnabled) {
       return NextResponse.json({ ok: false, error: 'Link is disabled.' }, { status: 403 });
     }
@@ -90,19 +104,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       return NextResponse.json({ ok: false, error: 'Invalid token.' }, { status: 400 });
     }
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const db = getAdminFirestore();
+    const doc = await findAvailabilityDocument(db, token);
 
-    const snapshot = await db.collectionGroup('studentAvailability')
-      .where('tokenHash', '==', tokenHash)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
+    if (!doc) {
       return NextResponse.json({ ok: false, error: 'Link is invalid or expired.' }, { status: 404 });
     }
 
-    const doc = snapshot.docs[0];
     const data = doc.data() as StudentAvailability;
 
     if (!data.tokenEnabled) {
