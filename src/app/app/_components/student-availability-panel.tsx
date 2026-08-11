@@ -8,6 +8,7 @@ import { StudentAvailability } from '@/lib/types';
 import { Copy, Link as LinkIcon, RefreshCw, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 
 export function StudentAvailabilityPanel({ studentId, studentName }: { studentId: string, studentName: string }) {
   const { tenant } = useSession();
@@ -37,7 +38,7 @@ export function StudentAvailabilityPanel({ studentId, studentName }: { studentId
     try {
       const res = await fetch('/api/availability/link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
         body: JSON.stringify({ tenantId: tenant.id, studentId })
       });
       const data = await res.json();

@@ -126,7 +126,7 @@ export function ScheduleView() {
   const [eventsToOptimize, setEventsToOptimize] = useState<CalendarEvent[]>([]);
 
   const firestore = useFirestore();
-  const { activeTenantId, canManageTenant, tenant, user } = useSession();
+  const { activeTenantId, canManageTenant, role, tenant, user } = useSession();
   const isSchoolTenant = tenant?.type === 'school';
   const { events: allEvents, loading: isEventsLoading, addEvent, updateEvent: updateEventFirestore, deleteEvent: deleteEventFirestore } = useEvents();
   const { students: allStudents, updateStudent } = useStudents();
@@ -200,15 +200,17 @@ export function ScheduleView() {
   }, [allEvents, selectedInstructorId]);
 
   useEffect(() => {
-    if (!canManageTenant && selectedInstructorId !== 'all') {
-      setSelectedInstructorId('all');
+    // Instructor accounts schedule their own day. School admins can keep the
+    // all-instructors view and choose a specific instructor when using AI.
+    if ((!canManageTenant || role === 'schoolInstructor' || tenant?.type !== 'school') && user?.uid) {
+      if (selectedInstructorId !== user.uid) setSelectedInstructorId(user.uid);
       return;
     }
 
     if (selectedInstructorId !== 'all' && !instructorNameById[selectedInstructorId]) {
       setSelectedInstructorId('all');
     }
-  }, [canManageTenant, instructorNameById, selectedInstructorId]);
+  }, [canManageTenant, instructorNameById, role, selectedInstructorId, tenant?.type, user?.uid]);
 
   const toGoogleEvent = useCallback((eventData: Omit<CalendarEvent, 'id'> | CalendarEvent) => {
     const services = eventData.services?.map(service => service.name).join(', ');
