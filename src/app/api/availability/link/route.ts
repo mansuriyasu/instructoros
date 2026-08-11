@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { StudentAvailability } from '@/lib/types';
 import { MAIN_ADMIN_EMAIL } from '@/lib/auth-config';
 
+const availabilityEligibleStatuses = new Set(['active', 'booked']);
+
 export async function POST(req: NextRequest) {
   try {
     const user = await requireRateLimitedUser(req, 'availability-link-gen', 10);
@@ -31,7 +33,9 @@ export async function POST(req: NextRequest) {
 
     // Verify student exists
     const studentDoc = await db.collection('tenants').doc(tenantId).collection('students').doc(studentId).get();
-    if (!studentDoc.exists || studentDoc.data()?.status !== 'active') {
+    // Booked students are still current contacts and need to be able to
+    // submit availability just like active students.
+    if (!studentDoc.exists || !availabilityEligibleStatuses.has(String(studentDoc.data()?.status || ''))) {
       return NextResponse.json({ ok: false, error: 'Student not found.' }, { status: 404 });
     }
 

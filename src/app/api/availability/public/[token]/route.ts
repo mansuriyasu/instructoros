@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { StudentAvailability } from '@/lib/types';
 import { z } from 'zod';
 
+const availabilityEligibleStatuses = new Set(['active', 'booked']);
+
 const availabilitySchema = z.object({
   weeklyWindows: z.array(z.object({
     weekday: z.number().min(0).max(6),
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 
     // Verify student is still active
     const studentDoc = await db.collection('tenants').doc(data.tenantId).collection('students').doc(data.studentId).get();
-    if (!studentDoc.exists || studentDoc.data()?.status !== 'active') {
+    if (!studentDoc.exists || !availabilityEligibleStatuses.has(String(studentDoc.data()?.status || ''))) {
       return NextResponse.json({ ok: false, error: 'Student account is not active.' }, { status: 403 });
     }
 
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     }
 
     const studentDoc = await db.collection('tenants').doc(data.tenantId).collection('students').doc(data.studentId).get();
-    if (!studentDoc.exists || studentDoc.data()?.status !== 'active') {
+    if (!studentDoc.exists || !availabilityEligibleStatuses.has(String(studentDoc.data()?.status || ''))) {
       return NextResponse.json({ ok: false, error: 'Student account is not active.' }, { status: 403 });
     }
 
