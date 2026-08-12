@@ -1141,7 +1141,7 @@ export function StudentDetailsDialog({
                       size="sm"
                       onClick={() =>
                         void navigator.clipboard?.writeText(
-                          `${window.location.origin}/login?next=%2Fstudent-portal`,
+                          `${window.location.origin}/student-login`,
                         )
                       }
                     >

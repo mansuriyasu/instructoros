@@ -613,9 +613,7 @@ export default function StudentIntakePage({
               </Button>
               <Button
                 variant="ghost"
-                onClick={() =>
-                  window.location.assign("/login?next=%2Fstudent-portal")
-                }
+                onClick={() => window.location.assign("/student-login")}
                 className="w-full"
               >
                 I already have a student account
