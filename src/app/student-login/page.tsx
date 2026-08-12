@@ -229,12 +229,6 @@ export default function StudentLoginPage() {
             Only the student account linked to your registration can open this
             portal.
           </div>
-          <p className="mt-6 text-center text-sm text-slate-600">
-            Are you a school or instructor?{" "}
-            <a className="font-semibold text-amber-700 underline" href="/login">
-              Staff sign in
-            </a>
-          </p>
         </section>
       </div>
     </main>
