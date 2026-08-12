@@ -10,6 +10,7 @@ import {
   updateGoogleCalendarEvent,
 } from '@/lib/google-calendar-server';
 import { getAdminAuth } from '@/lib/server/firebase-admin';
+import { enforceRateLimit } from '@/lib/server/request-security';
 
 function getBearerToken(request: NextRequest) {
   const header = request.headers.get('authorization') || '';
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'sync') {
+      enforceRateLimit(`google-calendar-sync:${decoded.uid}`, 6, 60 * 1000);
       if (!Array.isArray(body.entries)) {
         return NextResponse.json({ error: 'A schedule entry list is required.' }, { status: 400 });
       }
@@ -84,6 +86,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: error.message, code: 'GOOGLE_CALENDAR_RECONNECT_REQUIRED' },
         { status: 401 }
+      );
+    }
+
+    if (typeof error === 'object' && error !== null && 'status' in error && (error as { status?: number }).status === 429) {
+      return NextResponse.json(
+        { error: 'Google Calendar is temporarily rate-limited. Your InstructorOS schedule is safe; wait a minute before syncing again.' },
+        { status: 429 },
       );
     }
 

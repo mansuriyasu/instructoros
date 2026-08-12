@@ -884,7 +884,13 @@ export function ScheduleView() {
   const syncGoogleEvents = useCallback(async (showToast = true) => {
     setIsSyncingGoogle(true);
     try {
-      const result = await syncGoogleEventsBatch(allEvents.map(event => ({
+      // Automatic reconciliation only repairs lessons that have never been
+      // linked. Updating every known event on every page load quickly hits
+      // Google's per-user Queries quota. Explicit manual sync still checks
+      // every lesson so date/time changes can be repaired on demand.
+      const eventsToSync = showToast ? allEvents : allEvents.filter(event => !getUserGoogleEventId(event));
+      if (eventsToSync.length === 0) return;
+      const result = await syncGoogleEventsBatch(eventsToSync.map(event => ({
         localId: event.id,
         googleEventId: getUserGoogleEventId(event),
         event: toGoogleEvent(event),
@@ -898,7 +904,7 @@ export function ScheduleView() {
         }
       }
 
-      await cleanupOrphanedGoogleEvents(allEvents);
+      if (showToast) await cleanupOrphanedGoogleEvents(allEvents);
 
       if (showToast || result.failed) {
         toast({

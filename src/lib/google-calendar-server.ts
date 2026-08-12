@@ -392,7 +392,9 @@ async function googleCalendarRequest<T>(path: string, init: RequestInit = {}, co
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const error = new Error(data.error?.message || 'Google Calendar request failed.') as GoogleCalendarHttpError;
+        const error = new Error(response.status === 429
+          ? 'Google Calendar quota is temporarily exceeded. Wait a minute before syncing again.'
+          : data.error?.message || 'Google Calendar request failed.') as GoogleCalendarHttpError;
         error.status = response.status;
         throw error;
       }
