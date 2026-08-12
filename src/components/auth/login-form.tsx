@@ -221,6 +221,12 @@ export function LoginForm() {
   const [authLockMessage, setAuthLockMessage] = useState("");
   const inviteAutoJoinAttempted = useRef(false);
 
+  useEffect(() => {
+    if (searchParams.get("next") === "/student-login") {
+      router.replace("/student-login");
+    }
+  }, [router, searchParams]);
+
   const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
   const sessionEmail = normalizeEmail(session.user?.email);
   const hasUnconnectedSession = Boolean(
