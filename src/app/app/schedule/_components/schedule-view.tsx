@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   addMonths,
   subMonths,
@@ -112,6 +112,7 @@ export function ScheduleView() {
   } | null>(null);
   const [selectedDateTime, setSelectedDateTime] = useState<Date | null>(null);
   const [isSyncingGoogle, setIsSyncingGoogle] = useState(false);
+  const autoSyncSignatureRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const examStudentId = searchParams.get('examStudentId') || undefined;
@@ -880,7 +881,7 @@ export function ScheduleView() {
     }
   };
 
-  const syncGoogleEvents = useCallback(async () => {
+  const syncGoogleEvents = useCallback(async (showToast = true) => {
     setIsSyncingGoogle(true);
     try {
       const result = await syncGoogleEventsBatch(allEvents.map(event => ({
@@ -899,11 +900,13 @@ export function ScheduleView() {
 
       await cleanupOrphanedGoogleEvents(allEvents);
 
-      toast({
-        title: result.failed ? 'Google Calendar partly synced' : 'Google Calendar synced',
-        description: `${result.created} added, ${result.updated} updated${result.failed ? `, ${result.failed} failed` : ''}. Old duplicates removed.`,
-        variant: result.failed ? 'destructive' : 'default',
-      });
+      if (showToast || result.failed) {
+        toast({
+          title: result.failed ? 'Google Calendar partly synced' : 'Google Calendar synced',
+          description: `${result.created} added, ${result.updated} updated${result.failed ? `, ${result.failed} failed` : ''}. Old duplicates removed.`,
+          variant: result.failed ? 'destructive' : 'default',
+        });
+      }
     } finally {
       setIsSyncingGoogle(false);
     }
@@ -917,6 +920,24 @@ export function ScheduleView() {
     toast,
     updateEventFirestore,
   ]);
+
+  // Reconcile lessons that were created before Google Calendar was connected,
+  // and lessons saved while the connection status was still loading. The
+  // signature excludes Google IDs so writing the repaired IDs does not cause
+  // another sync loop, while date/time changes do trigger a fresh update.
+  const scheduleSyncSignature = useMemo(() => {
+    if (!user?.uid || !activeTenantId || !isConnected || isEventsLoading || allEvents.length === 0) return null;
+    return `${user.uid}:${activeTenantId}:${allEvents
+      .map(event => `${event.id}|${event.start}|${event.end}|${event.title}|${event.studentId || ''}`)
+      .sort()
+      .join('||')}`;
+  }, [activeTenantId, allEvents, isConnected, isEventsLoading, user?.uid]);
+
+  useEffect(() => {
+    if (!scheduleSyncSignature || isSyncingGoogle || autoSyncSignatureRef.current === scheduleSyncSignature) return;
+    autoSyncSignatureRef.current = scheduleSyncSignature;
+    void syncGoogleEvents(false);
+  }, [isSyncingGoogle, scheduleSyncSignature, syncGoogleEvents]);
 
   useEffect(() => {
     if (!isConnected || isSyncingGoogle || isEventsLoading) return;
