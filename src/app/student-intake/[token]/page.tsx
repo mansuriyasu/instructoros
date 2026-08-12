@@ -5,7 +5,6 @@ import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
-  sendEmailVerification,
   signInWithPopup,
   signOut,
 } from "firebase/auth";
@@ -80,7 +79,9 @@ export default function StudentIntakePage({
     possibleDuplicate: boolean;
   } | null>(null);
   const [password, setPassword] = useState("");
-  const [verificationSent, setVerificationSent] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSending, setOtpSending] = useState(false);
   const [licenseImageData, setLicenseImageData] = useState("");
   const [licenseUploadError, setLicenseUploadError] = useState("");
 
@@ -113,6 +114,34 @@ export default function StudentIntakePage({
     if (!response.ok)
       throw new Error(data.error || "Could not activate your portal.");
     window.location.assign("/student-portal");
+  };
+  const sendOtp = async (accountUser: typeof user) => {
+    if (!accountUser || !submission) return;
+    setOtpSending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/student-portal/otp", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await accountUser.getIdToken(true)}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          claimToken: submission.claimToken,
+          action: "send",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not send the SMS code.");
+      setOtpSent(true);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Could not send the SMS code.",
+      );
+    } finally {
+      setOtpSending(false);
+    }
   };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -160,14 +189,7 @@ export default function StudentIntakePage({
               )
             ).user;
       await accountUser.reload();
-      if (!accountUser.emailVerified) {
-        if (!verificationSent) {
-          await sendEmailVerification(accountUser);
-        }
-        setVerificationSent(true);
-        return;
-      }
-      await activate(accountUser);
+      await sendOtp(accountUser);
     } catch (error) {
       const message =
         error instanceof Error
@@ -175,12 +197,7 @@ export default function StudentIntakePage({
           : "Could not create your student account.";
       if (/auth\/email-already-in-use/i.test(message)) {
         setError(
-          "An account already exists for this registration email. Use “I already have a verified account” and sign in with that email.",
-        );
-      } else if (/auth\/too-many-requests/i.test(message)) {
-        setVerificationSent(true);
-        setError(
-          "Firebase temporarily limited verification attempts. Wait a few minutes, verify the email already sent, then return and click the activation button once.",
+          "An account already exists for this registration email. Use “I already have a student account” and sign in with that email.",
         );
       } else {
         setError(message);
@@ -189,11 +206,42 @@ export default function StudentIntakePage({
       setCreating(false);
     }
   };
+  const verifyOtp = async () => {
+    if (!user || !submission) return;
+    setCreating(true);
+    setError("");
+    try {
+      const response = await fetch("/api/student-portal/otp", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await user.getIdToken(true)}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          claimToken: submission.claimToken,
+          action: "verify",
+          code: otpCode,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Could not verify the SMS code.");
+      await activate(user);
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Could not verify the SMS code.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
   const continueWithGoogle = async () => {
     setError("");
     setCreating(true);
     try {
-      await activate(
+      await sendOtp(
         (await signInWithPopup(auth, new GoogleAuthProvider())).user,
       );
     } catch (error) {
@@ -494,10 +542,10 @@ export default function StudentIntakePage({
               <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
                 Registration email: <strong>{fields.email}</strong>
               </p>
-              {verificationSent && (
+              {otpSent && (
                 <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                  We sent a verification email to {fields.email}. Verify it,
-                  then click the button below.
+                  We sent a 6-digit verification code by text message to your
+                  registered mobile number. The code expires in 10 minutes.
                 </p>
               )}
               <Field label="Create a password" required>
@@ -509,17 +557,47 @@ export default function StudentIntakePage({
                   placeholder="At least 6 characters"
                 />
               </Field>
-              <Button
-                disabled={creating || password.length < 6}
-                onClick={createAccount}
-                className="h-12 w-full bg-amber-400 text-slate-950 hover:bg-amber-500"
-              >
-                {creating
-                  ? "Creating account..."
-                  : verificationSent
-                    ? "I verified my email - activate portal"
-                    : "Create student account"}
-              </Button>
+              {!otpSent ? (
+                <Button
+                  disabled={creating || password.length < 6}
+                  onClick={createAccount}
+                  className="h-12 w-full bg-amber-400 text-slate-950 hover:bg-amber-500"
+                >
+                  {creating ? "Creating account..." : "Send SMS code"}
+                </Button>
+              ) : (
+                <>
+                  <Field label="SMS verification code" required>
+                    <Input
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) =>
+                        setOtpCode(e.target.value.replace(/\D/g, ""))
+                      }
+                      placeholder="6-digit code"
+                    />
+                  </Field>
+                  <Button
+                    disabled={creating || otpCode.length !== 6}
+                    onClick={verifyOtp}
+                    className="h-12 w-full bg-amber-400 text-slate-950 hover:bg-amber-500"
+                  >
+                    {creating
+                      ? "Activating portal..."
+                      : "Verify code and activate portal"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={otpSending || creating}
+                    onClick={() => user && sendOtp(user)}
+                    className="h-11 w-full"
+                  >
+                    {otpSending ? "Sending code..." : "Send a new code"}
+                  </Button>
+                </>
+              )}
               <div className="flex items-center gap-3 text-xs text-slate-400">
                 <span className="h-px flex-1 bg-slate-200" />
                 OR
@@ -540,7 +618,7 @@ export default function StudentIntakePage({
                 }
                 className="w-full"
               >
-                I already have a verified account
+                I already have a student account
               </Button>
             </div>
           )}
