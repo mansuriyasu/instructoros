@@ -155,7 +155,7 @@ export function StudentGrid() {
         </div>
         <div className="flex items-center gap-2">
           <StudentIntakeLinkDialog />
-          {canManageTenant && (
+          {canManageTenant && duplicateGroups.length > 0 && (
             <Button variant="outline" onClick={() => setIsDuplicateMergeOpen(true)} className="h-10 gap-2 px-3">
               <GitMerge className="h-4 w-4" />
               <span className="hidden sm:inline">Merge duplicates{duplicateGroups.length > 0 ? ` (${duplicateGroups.length})` : ''}</span>

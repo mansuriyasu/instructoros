@@ -29,6 +29,7 @@ export interface Student {
   roadTest?: { testType: 'G2' | 'G'; date: string; time: string; location: string };
   studentSubmittedNotes?: string;
   emergencyContact?: { name: string; phone: string; relationship: string };
+  guardianContact?: { name: string; phone: string; relationship: string };
   privacyAcceptedAt?: string;
   termsAcceptedAt?: string;
   cancellationPolicyAcceptedAt?: string;

@@ -556,9 +556,14 @@ export function LoginForm() {
             )}
 
             {mode === 'login' ? (
-              <div className="rounded-2xl border border-[#F4C430]/50 bg-[#FFF8D8] px-4 py-3 text-sm">
-                <p className="font-bold">Already have an account?</p>
-                <p className="mt-1 text-muted-foreground">Enter your email and password below, or use Google.</p>
+              <div className="space-y-3 rounded-2xl border border-[#F4C430]/50 bg-[#FFF8D8] px-4 py-3 text-sm">
+                <div>
+                  <p className="font-bold">Already have an account?</p>
+                  <p className="mt-1 text-muted-foreground">Enter your email and password below, or use Google.</p>
+                </div>
+                <Button type="button" variant="outline" className="h-10 w-full rounded-xl bg-white font-bold" onClick={() => router.push('/login?next=%2Fstudent-portal')}>
+                  Student portal login
+                </Button>
               </div>
             ) : (
               <div className="rounded-2xl border bg-muted/30 px-4 py-3">

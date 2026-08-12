@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const { studentRef } = await context(request);
     const body = await request.json().catch(() => ({}));
-    const allowed = ['name', 'email', 'mobileNumber', 'birthdate', 'licenseNumber', 'licenseExpiry', 'licenseType', 'address', 'pickupAddress', 'drivingGoal', 'experienceLevel', 'roadTest', 'studentSubmittedNotes', 'emergencyContact'];
+    const allowed = ['name', 'email', 'mobileNumber', 'birthdate', 'licenseNumber', 'licenseExpiry', 'licenseType', 'licenseImageUrl', 'avatarUrl', 'address', 'pickupAddress', 'drivingGoal', 'experienceLevel', 'roadTest', 'studentSubmittedNotes', 'emergencyContact', 'guardianContact'];
     const updates: Record<string, unknown> = {};
     for (const key of allowed) if (Object.prototype.hasOwnProperty.call(body, key)) updates[key] = body[key];
     if (typeof updates.name === 'string' && updates.name.trim().length < 2) return NextResponse.json({ error: 'Name is required.' }, { status: 400 });
