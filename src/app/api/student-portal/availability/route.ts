@@ -15,7 +15,6 @@ async function context(request: NextRequest) {
   const token = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) throw new RequestSecurityError('Please sign in before editing availability.', 401);
   const actor = await getAdminAuth().verifyIdToken(token);
-  if (!actor.email_verified) throw new RequestSecurityError('Verify your email before editing availability.', 403);
   return getStudentPortalContext(actor.uid);
 }
 

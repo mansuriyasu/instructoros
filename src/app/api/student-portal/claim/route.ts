@@ -5,6 +5,7 @@ import {
   RequestSecurityError,
   requireRateLimitedUser,
 } from "@/lib/server/request-security";
+import { hashStudentPin, normalizeStudentMobile } from "@/lib/server/student-portal";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const token =
       typeof body.claimToken === "string" ? body.claimToken.trim() : "";
+    const pin = typeof body.pin === "string" ? body.pin.trim() : "";
+    if (!/^\d{6}$/.test(pin)) {
+      return NextResponse.json(
+        { error: "Create a 6-digit PIN for future student portal login." },
+        { status: 400 },
+      );
+    }
     if (!token)
       return NextResponse.json(
         { error: "Account activation token is required." },
@@ -102,6 +110,7 @@ export async function POST(request: NextRequest) {
       }
     }
     const now = new Date().toISOString();
+    const pinSalt = crypto.randomBytes(16).toString("hex");
     await db.runTransaction(async (transaction) => {
       transaction.set(
         tenantRef.collection("studentAccounts").doc(actor.uid),
@@ -110,6 +119,9 @@ export async function POST(request: NextRequest) {
           tenantId: tenantRef.id,
           studentId: studentRef.id,
           email: actor.email,
+          mobileNumberNormalized: normalizeStudentMobile(student.mobileNumber),
+          pinSalt,
+          pinHash: hashStudentPin(pin, pinSalt),
           status: "active",
           createdAt: now,
           lastLoginAt: now,

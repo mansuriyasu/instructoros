@@ -10,7 +10,6 @@ async function context(request: NextRequest) {
   const token = header.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) throw new RequestSecurityError('Please sign in to open the student portal.', 401);
   const user = await getAdminAuth().verifyIdToken(token);
-  if (!user.email_verified) throw new RequestSecurityError('Verify your email before using the student portal.', 403);
   return getStudentPortalContext(user.uid);
 }
 

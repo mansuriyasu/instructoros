@@ -78,7 +78,7 @@ export default function StudentIntakePage({
     claimToken: string;
     possibleDuplicate: boolean;
   } | null>(null);
-  const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpSending, setOtpSending] = useState(false);
@@ -108,7 +108,7 @@ export default function StudentIntakePage({
         Authorization: `Bearer ${idToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ claimToken: submission.claimToken }),
+      body: JSON.stringify({ claimToken: submission.claimToken, pin }),
     });
     const data = await response.json();
     if (!response.ok)
@@ -185,7 +185,7 @@ export default function StudentIntakePage({
               await createUserWithEmailAndPassword(
                 auth,
                 registrationEmail,
-                password,
+                `${globalThis.crypto.randomUUID()}Aa1!`,
               )
             ).user;
       await accountUser.reload();
@@ -548,18 +548,20 @@ export default function StudentIntakePage({
                   registered mobile number. The code expires in 10 minutes.
                 </p>
               )}
-              <Field label="Create a password" required>
+                <Field label="Create a 6-digit portal PIN" required>
                 <Input
                   type="password"
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                  placeholder="6 digits"
                 />
               </Field>
               {!otpSent ? (
                 <Button
-                  disabled={creating || password.length < 6}
+                  disabled={creating || pin.length !== 6}
                   onClick={createAccount}
                   className="h-12 w-full bg-amber-400 text-slate-950 hover:bg-amber-500"
                 >
@@ -605,7 +607,7 @@ export default function StudentIntakePage({
               </div>
               <Button
                 variant="outline"
-                disabled={creating}
+                disabled={creating || pin.length !== 6}
                 onClick={continueWithGoogle}
                 className="h-12 w-full"
               >

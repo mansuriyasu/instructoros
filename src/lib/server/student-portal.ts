@@ -1,5 +1,23 @@
 import { getAdminFirestore } from '@/lib/server/firebase-admin';
 import { RequestSecurityError } from '@/lib/server/request-security';
+import crypto from 'crypto';
+
+export function normalizeStudentMobile(value: unknown) {
+  return typeof value === 'string' ? value.replace(/\D/g, '').slice(-10) : '';
+}
+
+function pinSecret() {
+  return process.env.STUDENT_PORTAL_PIN_SECRET || process.env.FIREBASE_PROJECT_ID || 'instructoros-student-portal';
+}
+
+export function hashStudentPin(pin: string, salt: string) {
+  return crypto.createHmac('sha256', pinSecret()).update(`${salt}:${pin}`).digest('hex');
+}
+
+export function verifyStudentPin(pin: string, salt: string, expectedHash: string) {
+  const actual = hashStudentPin(pin, salt);
+  return actual.length === expectedHash.length && crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(expectedHash));
+}
 
 export async function getStudentPortalContext(uid: string) {
   const db = getAdminFirestore();

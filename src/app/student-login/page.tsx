@@ -4,14 +4,11 @@ import { useState } from "react";
 import {
   browserLocalPersistence,
   browserSessionPersistence,
-  GoogleAuthProvider,
-  sendPasswordResetEmail,
   setPersistence,
-  signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithCustomToken,
   signOut,
 } from "firebase/auth";
-import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
+import { Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,25 +21,18 @@ function authMessage(error: unknown) {
       message,
     )
   )
-    return "Email or password is not correct.";
+    return "Mobile number or PIN is not correct.";
   if (/auth\/too-many-requests/i.test(message))
     return "Too many attempts. Please wait a little and try again.";
-  if (/auth\/popup-blocked/i.test(message))
-    return "The Google sign-in popup was blocked. Allow popups for this site and try again.";
-  if (/auth\/popup-closed-by-user|auth\/cancelled-popup-request/i.test(message))
-    return "Google sign-in was cancelled.";
-  if (/auth\/unauthorized-domain/i.test(message))
-    return "This domain is not authorized for Firebase login yet.";
   return message || "Could not sign in to the student portal.";
 }
 
 export default function StudentLoginPage() {
   const auth = useAuth();
   const { user } = useUser();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [pin, setPin] = useState("");
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -76,50 +66,17 @@ export default function StudentLoginPage() {
         auth,
         keepLoggedIn ? browserLocalPersistence : browserSessionPersistence,
       );
-      const credential = await signInWithEmailAndPassword(
-        auth,
-        email.trim().toLowerCase(),
-        password,
-      );
+      const response = await fetch("/api/student-portal/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobileNumber, pin }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.customToken !== "string") {
+        throw new Error(data.error || "Mobile number or PIN is not correct.");
+      }
+      const credential = await signInWithCustomToken(auth, data.customToken);
       await finishSignIn(credential.user);
-    } catch (cause) {
-      setError(authMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const signInGoogle = async () => {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      if (user) await signOut(auth);
-      await setPersistence(
-        auth,
-        keepLoggedIn ? browserLocalPersistence : browserSessionPersistence,
-      );
-      const credential = await signInWithPopup(auth, new GoogleAuthProvider());
-      await finishSignIn(credential.user);
-    } catch (cause) {
-      setError(authMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resetPassword = async () => {
-    if (!email.trim()) {
-      setError("Enter your email first so we can send a password reset link.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
-      setNotice(
-        "Password reset instructions were sent if a student account exists for that email.",
-      );
     } catch (cause) {
       setError(authMessage(cause));
     } finally {
@@ -138,7 +95,7 @@ export default function StudentLoginPage() {
             </p>
             <h1 className="mt-2 text-3xl font-black">Welcome back</h1>
             <p className="mt-2 text-sm text-slate-600">
-              View your lessons, availability, payments, and driving progress.
+              Use the mobile number verified by SMS and your 6-digit PIN.
             </p>
           </div>
           {error && (
@@ -153,38 +110,30 @@ export default function StudentLoginPage() {
           )}
           <form onSubmit={signIn} className="space-y-4">
             <label className="block text-sm font-semibold">
-              Email address
+              Mobile number
               <Input
                 className="mt-2"
-                type="email"
+                type="tel"
                 required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="416 555 0123"
+                value={mobileNumber}
+                onChange={(event) => setMobileNumber(event.target.value)}
               />
             </label>
             <label className="block text-sm font-semibold">
-              Password
-              <div className="relative mt-2">
-                <Input
-                  className="pr-11"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
+              6-digit PIN
+              <Input
+                className="mt-2 tracking-[0.35em]"
+                type="password"
+                required
+                inputMode="numeric"
+                autoComplete="current-password"
+                maxLength={6}
+                value={pin}
+                onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
+              />
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
@@ -206,24 +155,6 @@ export default function StudentLoginPage() {
               Sign in to Student Portal
             </Button>
           </form>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy}
-            onClick={signInGoogle}
-            className="mt-4 h-12 w-full"
-          >
-            Continue with Google
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={busy}
-            onClick={resetPassword}
-            className="mt-2 w-full text-sm"
-          >
-            Forgot password?
-          </Button>
           <div className="mt-6 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
             <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
             Only the student account linked to your registration can open this
