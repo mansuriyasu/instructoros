@@ -159,8 +159,11 @@ export default function StudentIntakePage({
                 password,
               )
             ).user;
+      await accountUser.reload();
       if (!accountUser.emailVerified) {
-        await sendEmailVerification(accountUser);
+        if (!verificationSent) {
+          await sendEmailVerification(accountUser);
+        }
         setVerificationSent(true);
         return;
       }
@@ -170,11 +173,18 @@ export default function StudentIntakePage({
         error instanceof Error
           ? error.message
           : "Could not create your student account.";
-      setError(
-        /auth\/email-already-in-use/i.test(message)
-          ? "An account already exists for this registration email. Use “I already have a verified account” and sign in with that email."
-          : message,
-      );
+      if (/auth\/email-already-in-use/i.test(message)) {
+        setError(
+          "An account already exists for this registration email. Use “I already have a verified account” and sign in with that email.",
+        );
+      } else if (/auth\/too-many-requests/i.test(message)) {
+        setVerificationSent(true);
+        setError(
+          "Firebase temporarily limited verification attempts. Wait a few minutes, verify the email already sent, then return and click the activation button once.",
+        );
+      } else {
+        setError(message);
+      }
     } finally {
       setCreating(false);
     }
