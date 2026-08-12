@@ -16,6 +16,18 @@ function normalizePhone(value: unknown) {
   return String(value || '').trim();
 }
 
+function twilioHint(code: unknown) {
+  switch (String(code || '')) {
+    case '20003': return 'Twilio rejected the server credentials. Replace TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in Hostinger.';
+    case '21211': return 'The recipient phone number is invalid. Save it in Canadian international format, for example +14165551234.';
+    case '21608': return 'This Twilio trial account can only message verified recipient numbers. Verify the recipient in Twilio or upgrade the account.';
+    case '21606': return 'The sender number is not owned by this Twilio account or is not SMS-capable. Check TWILIO_FROM_NUMBER.';
+    case '21610': return 'The recipient has opted out of SMS messages.';
+    case '30007': return 'The carrier rejected this message. Check the sender registration, message content, and recipient number in Twilio logs.';
+    default: return undefined;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const token = getBearerToken(request);
@@ -58,7 +70,12 @@ export async function POST(request: NextRequest) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        return NextResponse.json({ error: data.message || 'Twilio could not send the SMS.', code: data.code }, { status: 502 });
+        const code = data.code;
+        return NextResponse.json({
+          error: data.message || 'Twilio could not send the SMS.',
+          code,
+          hint: twilioHint(code),
+        }, { status: 502 });
       }
       return NextResponse.json({ ok: true, sid: data.sid, status: data.status });
     } finally {
