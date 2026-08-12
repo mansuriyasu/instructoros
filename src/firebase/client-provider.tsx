@@ -22,6 +22,7 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
     || pathname?.startsWith('/student-intake')
     || pathname?.startsWith('/availability');
   const isAdminPage = pathname?.startsWith('/admin');
+  const isStudentPortalPage = pathname?.startsWith('/student-portal');
   const sessionRepairAttempted = useRef(false);
 
   useEffect(() => {
@@ -49,6 +50,10 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
     return <>{children}</>;
   }
 
+  if (isStudentPortalPage && !user) {
+    return null;
+  }
+
   if (isSessionLoading) {
     return null;
   }
@@ -63,6 +68,10 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
 
   if (!user) {
     return null;
+  }
+
+  if (isStudentPortalPage) {
+    return <>{children}</>;
   }
 
   if (!role) {

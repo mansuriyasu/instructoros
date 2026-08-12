@@ -111,7 +111,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
         birthdate: student.birthdate || '',
         licenseNumber: student.licenseNumber || '',
         licenseExpiry: student.licenseExpiry || '',
-        licenseType: student.licenseType || 'G2',
+        licenseType: student.licenseType === 'G' || student.licenseType === 'G2' ? student.licenseType : 'G2',
         comments: student.comments || '',
       });
       setScannedAvatarUrl(student.avatarUrl || '');

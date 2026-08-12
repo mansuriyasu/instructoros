@@ -148,6 +148,12 @@ service cloud.firestore {
           && request.resource.data.uid == uid
           && request.resource.data.email == email());
       allow delete: if isMainAdmin();
+
+      match /studentPortal/{linkId} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow write: if false;
+      }
     }
 
     match /tenants/{tenantId} {
@@ -239,6 +245,12 @@ service cloud.firestore {
         allow create: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && newAssignedStudentToInstructor()));
         allow update: if billingWritable(tenantId) && (isTenantAdmin(tenantId) || (isSchoolInstructor(tenantId) && assignedStudentToInstructor() && newAssignedStudentToInstructor()));
         allow delete: if isTenantAdmin(tenantId) && billingWritable(tenantId);
+      }
+
+      match /studentAccounts/{uid} {
+        allow get: if isMainAdmin() || isTenantAdmin(tenantId) || (signedIn() && request.auth.uid == uid && resource.data.uid == request.auth.uid);
+        allow list: if isMainAdmin() || isTenantAdmin(tenantId);
+        allow write: if isMainAdmin() || isTenantAdmin(tenantId);
       }
 
       match /studentAvailability/{docId} {
@@ -354,6 +366,10 @@ service cloud.firestore {
     match /promoCodes/{codeId} {
       allow get: if signedIn();
       allow list, create, update, delete: if isMainAdmin();
+    }
+
+    match /studentPortalClaims/{claimId} {
+      allow read, write: if false;
     }
 
     match /{document=**} {

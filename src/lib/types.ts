@@ -1,6 +1,6 @@
 
 export type StudentStatus = 'active' | 'booked' | 'on-hold' | 'deactivated';
-export type LicenseType = 'G' | 'G2';
+export type LicenseType = 'G1' | 'G2' | 'G' | 'Other';
 export type PaymentMethod = 'Cash' | 'E-Transfer' | 'Other' | 'Unpaid' | 'Advance';
 export type PaymentStatus = 'paid' | 'unpaid';
 export type LessonStatus = 'scheduled' | 'no-show' | 'cancelled';
@@ -23,6 +23,22 @@ export interface Student {
   licenseImageUrl?: string; // Optional full license image URL in Firebase Storage
   tags?: string[];
   assignedInstructorIds?: string[];
+  drivingGoal?: 'beginner' | 'g2-prep' | 'g-prep' | 'refresher' | 'other';
+  experienceLevel?: 'none' | 'beginner' | 'some' | 'experienced';
+  pickupAddress?: { street: string; unit?: string; city: string; province: string; postalCode: string };
+  roadTest?: { testType: 'G2' | 'G'; date: string; time: string; location: string };
+  studentSubmittedNotes?: string;
+  emergencyContact?: { name: string; phone: string; relationship: string };
+  privacyAcceptedAt?: string;
+  termsAcceptedAt?: string;
+  cancellationPolicyAcceptedAt?: string;
+  registrationCompletedAt?: string;
+  updatedAt?: string;
+  updatedByUid?: string;
+  portalUid?: string;
+  portalStatus?: 'not-activated' | 'active' | 'revoked';
+  portalEmail?: string;
+  registrationReview?: 'possible-duplicate';
 }
 
 export interface PackageComponent {

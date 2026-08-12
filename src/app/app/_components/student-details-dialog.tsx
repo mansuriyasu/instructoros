@@ -56,6 +56,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { StudentForm } from '@/app/app/students/form/_components/student-form';
 import { LicenseImagePreviewDialog } from './license-image-preview-dialog';
 import { StudentAvailabilityPanel } from './student-availability-panel';
+import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 
 interface StudentDetailsDialogProps {
   isOpen: boolean;
@@ -85,7 +86,7 @@ export function StudentDetailsDialog({
   const { events, updateEvent } = useEvents();
   const { evaluations } = useEvaluations(student?.id);
   const { students, updateStudent, deleteStudent } = useStudents();
-  const { tenant } = useSession();
+  const { tenant, activeTenantId } = useSession();
   const router = useRouter();
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -101,6 +102,7 @@ export function StudentDetailsDialog({
   const [newNote, setNewNote] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isAddressNavigationOpen, setIsAddressNavigationOpen] = useState(false);
+  const [isPortalAccessBusy, setIsPortalAccessBusy] = useState(false);
   const profileScanInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -261,6 +263,26 @@ export function StudentDetailsDialog({
 
   const handleStatusChange = (status: StudentStatus) => {
     onStatusChange(student.id, status);
+  };
+
+  const handlePortalAccess = async (action: 'revoke' | 'restore') => {
+    if (!activeTenantId || !student) return;
+    setIsPortalAccessBusy(true);
+    try {
+      const response = await fetch('/api/student-portal/access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
+        body: JSON.stringify({ tenantId: activeTenantId, studentId: student.id, action }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      await updateStudent({ id: student.id, portalStatus: result.status });
+      toast({ title: action === 'revoke' ? 'Portal access revoked' : 'Portal access restored' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Could not update portal access', description: error instanceof Error ? error.message : 'Please try again.' });
+    } finally {
+      setIsPortalAccessBusy(false);
+    }
   };
 
   const handleAddToBill = () => {
@@ -791,6 +813,22 @@ export function StudentDetailsDialog({
                 studentId={student.id}
                 studentName={student.name}
               />
+
+              <div className="rounded-2xl border border-border/50 bg-muted/30 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Student portal access</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {student.portalStatus === 'active' ? `Active${student.portalEmail ? ` · ${student.portalEmail}` : ''}` : student.portalStatus === 'revoked' ? 'Revoked' : 'Not activated'}
+                    </p>
+                  </div>
+                  {student.portalStatus === 'active' ? (
+                    <Button type="button" variant="outline" size="sm" disabled={isPortalAccessBusy} onClick={() => void handlePortalAccess('revoke')}>Revoke access</Button>
+                  ) : student.portalUid ? (
+                    <Button type="button" variant="outline" size="sm" disabled={isPortalAccessBusy} onClick={() => void handlePortalAccess('restore')}>Restore access</Button>
+                  ) : <span className="text-xs text-muted-foreground">Student activates from the registration link.</span>}
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="lessons" className="outline-none focus-visible:ring-0 animate-in fade-in duration-300">

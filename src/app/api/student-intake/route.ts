@@ -13,6 +13,10 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
+function normalizePhone(value: unknown) {
+  return clean(value, 60).replace(/\D/g, '').slice(-10);
+}
+
 function clean(value: unknown, max = 240) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
@@ -112,27 +116,69 @@ export async function PUT(request: NextRequest) {
     const name = clean(body.name, 160);
     if (name.length < 2) return NextResponse.json({ error: 'Please enter your full name.' }, { status: 400 });
     const email = clean(body.email, 160).toLowerCase();
-    if (email && !/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Please enter a valid email.' }, { status: 400 });
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Please enter a valid email. It is required to create your student account.' }, { status: 400 });
+
+    const mobileNumber = clean(body.mobileNumber, 60);
+    const phoneKey = normalizePhone(mobileNumber);
+    const licenseNumber = clean(body.licenseNumber, 40).toUpperCase();
+    const existingByPhone = phoneKey
+      ? await result.tenantRef.collection('students').where('mobileNumberNormalized', '==', phoneKey).limit(1).get()
+      : { empty: true } as const;
+    const existingByLicense = licenseNumber
+      ? await result.tenantRef.collection('students').where('licenseNumber', '==', licenseNumber).limit(1).get()
+      : { empty: true } as const;
+    const possibleDuplicate = !existingByPhone.empty || !existingByLicense.empty;
+    const claimToken = randomBytes(32).toString('base64url');
+    const claimHash = hashToken(claimToken);
+    const claimExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     const studentRef = result.tenantRef.collection('students').doc();
     const now = new Date().toISOString();
     await studentRef.create({
       name,
       email,
-      mobileNumber: clean(body.mobileNumber, 60),
+      mobileNumber,
+      mobileNumberNormalized: phoneKey,
       address: clean(body.address, 240),
       birthdate: clean(body.birthdate, 20),
-      licenseNumber: clean(body.licenseNumber, 40).toUpperCase(),
+      licenseNumber,
       licenseExpiry: clean(body.licenseExpiry, 20),
-      licenseType: body.licenseType === 'G' ? 'G' : 'G2',
+      licenseType: ['G1', 'G2', 'G', 'Other'].includes(body.licenseType) ? body.licenseType : 'G2',
+      drivingGoal: ['beginner', 'g2-prep', 'g-prep', 'refresher', 'other'].includes(body.drivingGoal) ? body.drivingGoal : 'beginner',
+      experienceLevel: ['none', 'beginner', 'some', 'experienced'].includes(body.experienceLevel) ? body.experienceLevel : 'none',
+      studentSubmittedNotes: clean(body.studentSubmittedNotes, 2000),
       comments: clean(body.comments, 1000),
-      status: 'active',
+      status: possibleDuplicate ? 'on-hold' : 'active',
       registrationDate: now,
       tags: ['Self-submitted'],
       createdVia: 'student-intake',
+      portalClaimTokenHash: claimHash,
+      portalClaimExpiresAt: claimExpiresAt,
+      portalStatus: 'not-activated',
+      registrationReview: possibleDuplicate ? 'possible-duplicate' : null,
+    });
+    const availabilityToken = `${result.tenantRef.id}.${randomBytes(32).toString('hex')}`;
+    await result.tenantRef.collection('studentAvailability').doc(studentRef.id).set({
+      tenantId: result.tenantRef.id,
+      studentId: studentRef.id,
+      timezone: 'America/Toronto',
+      weeklyWindows: [],
+      overrides: [],
+      tokenHash: hashToken(availabilityToken),
+      tokenCreatedAt: now,
+      tokenEnabled: true,
+      updatedAt: now,
+    });
+    await getAdminFirestore().collection('studentPortalClaims').doc(claimHash).set({
+      tenantId: result.tenantRef.id,
+      studentId: studentRef.id,
+      email,
+      expiresAt: claimExpiresAt,
+      status: 'active',
+      createdAt: now,
     });
     await result.form.ref.update({ submissionCount: (Number(result.data.submissionCount) || 0) + 1, lastSubmittedAt: now });
-    return NextResponse.json({ ok: true, studentId: studentRef.id });
+    return NextResponse.json({ ok: true, studentId: studentRef.id, claimToken, availabilityToken, possibleDuplicate });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not submit your information.';
     const status = error instanceof RequestSecurityError ? error.status : 500;

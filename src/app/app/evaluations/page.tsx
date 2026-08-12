@@ -218,7 +218,7 @@ export default function EvaluationPage() {
       void loadedSheet;
       return;
     }
-    if (existingEvaluations.length === 0 && student?.licenseType && student.licenseType !== testType) {
+    if (existingEvaluations.length === 0 && (student?.licenseType === 'G' || student?.licenseType === 'G2') && student.licenseType !== testType) {
       loadedRef.current = true;
       setTestType(student.licenseType);
       setState(freshSheetState(getExamSheet(student.licenseType)));
