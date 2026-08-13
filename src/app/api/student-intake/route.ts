@@ -16,7 +16,7 @@ import { getWorkspaceAccess } from "@/lib/workspace-access";
 
 export const runtime = "nodejs";
 
-const MAX_AGE_DAYS = 30;
+const PERMANENT_LINK_TYPE = "workspace-permanent";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -55,9 +55,9 @@ async function loadForm(token: string) {
   }
   const data = form.data() as Record<string, unknown>;
   const expiresAt =
-    typeof data.expiresAt === "string" ? Date.parse(data.expiresAt) : 0;
-  if (!expiresAt || expiresAt <= Date.now() || data.status !== "active")
-    return null;
+    typeof data.expiresAt === "string" ? Date.parse(data.expiresAt) : null;
+  if (data.status !== "active") return null;
+  if (expiresAt && expiresAt <= Date.now()) return null;
   const tenantRef = form.ref.parent.parent;
   if (!tenantRef) return null;
   const tenantSnap = await tenantRef.get();
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     const result = await loadForm(token);
     if (!result)
       return NextResponse.json(
-        { error: "This student form link is invalid or expired." },
+        { error: "This student form link is invalid or inactive." },
         { status: 404 },
       );
     return NextResponse.json({
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         result.tenant.name ||
         "Driving school",
       logoDataUrl: result.tenant.receiptLogoDataUrl || null,
-      expiresAt: result.data.expiresAt,
+      expiresAt: result.data.expiresAt || null,
     });
   } catch {
     return NextResponse.json(
@@ -117,6 +117,11 @@ export async function POST(request: NextRequest) {
         { status: 404 },
       );
     const tenant = tenantSnap.data() as Tenant;
+    const tenantRecord = tenant as Tenant & {
+      studentIntakeToken?: string;
+      studentIntakeCreatedByUid?: string;
+      studentIntakeCreatedAt?: string;
+    };
     const member = memberSnap.exists
       ? (memberSnap.data() as TenantMember)
       : null;
@@ -142,23 +147,40 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
 
-    const token = `${tenantId}.${randomBytes(32).toString("base64url")}`;
+    const existingToken =
+      typeof tenantRecord.studentIntakeToken === "string"
+        ? tenantRecord.studentIntakeToken
+        : "";
+    const token = existingToken.startsWith(`${tenantId}.`)
+      ? existingToken
+      : `${tenantId}.${randomBytes(32).toString("base64url")}`;
     const now = new Date();
-    const expiresAt = new Date(
-      now.getTime() + MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
-    );
     await tenantRef
       .collection("studentIntakeForms")
       .doc(hashToken(token))
       .set({
         tokenHash: hashToken(token),
+        token,
+        linkType: PERMANENT_LINK_TYPE,
         status: "active",
         tenantId,
-        createdByUid: actor.uid,
-        createdAt: now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
+        createdByUid: existingToken
+          ? tenantRecord.studentIntakeCreatedByUid || actor.uid
+          : actor.uid,
+        createdAt: tenantRecord.studentIntakeCreatedAt || now.toISOString(),
+        updatedAt: now.toISOString(),
+        expiresAt: null,
+      }, { merge: true });
+    if (token !== existingToken) {
+      await tenantRef.update({
+        studentIntakeToken: token,
+        studentIntakeTokenHash: hashToken(token),
+        studentIntakeCreatedByUid: actor.uid,
+        studentIntakeCreatedAt: now.toISOString(),
+        studentIntakeUpdatedAt: now.toISOString(),
       });
-    return NextResponse.json({ token, expiresAt: expiresAt.toISOString() });
+    }
+    return NextResponse.json({ token, permanent: true });
   } catch (error) {
     const message =
       error instanceof Error
@@ -184,7 +206,7 @@ export async function PUT(request: NextRequest) {
     const result = await loadForm(token);
     if (!result)
       return NextResponse.json(
-        { error: "This student form link is invalid or expired." },
+        { error: "This student form link is invalid or inactive." },
         { status: 404 },
       );
     if (!getWorkspaceAccess(result.tenant).canWrite)

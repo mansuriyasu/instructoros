@@ -17,7 +17,7 @@ import { useAuth, useUser } from "@/firebase";
 type FormInfo = {
   workspaceName: string;
   logoDataUrl?: string | null;
-  expiresAt: string;
+  expiresAt?: string | null;
 };
 type Fields = {
   name: string;
