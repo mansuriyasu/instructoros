@@ -42,6 +42,23 @@ export interface Student {
   registrationReview?: 'possible-duplicate';
 }
 
+export type TenantNotificationType = 'student-registration';
+export type TenantNotificationStatus = 'unread' | 'read';
+
+export interface TenantNotification {
+  id: string;
+  type: TenantNotificationType;
+  status: TenantNotificationStatus;
+  title: string;
+  message: string;
+  studentId?: string;
+  studentName?: string;
+  createdAt: string;
+  createdVia?: string;
+  severity?: 'info' | 'warning';
+  registrationReview?: 'possible-duplicate';
+}
+
 export interface PackageComponent {
   serviceId: string; // component Service id at definition time
   name: string; // snapshot of the component name

@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, type ReactNode } from 'react';
-import { Bell, Copy } from 'lucide-react';
-import { addDays, isSameDay, isWithinInterval, parse, startOfDay } from 'date-fns';
+import { Bell, Check, Copy, UserPlus } from 'lucide-react';
+import { addDays, formatDistanceToNow, isSameDay, isWithinInterval, parse, startOfDay } from 'date-fns';
+import { collection, doc, limit, orderBy, query, updateDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,9 +16,9 @@ import {
 } from '@/components/ui/sheet';
 import { useStudents } from '@/hooks/use-students';
 import { useToast } from '@/hooks/use-toast';
-import { useSession } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useSession, useTenantCollectionPath } from '@/firebase';
 import { cn } from '@/lib/utils';
-import { Student } from '@/lib/types';
+import { Student, TenantNotification } from '@/lib/types';
 
 interface NotificationsSheetProps {
   className?: string;
@@ -27,7 +28,22 @@ interface NotificationsSheetProps {
 export function NotificationsSheet({ className, triggerType = 'button' }: NotificationsSheetProps) {
   const { students } = useStudents();
   const { toast } = useToast();
-  const { tenant } = useSession();
+  const { activeTenantId, tenant, user } = useSession();
+  const firestore = useFirestore();
+  const notificationsPath = useTenantCollectionPath('notifications');
+  const notificationsQuery = useMemoFirebase(
+    () =>
+      firestore && notificationsPath
+        ? query(
+            collection(firestore, notificationsPath),
+            orderBy('createdAt', 'desc'),
+            limit(20)
+          )
+        : null,
+    [firestore, notificationsPath]
+  );
+  const { data: tenantNotifications } =
+    useCollection<TenantNotification>(notificationsQuery);
 
   const notifications = useMemo(() => {
     if (!students) return { expiringLicenses: [], upcomingBirthdays: [] };
@@ -44,7 +60,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
           start: today,
           end: thirtyDaysFromNow,
         });
-      } catch (e) {
+      } catch {
         return false;
       }
     });
@@ -66,7 +82,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
         return [thisYearBirthday, nextYearBirthday].some((birthday) =>
           isSameDay(birthday, todayStart) || isSameDay(birthday, tomorrow)
         );
-      } catch (e) {
+      } catch {
         return false;
       }
     });
@@ -75,7 +91,9 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
   }, [students]);
 
   const totalNotifications =
-    notifications.expiringLicenses.length + notifications.upcomingBirthdays.length;
+    notifications.expiringLicenses.length +
+    notifications.upcomingBirthdays.length +
+    (tenantNotifications || []).filter((item) => item.status !== 'read').length;
 
   const handleCopyBirthdayWish = async (student: Student) => {
     const firstName = student.name.split(' ')[0] || student.name;
@@ -83,6 +101,15 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
     const wish = `Happy birthday, ${firstName}! Wishing you a wonderful year ahead filled with happiness, success, and safe drives. Have an amazing day! - ${senderName}`;
     await navigator.clipboard.writeText(wish);
     toast({ title: 'Birthday wish copied' });
+  };
+
+  const markNotificationRead = async (notificationId: string) => {
+    if (!firestore || !activeTenantId || !user) return;
+    await updateDoc(doc(firestore, 'tenants', activeTenantId, 'notifications', notificationId), {
+      status: 'read',
+      readAt: new Date().toISOString(),
+      readByUid: user.uid,
+    });
   };
 
   return (
@@ -145,6 +172,10 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
         </SheetHeader>
         <ScrollArea className="mt-4 h-[calc(100%-4rem)]">
           <div className="space-y-6">
+            <TenantNotificationSection
+              items={tenantNotifications || []}
+              onMarkRead={markNotificationRead}
+            />
             <NotificationSection
               title="Expiring Licenses"
               items={notifications.expiringLicenses}
@@ -192,6 +223,76 @@ interface NotificationSectionProps {
   items: Student[];
   renderItem: (student: Student) => string;
   renderAction?: (student: Student) => ReactNode;
+}
+
+interface TenantNotificationSectionProps {
+  items: TenantNotification[];
+  onMarkRead: (notificationId: string) => void;
+}
+
+function TenantNotificationSection({
+  items,
+  onMarkRead,
+}: TenantNotificationSectionProps) {
+  const registrationItems = items.filter(
+    (item) => item.type === 'student-registration'
+  );
+  if (registrationItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <h3 className="mb-3 font-semibold">Student Registrations</h3>
+      <div className="space-y-3">
+        {registrationItems.map((item) => {
+          const isUnread = item.status !== 'read';
+          const createdAt = item.createdAt ? new Date(item.createdAt) : null;
+          const timeLabel =
+            createdAt && !Number.isNaN(createdAt.getTime())
+              ? `${formatDistanceToNow(createdAt, { addSuffix: true })}`
+              : 'Just now';
+
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                'flex items-start gap-3 rounded-xl border p-3',
+                item.severity === 'warning'
+                  ? 'border-amber-200 bg-amber-50'
+                  : 'border-border bg-muted/30'
+              )}
+            >
+              <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#ffb300]/15 text-[#b77900]">
+                <UserPlus className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">{item.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {item.message}
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {timeLabel}
+                </p>
+              </div>
+              {isUnread && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 flex-shrink-0 bg-background"
+                  onClick={() => onMarkRead(item.id)}
+                  aria-label={`Mark ${item.title} as read`}
+                >
+                  <Check className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function NotificationSection({

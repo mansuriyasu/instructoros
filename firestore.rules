@@ -253,6 +253,15 @@ service cloud.firestore {
         allow write: if isMainAdmin() || isTenantAdmin(tenantId);
       }
 
+      match /notifications/{docId} {
+        allow read: if isActiveTenantMember(tenantId) || isMainAdmin();
+        allow create, delete: if false;
+        allow update: if (isActiveTenantMember(tenantId) || isMainAdmin())
+          && request.resource.data.status == "read"
+          && request.resource.data.readByUid == request.auth.uid
+          && onlyChanges(["status", "readAt", "readByUid"]);
+      }
+
       match /studentAvailability/{docId} {
         allow get: if isTenantAdmin(tenantId)
           || (isSchoolInstructor(tenantId)

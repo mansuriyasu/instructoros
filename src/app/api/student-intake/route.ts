@@ -326,6 +326,22 @@ export async function PUT(request: NextRequest) {
         status: "active",
         createdAt: now,
       });
+    await result.tenantRef.collection("notifications").add({
+      type: "student-registration",
+      status: "unread",
+      title: possibleDuplicate
+        ? "New student needs review"
+        : "New student registered",
+      message: possibleDuplicate
+        ? `${name} submitted the registration form and may match an existing student.`
+        : `${name} submitted the registration form.`,
+      studentId: studentRef.id,
+      studentName: name,
+      createdAt: now,
+      createdVia: "student-intake",
+      severity: possibleDuplicate ? "warning" : "info",
+      registrationReview: possibleDuplicate ? "possible-duplicate" : null,
+    });
     await result.form.ref.update({
       submissionCount: (Number(result.data.submissionCount) || 0) + 1,
       lastSubmittedAt: now,
