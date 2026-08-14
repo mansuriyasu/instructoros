@@ -21,6 +21,7 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
   const isStudentLoginPage = pathname === '/student-login';
   const isPublicPage = pathname === '/'
     || pathname?.startsWith('/student-intake')
+    || pathname?.startsWith('/register')
     || pathname?.startsWith('/availability')
     || isStudentLoginPage;
   const isAdminPage = pathname?.startsWith('/admin');

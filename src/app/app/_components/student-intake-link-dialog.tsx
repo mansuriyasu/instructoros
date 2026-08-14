@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ClipboardCopy, Link2, Loader2 } from 'lucide-react';
+import { ClipboardCopy, Link2, Loader2, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -40,7 +40,7 @@ export function StudentIntakeLinkDialog() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setLink(`${window.location.origin}/student-intake/${data.token}`);
+      setLink(`${window.location.origin}${data.path || `/register/${data.slug}`}`);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -61,20 +61,32 @@ export function StudentIntakeLinkDialog() {
     });
   };
 
+  const share = async () => {
+    if (typeof navigator.share !== 'function') {
+      await copy();
+      return;
+    }
+    await navigator.share({
+      title: 'Student registration',
+      text: 'Please complete your student registration using this secure InstructorOS link.',
+      url: link,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Link2 className="h-4 w-4" />
-          Student form link
+          Share registration link
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Student self-registration</DialogTitle>
           <DialogDescription>
-            Use one permanent registration link for this workspace. Every
-            submission is added to your normal Students list for review.
+            Use one permanent, friendly registration link for this workspace.
+            Every submission is added to your Students list for review.
           </DialogDescription>
         </DialogHeader>
 
@@ -84,10 +96,16 @@ export function StudentIntakeLinkDialog() {
             <div className="break-all rounded-lg border bg-muted p-3 text-sm">
               {link}
             </div>
-            <Button onClick={copy} className="w-full gap-2">
-              <ClipboardCopy className="h-4 w-4" />
-              Copy link
-            </Button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button onClick={share} className="gap-2">
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+              <Button onClick={copy} variant="outline" className="gap-2">
+                <ClipboardCopy className="h-4 w-4" />
+                Copy
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
               This link stays active for the workspace until you replace or
               disable it later.
@@ -104,7 +122,7 @@ export function StudentIntakeLinkDialog() {
             ) : (
               <Link2 className="h-4 w-4" />
             )}
-            {loading ? 'Getting link...' : 'Get permanent link'}
+            {loading ? 'Getting link...' : 'Show registration link'}
           </Button>
         )}
       </DialogContent>

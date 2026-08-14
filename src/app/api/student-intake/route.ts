@@ -22,6 +22,30 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function slugify(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 54);
+}
+
+function buildSlugBase(tenant: Tenant, actorEmail?: string | null) {
+  const emailName = clean(actorEmail, 160).split("@")[0] || "";
+  return (
+    slugify(
+      tenant.receiptBusinessName ||
+        tenant.name ||
+        tenant.messageSenderName ||
+        tenant.ownerEmail ||
+        emailName ||
+        "instructor",
+    ) || "instructor"
+  );
+}
+
 function normalizePhone(value: unknown) {
   return clean(value, 60).replace(/\D/g, "").slice(-10);
 }
@@ -31,7 +55,7 @@ function clean(value: unknown, max = 240) {
 }
 
 async function loadForm(token: string) {
-  if (!token || token.length < 32) return null;
+  if (!token || token.length < 3) return null;
   const db = getAdminFirestore();
   let form;
   const tokenParts = token.split(".");
@@ -41,6 +65,22 @@ async function loadForm(token: string) {
       .collection("studentIntakeForms")
       .doc(hashToken(token));
     const formSnap = await formRef.get();
+    if (!formSnap.exists) return null;
+    form = formSnap;
+  } else if (/^[a-z0-9][a-z0-9-]{1,78}[a-z0-9]$/.test(token)) {
+    const slugSnap = await db.collection("studentIntakeSlugs").doc(token).get();
+    if (!slugSnap.exists) return null;
+    const slugData = slugSnap.data() as Record<string, unknown>;
+    if (slugData.status !== "active") return null;
+    const tenantId = clean(slugData.tenantId, 160);
+    const tokenHash = clean(slugData.tokenHash, 120);
+    if (!tenantId || !tokenHash) return null;
+    const formSnap = await db
+      .collection("tenants")
+      .doc(tenantId)
+      .collection("studentIntakeForms")
+      .doc(tokenHash)
+      .get();
     if (!formSnap.exists) return null;
     form = formSnap;
   } else {
@@ -119,6 +159,7 @@ export async function POST(request: NextRequest) {
     const tenant = tenantSnap.data() as Tenant;
     const tenantRecord = tenant as Tenant & {
       studentIntakeToken?: string;
+      studentIntakeSlug?: string;
       studentIntakeCreatedByUid?: string;
       studentIntakeCreatedAt?: string;
     };
@@ -155,6 +196,32 @@ export async function POST(request: NextRequest) {
       ? existingToken
       : `${tenantId}.${randomBytes(32).toString("base64url")}`;
     const now = new Date();
+    const existingSlug =
+      typeof tenantRecord.studentIntakeSlug === "string"
+        ? tenantRecord.studentIntakeSlug
+        : "";
+    let slug = existingSlug;
+    const slugRef = slug
+      ? db.collection("studentIntakeSlugs").doc(slug)
+      : null;
+    const slugSnap = slugRef ? await slugRef.get() : null;
+    if (!slug || !slugSnap?.exists || slugSnap.data()?.tenantId !== tenantId) {
+      const base = buildSlugBase(tenant, actor.email);
+      for (let attempt = 0; attempt < 25; attempt += 1) {
+        const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
+        const candidateSnap = await db
+          .collection("studentIntakeSlugs")
+          .doc(candidate)
+          .get();
+        if (!candidateSnap.exists || candidateSnap.data()?.tenantId === tenantId) {
+          slug = candidate;
+          break;
+        }
+      }
+    }
+    if (!slug) {
+      slug = `${buildSlugBase(tenant, actor.email)}-${randomBytes(3).toString("hex")}`;
+    }
     await tenantRef
       .collection("studentIntakeForms")
       .doc(hashToken(token))
@@ -171,16 +238,36 @@ export async function POST(request: NextRequest) {
         updatedAt: now.toISOString(),
         expiresAt: null,
       }, { merge: true });
+    await db.collection("studentIntakeSlugs").doc(slug).set({
+      slug,
+      tenantId,
+      tokenHash: hashToken(token),
+      linkType: PERMANENT_LINK_TYPE,
+      status: "active",
+      updatedAt: now.toISOString(),
+      createdAt: tenantRecord.studentIntakeCreatedAt || now.toISOString(),
+    }, { merge: true });
     if (token !== existingToken) {
       await tenantRef.update({
         studentIntakeToken: token,
         studentIntakeTokenHash: hashToken(token),
+        studentIntakeSlug: slug,
         studentIntakeCreatedByUid: actor.uid,
         studentIntakeCreatedAt: now.toISOString(),
         studentIntakeUpdatedAt: now.toISOString(),
       });
+    } else if (slug !== existingSlug) {
+      await tenantRef.update({
+        studentIntakeSlug: slug,
+        studentIntakeUpdatedAt: now.toISOString(),
+      });
     }
-    return NextResponse.json({ token, permanent: true });
+    return NextResponse.json({
+      token,
+      slug,
+      path: `/register/${slug}`,
+      permanent: true,
+    });
   } catch (error) {
     const message =
       error instanceof Error
