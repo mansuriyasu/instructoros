@@ -1135,18 +1135,6 @@ export function StudentDetailsDialog({
                             : "Not activated"}
                       </p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        void navigator.clipboard?.writeText(
-                          `${window.location.origin}/student-login`,
-                        )
-                      }
-                    >
-                      Copy portal link
-                    </Button>
                     {student.portalStatus === "active" ? (
                       <Button
                         type="button"
