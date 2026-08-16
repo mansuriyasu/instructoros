@@ -5,9 +5,19 @@ import { getAdminAuth } from '@/lib/server/firebase-admin';
 import { getStudentPortalContext } from '@/lib/server/student-portal';
 
 export const runtime = 'nodejs';
+const earliestAvailabilityTime = '07:00';
+const latestAvailabilityTime = '20:00';
+const timeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):([0-5]\d)$/)
+  .refine(
+    (value) => value >= earliestAvailabilityTime && value <= latestAvailabilityTime,
+    'Availability must be between 7:00 AM and 8:00 PM.',
+  );
+
 const schema = z.object({
-  weeklyWindows: z.array(z.object({ weekday: z.number().min(0).max(6), startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/), endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/) }).refine(v => v.startTime < v.endTime)).max(42),
-  overrides: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(), endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(), available: z.boolean() })).max(366),
+  weeklyWindows: z.array(z.object({ weekday: z.number().min(0).max(6), startTime: timeSchema, endTime: timeSchema }).refine(v => v.startTime < v.endTime)).max(42),
+  overrides: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: timeSchema.optional(), endTime: timeSchema.optional(), available: z.boolean() })).max(366),
   timezone: z.string().max(80).optional(),
 });
 

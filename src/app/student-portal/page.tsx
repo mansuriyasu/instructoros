@@ -10,6 +10,7 @@ import {
   Loader2,
   LogOut,
   Save,
+  X,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { Button } from "@/components/ui/button";
@@ -553,37 +554,43 @@ function AvailabilityPanel({
   onSave: () => void;
   saving: boolean;
 }) {
+  const updateWindow = (
+    targetIndex: number,
+    key: "startTime" | "endTime",
+    nextValue: string,
+  ) =>
+    onChange({
+      ...value,
+      weeklyWindows: value.weeklyWindows.map((window, index) =>
+        index === targetIndex ? { ...window, [key]: nextValue } : window,
+      ),
+    });
+  const removeWindow = (targetIndex: number) =>
+    onChange({
+      ...value,
+      weeklyWindows: value.weeklyWindows.filter((_, index) => index !== targetIndex),
+    });
   const addWindow = (weekday: number) =>
     onChange({
       ...value,
       weeklyWindows: [
         ...value.weeklyWindows,
-        { weekday, startTime: "09:00", endTime: "17:00" },
+        { weekday, startTime: "07:00", endTime: "20:00" },
       ],
     });
   return (
     <ListSection title="Your availability">
       <p className="text-sm text-slate-600">
-        Set recurring hours for lesson planning. Your instructor sees these
-        times when scheduling.
+        Set recurring hours from 7:00 AM to 8:00 PM. Your instructor sees
+        these times when scheduling.
       </p>
       {weekdays.map((day, weekday) => (
         <div
           key={day}
-          className="flex items-center justify-between border-b py-3"
+          className="border-b py-3"
         >
-          <span className="font-semibold">{day}</span>
-          <div className="flex flex-wrap justify-end gap-2">
-            {value.weeklyWindows
-              .filter((window) => window.weekday === weekday)
-              .map((window, index) => (
-                <span
-                  key={`${day}-${index}`}
-                  className="rounded-full bg-slate-100 px-3 py-1 text-sm"
-                >
-                  {window.startTime}–{window.endTime}
-                </span>
-              ))}
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-semibold">{day}</span>
             <Button
               type="button"
               variant="outline"
@@ -592,6 +599,58 @@ function AvailabilityPanel({
             >
               Add time
             </Button>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {value.weeklyWindows
+              .map((window, index) => ({ window, index }))
+              .filter(({ window }) => window.weekday === weekday)
+              .map(({ window, index }) => (
+                <div
+                  key={`${day}-${index}`}
+                  className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 rounded-xl bg-slate-50 p-3"
+                >
+                  <label className="space-y-1 text-xs font-semibold text-slate-600">
+                    From
+                    <Input
+                      type="time"
+                      min="07:00"
+                      max="20:00"
+                      step="900"
+                      value={window.startTime || "07:00"}
+                      onChange={(event) =>
+                        updateWindow(index, "startTime", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-semibold text-slate-600">
+                    To
+                    <Input
+                      type="time"
+                      min="07:00"
+                      max="20:00"
+                      step="900"
+                      value={window.endTime || "20:00"}
+                      onChange={(event) =>
+                        updateWindow(index, "endTime", event.target.value)
+                      }
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="mb-0.5"
+                    onClick={() => removeWindow(index)}
+                    aria-label={`Remove ${day} availability`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            {value.weeklyWindows
+              .filter((window) => window.weekday === weekday).length === 0 && (
+              <p className="text-sm text-slate-500">Not available</p>
+            )}
           </div>
         </div>
       ))}
