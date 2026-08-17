@@ -5,6 +5,11 @@ import { normalizeStudentMobile, verifyStudentPin } from "@/lib/server/student-p
 
 export const runtime = "nodejs";
 
+function isMissingIndexError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /FAILED_PRECONDITION|requires.*index|requires a COLLECTION_GROUP/i.test(message);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -17,10 +22,21 @@ export async function POST(request: NextRequest) {
     const clientKey = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     enforceRateLimit(`student-portal-login:${clientKey}:${mobile}`, 8, 15 * 60 * 1000);
     const db = getAdminFirestore();
-    const accounts = await db.collectionGroup("studentAccounts")
-      .where("mobileNumberNormalized", "==", mobile)
-      .limit(3)
-      .get();
+    let accounts;
+    try {
+      accounts = await db.collectionGroup("studentAccounts")
+        .where("mobileNumberNormalized", "==", mobile)
+        .limit(3)
+        .get();
+    } catch (error) {
+      if (!isMissingIndexError(error)) throw error;
+      const allAccounts = await db.collectionGroup("studentAccounts").get();
+      accounts = {
+        docs: allAccounts.docs.filter(
+          (doc) => String(doc.data().mobileNumberNormalized || "") === mobile,
+        ),
+      };
+    }
     const matches = accounts.docs.filter((doc) => {
       const data = doc.data();
       return data.status === "active" && typeof data.uid === "string" && typeof data.pinSalt === "string" && typeof data.pinHash === "string" && verifyStudentPin(pin, data.pinSalt, data.pinHash);

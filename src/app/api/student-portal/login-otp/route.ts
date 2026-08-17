@@ -29,6 +29,11 @@ function studentPortalUid(tenantId: string, studentId: string) {
   return `student_${hash(`${tenantId}:${studentId}`).slice(0, 24)}`;
 }
 
+function isMissingIndexError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /FAILED_PRECONDITION|requires.*index|requires a COLLECTION_GROUP/i.test(message);
+}
+
 async function ensureAuthUser(uid: string, displayName: string) {
   const auth = getAdminAuth();
   try {
@@ -41,11 +46,22 @@ async function ensureAuthUser(uid: string, displayName: string) {
 
 async function resolveStudentByMobile(mobile: string) {
   const db = getAdminFirestore();
-  const accountMatches = await db
-    .collectionGroup("studentAccounts")
-    .where("mobileNumberNormalized", "==", mobile)
-    .limit(4)
-    .get();
+  let accountMatches;
+  try {
+    accountMatches = await db
+      .collectionGroup("studentAccounts")
+      .where("mobileNumberNormalized", "==", mobile)
+      .limit(4)
+      .get();
+  } catch (error) {
+    if (!isMissingIndexError(error)) throw error;
+    const allAccounts = await db.collectionGroup("studentAccounts").get();
+    accountMatches = {
+      docs: allAccounts.docs.filter(
+        (doc) => String(doc.data().mobileNumberNormalized || "") === mobile,
+      ),
+    };
+  }
   const activeAccounts = accountMatches.docs.filter((doc) => {
     const data = doc.data();
     return data.status === "active" && typeof data.uid === "string";
@@ -66,12 +82,17 @@ async function resolveStudentByMobile(mobile: string) {
     };
   }
 
-  const normalizedMatches = await db
-    .collectionGroup("students")
-    .where("mobileNumberNormalized", "==", mobile)
-    .limit(4)
-    .get();
-  let studentDocs = normalizedMatches.docs;
+  let studentDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  try {
+    const normalizedMatches = await db
+      .collectionGroup("students")
+      .where("mobileNumberNormalized", "==", mobile)
+      .limit(4)
+      .get();
+    studentDocs = normalizedMatches.docs;
+  } catch (error) {
+    if (!isMissingIndexError(error)) throw error;
+  }
 
   if (studentDocs.length === 0) {
     const allStudents = await db.collectionGroup("students").get();
