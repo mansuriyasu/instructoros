@@ -8,7 +8,7 @@ import {
   signInWithCustomToken,
   signOut,
 } from "firebase/auth";
-import { Loader2, LogIn, ShieldCheck } from "lucide-react";
+import { Loader2, LogIn, MessageSquareText, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,10 @@ export default function StudentLoginPage() {
   const { user } = useUser();
   const [mobileNumber, setMobileNumber] = useState("");
   const [pin, setPin] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpPin, setOtpPin] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [mode, setMode] = useState<"pin" | "otp">("pin");
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -84,6 +88,63 @@ export default function StudentLoginPage() {
     }
   };
 
+  const sendOtp = async () => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/student-portal/login-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", mobileNumber }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Could not send the verification code.");
+      }
+      setOtpSent(true);
+      setNotice(data.message || "A verification code was sent by text message.");
+    } catch (cause) {
+      setError(authMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyOtp = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      if (user) await signOut(auth);
+      await setPersistence(
+        auth,
+        keepLoggedIn ? browserLocalPersistence : browserSessionPersistence,
+      );
+      const response = await fetch("/api/student-portal/login-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify",
+          mobileNumber,
+          code: otpCode,
+          pin: otpPin,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.customToken !== "string") {
+        throw new Error(data.error || "Could not verify the code.");
+      }
+      const credential = await signInWithCustomToken(auth, data.customToken);
+      await finishSignIn(credential.user);
+    } catch (cause) {
+      setError(authMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6">
       <div className="mx-auto flex w-full max-w-md flex-col items-center">
@@ -95,7 +156,7 @@ export default function StudentLoginPage() {
             </p>
             <h1 className="mt-2 text-3xl font-black">Welcome back</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Use the mobile number verified by SMS and your 6-digit PIN.
+              Use your mobile number and PIN, or verify by text message if you need to set or reset your PIN.
             </p>
           </div>
           {error && (
@@ -108,7 +169,32 @@ export default function StudentLoginPage() {
               {notice}
             </p>
           )}
-          <form onSubmit={signIn} className="space-y-4">
+          <div className="mb-4 grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-sm font-semibold">
+            <button
+              type="button"
+              className={`rounded-lg px-3 py-2 ${mode === "pin" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600"}`}
+              onClick={() => {
+                setMode("pin");
+                setError("");
+                setNotice("");
+              }}
+            >
+              PIN login
+            </button>
+            <button
+              type="button"
+              className={`rounded-lg px-3 py-2 ${mode === "otp" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600"}`}
+              onClick={() => {
+                setMode("otp");
+                setError("");
+                setNotice("");
+              }}
+            >
+              OTP / set PIN
+            </button>
+          </div>
+
+          <form onSubmit={mode === "pin" ? signIn : verifyOtp} className="space-y-4">
             <label className="block text-sm font-semibold">
               Mobile number
               <Input
@@ -122,19 +208,82 @@ export default function StudentLoginPage() {
                 onChange={(event) => setMobileNumber(event.target.value)}
               />
             </label>
-            <label className="block text-sm font-semibold">
-              6-digit PIN
-              <Input
-                className="mt-2 tracking-[0.35em]"
-                type="password"
-                required
-                inputMode="numeric"
-                autoComplete="current-password"
-                maxLength={6}
-                value={pin}
-                onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
-              />
-            </label>
+            {mode === "pin" ? (
+              <label className="block text-sm font-semibold">
+                6-digit PIN
+                <Input
+                  className="mt-2 tracking-[0.35em]"
+                  type="password"
+                  required
+                  inputMode="numeric"
+                  autoComplete="current-password"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
+                />
+              </label>
+            ) : (
+              <div className="space-y-4 rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">No PIN yet?</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    We will text a code to the mobile number on your student record. After verification, create a 6-digit PIN for next time.
+                  </p>
+                </div>
+                {!otpSent ? (
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    className="h-11 w-full bg-slate-950 font-bold text-white hover:bg-slate-800"
+                    onClick={sendOtp}
+                  >
+                    {busy ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <MessageSquareText className="mr-2 h-4 w-4" />
+                    )}
+                    Send OTP
+                  </Button>
+                ) : (
+                  <>
+                    <label className="block text-sm font-semibold">
+                      6-digit text code
+                      <Input
+                        className="mt-2 tracking-[0.35em]"
+                        required
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, ""))}
+                      />
+                    </label>
+                    <label className="block text-sm font-semibold">
+                      Create/reset 6-digit PIN
+                      <Input
+                        className="mt-2 tracking-[0.35em]"
+                        type="password"
+                        required
+                        inputMode="numeric"
+                        autoComplete="new-password"
+                        maxLength={6}
+                        value={otpPin}
+                        onChange={(event) => setOtpPin(event.target.value.replace(/\D/g, ""))}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy}
+                      className="w-full"
+                      onClick={sendOtp}
+                    >
+                      Send a new code
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"
@@ -144,7 +293,10 @@ export default function StudentLoginPage() {
               Keep me logged in
             </label>
             <Button
-              disabled={busy}
+              disabled={
+                busy ||
+                (mode === "otp" && (!otpSent || otpCode.length !== 6 || otpPin.length !== 6))
+              }
               className="h-12 w-full bg-amber-400 font-bold text-slate-950 hover:bg-amber-500"
             >
               {busy ? (
@@ -152,7 +304,7 @@ export default function StudentLoginPage() {
               ) : (
                 <LogIn className="mr-2 h-4 w-4" />
               )}
-              Sign in to Student Portal
+              {mode === "pin" ? "Sign in to Student Portal" : "Verify OTP and open portal"}
             </Button>
           </form>
           <div className="mt-6 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
