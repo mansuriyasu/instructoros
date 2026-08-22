@@ -53,8 +53,8 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
     return <>{children}</>;
   }
 
-  if (isStudentPortalPage && !user) {
-    return null;
+  if (isStudentPortalPage) {
+    return user ? <>{children}</> : null;
   }
 
   if (isSessionLoading) {
@@ -71,10 +71,6 @@ function AuthGate({ auth, children }: { auth: Auth, children: React.ReactNode })
 
   if (!user) {
     return null;
-  }
-
-  if (isStudentPortalPage) {
-    return <>{children}</>;
   }
 
   if (!role) {
