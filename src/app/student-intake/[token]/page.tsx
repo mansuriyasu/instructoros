@@ -2,17 +2,12 @@
 
 import { use, useEffect, useState } from "react";
 import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
-import {
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-} from "firebase/auth";
+import { signInWithCustomToken } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/logo";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth } from "@/firebase";
 
 type FormInfo = {
   workspaceName: string;
@@ -67,7 +62,6 @@ export default function StudentIntakePage({
 }) {
   const { token } = use(params);
   const auth = useAuth();
-  const { user } = useUser();
   const [info, setInfo] = useState<FormInfo | null>(null);
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [loading, setLoading] = useState(true);
@@ -99,31 +93,14 @@ export default function StudentIntakePage({
 
   const setField = (key: keyof Fields, value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
-  const activate = async (accountUser: typeof user) => {
-    if (!accountUser || !submission) return;
-    const idToken = await accountUser.getIdToken(true);
-    const response = await fetch("/api/student-portal/claim", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${idToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ claimToken: submission.claimToken, pin }),
-    });
-    const data = await response.json();
-    if (!response.ok)
-      throw new Error(data.error || "Could not activate your portal.");
-    window.location.assign("/student-portal");
-  };
-  const sendOtp = async (accountUser: typeof user) => {
-    if (!accountUser || !submission) return;
+  const sendOtp = async () => {
+    if (!submission) return;
     setOtpSending(true);
     setError("");
     try {
-      const response = await fetch("/api/student-portal/otp", {
+      const response = await fetch("/api/student-portal/claim-otp", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${await accountUser.getIdToken(true)}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -172,81 +149,47 @@ export default function StudentIntakePage({
     setError("");
     setCreating(true);
     try {
-      const registrationEmail = fields.email.trim().toLowerCase();
-      // The owner or another user may already be signed in in this browser.
-      // Never use that session to claim a student record for a different email.
-      if (user && user.email?.toLowerCase() !== registrationEmail) {
-        await signOut(auth);
-      }
-      const accountUser =
-        user && user.email?.toLowerCase() === registrationEmail
-          ? user
-          : (
-              await createUserWithEmailAndPassword(
-                auth,
-                registrationEmail,
-                `${globalThis.crypto.randomUUID()}Aa1!`,
-              )
-            ).user;
-      await accountUser.reload();
-      await sendOtp(accountUser);
+      await sendOtp();
     } catch (error) {
-      const message =
+      setError(
         error instanceof Error
           ? error.message
-          : "Could not create your student account.";
-      if (/auth\/email-already-in-use/i.test(message)) {
-        setError(
-          "An account already exists for this registration email. Use “I already have a student account” and sign in with that email.",
-        );
-      } else {
-        setError(message);
-      }
+          : "Could not send the SMS code.",
+      );
     } finally {
       setCreating(false);
     }
   };
   const verifyOtp = async () => {
-    if (!user || !submission) return;
+    if (!submission) return;
     setCreating(true);
     setError("");
     try {
-      const response = await fetch("/api/student-portal/otp", {
+      const response = await fetch("/api/student-portal/claim-otp", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${await user.getIdToken(true)}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           claimToken: submission.claimToken,
           action: "verify",
           code: otpCode,
+          pin,
         }),
       });
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Could not verify the SMS code.");
-      await activate(user);
+      if (typeof data.customToken !== "string") {
+        throw new Error("Could not open the student portal.");
+      }
+      await signInWithCustomToken(auth, data.customToken);
+      window.location.assign("/student-portal");
     } catch (error) {
       setError(
         error instanceof Error
           ? error.message
           : "Could not verify the SMS code.",
-      );
-    } finally {
-      setCreating(false);
-    }
-  };
-  const continueWithGoogle = async () => {
-    setError("");
-    setCreating(true);
-    try {
-      await sendOtp(
-        (await signInWithPopup(auth, new GoogleAuthProvider())).user,
-      );
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Could not connect Google.",
       );
     } finally {
       setCreating(false);
@@ -593,26 +536,13 @@ export default function StudentIntakePage({
                   <Button
                     variant="outline"
                     disabled={otpSending || creating}
-                    onClick={() => user && sendOtp(user)}
+                    onClick={sendOtp}
                     className="h-11 w-full"
                   >
                     {otpSending ? "Sending code..." : "Send a new code"}
                   </Button>
                 </>
               )}
-              <div className="flex items-center gap-3 text-xs text-slate-400">
-                <span className="h-px flex-1 bg-slate-200" />
-                OR
-                <span className="h-px flex-1 bg-slate-200" />
-              </div>
-              <Button
-                variant="outline"
-                disabled={creating || pin.length !== 6}
-                onClick={continueWithGoogle}
-                className="h-12 w-full"
-              >
-                Continue with Google
-              </Button>
               <Button
                 variant="ghost"
                 onClick={() => window.location.assign("/student-login")}
