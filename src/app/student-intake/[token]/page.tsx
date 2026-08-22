@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/firebase";
+import { compressImage } from "@/lib/image-utils";
 
 type FormInfo = {
   workspaceName: string;
@@ -290,22 +291,23 @@ export default function StudentIntakePage({
                         );
                         return;
                       }
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const value = String(reader.result || "");
-                        if (value.length > 700000) {
+                      try {
+                        let value = await compressImage(file, 1200, 0.72);
+                        if (value.length > 1_800_000) {
+                          value = await compressImage(file, 900, 0.58);
+                        }
+                        if (value.length > 1_800_000) {
                           setLicenseUploadError(
-                            "This image is too large. Please choose a smaller photo or screenshot.",
+                            "This image is still too large after resizing. Please take a closer screenshot of the licence and try again.",
                           );
                           return;
                         }
                         setLicenseImageData(value);
-                      };
-                      reader.onerror = () =>
+                      } catch {
                         setLicenseUploadError(
                           "Could not read that image. Please try again.",
                         );
-                      reader.readAsDataURL(file);
+                      }
                     }}
                   />
                   {licenseImageData
