@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 import { useFirestore, useSession } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { compressImage } from '@/lib/image-utils';
@@ -206,7 +206,7 @@ export function WorkspaceProfileSettings() {
           </div>
           <div className="space-y-2 lg:col-span-2">
             <Label htmlFor="receiptAddress">Business address</Label>
-            <Textarea id="receiptAddress" value={form.receiptAddress} onChange={event => updateField('receiptAddress', event.target.value)} className="min-h-20 rounded-lg" />
+            <AddressAutocompleteInput id="receiptAddress" value={form.receiptAddress} onChange={event => updateField('receiptAddress', event.target.value)} onAddressSelect={address => updateField('receiptAddress', address)} className="rounded-lg" />
           </div>
         </CardContent>
       </Card>

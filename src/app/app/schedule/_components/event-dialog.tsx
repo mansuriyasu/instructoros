@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 import { CalendarEvent, InstructorOption } from '@/lib/types';
 import { useStudents } from '@/hooks/use-students';
 import { useServices } from '@/hooks/use-services';
@@ -367,10 +368,11 @@ export function EventDialog({
                 <FormLabel htmlFor="missing-student-address" className="text-sm font-semibold flex items-center gap-2">
                   Student Address Required
                 </FormLabel>
-                <Input
+                <AddressAutocompleteInput
                   id="missing-student-address"
                   value={missingAddress}
                   onChange={(event) => setMissingAddress(event.target.value)}
+                  onAddressSelect={setMissingAddress}
                   placeholder="Enter pickup address before scheduling"
                   className="mt-2 bg-white"
                 />

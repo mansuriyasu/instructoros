@@ -36,6 +36,7 @@ import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LicenseImagePreviewDialog } from '@/app/app/_components/license-image-preview-dialog';
 import { useTwilioSms } from '@/hooks/use-twilio-sms';
+import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 
 const studentSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -423,7 +424,7 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
                                 <FormItem>
                                 <FormLabel>Address</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="123 Main St, Anytown, USA" {...field} />
+                                    <AddressAutocompleteInput placeholder="Start typing the pickup address" {...field} />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>

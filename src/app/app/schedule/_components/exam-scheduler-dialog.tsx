@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Car, MapPin, Upload, Plus } from 'lucide-react';
 import { useStudents } from '@/hooks/use-students';
@@ -429,11 +430,15 @@ export function ExamSchedulerDialog({
                         </p>
                     )}
                     {(selectedExamCenterServiceId === CUSTOM_EXAM_CENTER_VALUE || examCenterServices.length === 0) && (
-                        <Input
+                        <AddressAutocompleteInput
                             value={examCenter}
                             onChange={e => {
                                 setSelectedExamCenterServiceId(examCenterServices.length > 0 ? CUSTOM_EXAM_CENTER_VALUE : '');
                                 setExamCenter(e.target.value);
+                            }}
+                            onAddressSelect={(address) => {
+                                setSelectedExamCenterServiceId(examCenterServices.length > 0 ? CUSTOM_EXAM_CENTER_VALUE : '');
+                                setExamCenter(address);
                             }}
                             placeholder="DriveTest center address or name"
                         />

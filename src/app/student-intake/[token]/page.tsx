@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/firebase";
 import { compressImage } from "@/lib/image-utils";
+import { AddressAutocompleteInput } from "@/components/address-autocomplete-input";
 
 type FormInfo = {
   workspaceName: string;
@@ -332,9 +333,10 @@ export default function StudentIntakePage({
                 </p>
               </div>
               <Field label="Pickup address">
-                <Input
+                <AddressAutocompleteInput
                   value={fields.address}
                   onChange={(e) => setField("address", e.target.value)}
+                  onAddressSelect={(address) => setField("address", address)}
                 />
               </Field>
               <div className="rounded-xl border bg-slate-50 p-4">

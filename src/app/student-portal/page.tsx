@@ -15,6 +15,7 @@ import {
 import { signOut } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressAutocompleteInput } from "@/components/address-autocomplete-input";
 import { useAuth, useUser } from "@/firebase";
 import { getStudentPackageData } from "@/lib/package-utils";
 import { prepareLicenseFileForAi, scanLicenseFile } from "@/lib/license-scan-client";
@@ -439,11 +440,14 @@ function ProfileForm({
           type="date"
         />
       </div>
-      <Field
-        name="address"
-        label="Pickup address"
-        defaultValue={student.address}
-      />
+      <label className="space-y-2 text-sm font-semibold">
+        Pickup address
+        <AddressAutocompleteInput
+          name="address"
+          defaultValue={student.address || ""}
+          placeholder="Start typing your pickup address"
+        />
+      </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm font-semibold">
           Licence type
