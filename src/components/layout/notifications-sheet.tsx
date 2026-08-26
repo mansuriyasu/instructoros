@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, type ReactNode } from 'react';
-import { Bell, Check, Copy, UserPlus } from 'lucide-react';
+import { Bell, Check, CheckCheck, Copy, UserPlus } from 'lucide-react';
 import { addDays, formatDistanceToNow, isSameDay, isWithinInterval, parse, startOfDay } from 'date-fns';
 import { collection, doc, limit, orderBy, query, updateDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -112,6 +112,20 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
     });
   };
 
+  const markAllTenantNotificationsRead = async (notificationIds: string[]) => {
+    if (!firestore || !activeTenantId || !user || notificationIds.length === 0) return;
+    const readAt = new Date().toISOString();
+    await Promise.all(
+      notificationIds.map((notificationId) =>
+        updateDoc(doc(firestore, 'tenants', activeTenantId, 'notifications', notificationId), {
+          status: 'read',
+          readAt,
+          readByUid: user.uid,
+        })
+      )
+    );
+  };
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -175,6 +189,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
             <TenantNotificationSection
               items={tenantNotifications || []}
               onMarkRead={markNotificationRead}
+              onMarkAllRead={markAllTenantNotificationsRead}
             />
             <NotificationSection
               title="Expiring Licenses"
@@ -228,14 +243,16 @@ interface NotificationSectionProps {
 interface TenantNotificationSectionProps {
   items: TenantNotification[];
   onMarkRead: (notificationId: string) => void;
+  onMarkAllRead: (notificationIds: string[]) => void;
 }
 
 function TenantNotificationSection({
   items,
   onMarkRead,
+  onMarkAllRead,
 }: TenantNotificationSectionProps) {
   const registrationItems = items.filter(
-    (item) => item.type === 'student-registration'
+    (item) => item.type === 'student-registration' && item.status !== 'read'
   );
   if (registrationItems.length === 0) {
     return null;
@@ -243,10 +260,23 @@ function TenantNotificationSection({
 
   return (
     <div>
-      <h3 className="mb-3 font-semibold">Student Registrations</h3>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="font-semibold">Student Registrations</h3>
+        {registrationItems.length > 1 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-2"
+            onClick={() => onMarkAllRead(registrationItems.map((item) => item.id))}
+          >
+            <CheckCheck className="h-4 w-4" />
+            Clear all
+          </Button>
+        )}
+      </div>
       <div className="space-y-3">
         {registrationItems.map((item) => {
-          const isUnread = item.status !== 'read';
           const createdAt = item.createdAt ? new Date(item.createdAt) : null;
           const timeLabel =
             createdAt && !Number.isNaN(createdAt.getTime())
@@ -275,18 +305,17 @@ function TenantNotificationSection({
                   {timeLabel}
                 </p>
               </div>
-              {isUnread && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 flex-shrink-0 bg-background"
-                  onClick={() => onMarkRead(item.id)}
-                  aria-label={`Mark ${item.title} as read`}
-                >
-                  <Check className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 flex-shrink-0 gap-2 bg-background"
+                onClick={() => onMarkRead(item.id)}
+                aria-label={`Dismiss ${item.title}`}
+              >
+                <Check className="h-4 w-4" />
+                Dismiss
+              </Button>
             </div>
           );
         })}
