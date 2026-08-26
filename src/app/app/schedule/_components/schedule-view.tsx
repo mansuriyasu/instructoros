@@ -992,6 +992,24 @@ export function ScheduleView() {
     }
   };
 
+  const handleRescheduleEvents = async (updates: Array<{ id: string; start: string; end: string }>) => {
+    if (!updates.length) return;
+
+    for (const update of updates) {
+      const event = allEvents.find(item => item.id === update.id);
+      await updateEventFirestore(update);
+
+      if (event && isConnected) {
+        await syncGoogleEventAfterLocalSave(update.id, { ...event, ...update });
+      }
+    }
+
+    toast({
+      title: 'Schedule adjusted',
+      description: `${updates.length} ${updates.length === 1 ? 'lesson was' : 'lessons were'} moved with travel time and buffer.`,
+    });
+  };
+
 
 
 
@@ -1002,7 +1020,7 @@ export function ScheduleView() {
       case 'week':
         return <WeekView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'day':
-        return <DayView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <DayView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} onRescheduleEvents={handleRescheduleEvents} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'list':
         return <ListView currentDate={currentDate} onEventClick={handleEventClick} onEvaluate={handleEvaluate} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       default:

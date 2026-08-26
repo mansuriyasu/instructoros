@@ -1,33 +1,72 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   format,
   setHours,
   startOfDay,
   endOfDay,
-  isSameDay
+  isSameDay,
+  addMinutes,
+  differenceInMinutes
 } from 'date-fns';
 import { cn, getServiceColorName } from '@/lib/utils';
 import { CalendarEvent } from '@/lib/types';
 import { useEvents } from '@/hooks/use-events';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Clock, MapPin, Navigation, Package, UserRound, Sparkles } from 'lucide-react';
+import { Clock, MapPin, Navigation, Package, UserRound, Sparkles, AlertTriangle, CheckCircle2, Car, Route } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AiSchedulePreview } from './ai-schedule-preview';
+import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DayViewProps {
   currentDate: Date;
   onEventClick: (event: CalendarEvent) => void;
   onSlotClick: (date: Date) => void;
   onEventDrop: (eventId: string, newStart: Date, newEnd: Date) => void;
+  onRescheduleEvents?: (updates: Array<{ id: string; start: string; end: string }>) => Promise<void>;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
 const HOUR_HEIGHT_IN_PIXELS = 100;
+const SAFE_BUFFER_MINUTES = 5;
 
-export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, selectedInstructorId = 'all', instructorNameById = {} }: DayViewProps) {
+type TravelSegment = {
+  fromEventId: string;
+  toEventId: string;
+  travelMinutes: number;
+  gapMinutes: number;
+  requiredMinutes: number;
+  delayMinutes: number;
+  ok: boolean;
+};
+
+type RescheduleUpdate = {
+  id: string;
+  studentName: string;
+  oldStart: string;
+  oldEnd: string;
+  newStart: string;
+  newEnd: string;
+};
+
+type ReschedulePreview = {
+  conflict: TravelSegment;
+  updates: RescheduleUpdate[];
+} | null;
+
+export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, onRescheduleEvents, selectedInstructorId = 'all', instructorNameById = {} }: DayViewProps) {
   const dayStart = useMemo(() => startOfDay(currentDate), [currentDate]);
   const dayEnd = useMemo(() => endOfDay(currentDate), [currentDate]);
 
@@ -36,6 +75,11 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
   const [dragOverSlot, setDragOverSlot] = useState<Date | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showAiPreview, setShowAiPreview] = useState(false);
+  const [travelSegments, setTravelSegments] = useState<TravelSegment[]>([]);
+  const [isCheckingTravel, setIsCheckingTravel] = useState(false);
+  const [reschedulePreview, setReschedulePreview] = useState<ReschedulePreview>(null);
+  const [isApplyingReschedule, setIsApplyingReschedule] = useState(false);
+  const travelCacheRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -49,6 +93,87 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
     }
     return filteredEvents.sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   }, [events, selectedInstructorId]);
+
+  const routeEvents = useMemo(() => {
+    return dayEvents.filter(event => event.studentId && (event.lessonStatus || 'scheduled') !== 'cancelled');
+  }, [dayEvents]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const estimateTravelMinutes = async (origin?: string, destination?: string) => {
+      if (!origin?.trim() || !destination?.trim()) return null;
+      const cacheKey = `${origin.trim().toLowerCase()}__${destination.trim().toLowerCase()}`;
+      const cached = travelCacheRef.current.get(cacheKey);
+      if (cached !== undefined) return cached;
+
+      try {
+        const response = await fetch('/api/travel-time', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
+          body: JSON.stringify({ origin, destination }),
+        });
+        const result = await response.json();
+        const minutes = result.ok && Number.isFinite(Number(result.details?.travelTimeMinutes))
+          ? Math.max(0, Math.round(Number(result.details.travelTimeMinutes)))
+          : null;
+        if (minutes !== null) travelCacheRef.current.set(cacheKey, minutes);
+        return minutes;
+      } catch {
+        return null;
+      }
+    };
+
+    const checkRoute = async () => {
+      if (routeEvents.length < 2) {
+        setTravelSegments([]);
+        return;
+      }
+
+      setIsCheckingTravel(true);
+      const segments: TravelSegment[] = [];
+
+      for (let index = 1; index < routeEvents.length; index += 1) {
+        const previous = routeEvents[index - 1];
+        const current = routeEvents[index];
+        const travelMinutes = await estimateTravelMinutes(previous.studentAddress, current.studentAddress);
+        if (cancelled) return;
+        if (travelMinutes === null) continue;
+
+        const previousEnd = new Date(previous.end);
+        const currentStart = new Date(current.start);
+        const gapMinutes = Math.max(0, differenceInMinutes(currentStart, previousEnd));
+        const requiredMinutes = travelMinutes + SAFE_BUFFER_MINUTES;
+        const delayMinutes = Math.max(0, requiredMinutes - gapMinutes);
+
+        segments.push({
+          fromEventId: previous.id,
+          toEventId: current.id,
+          travelMinutes,
+          gapMinutes,
+          requiredMinutes,
+          delayMinutes,
+          ok: delayMinutes === 0,
+        });
+      }
+
+      if (!cancelled) {
+        setTravelSegments(segments);
+        setIsCheckingTravel(false);
+      }
+    };
+
+    void checkRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeEvents]);
+
+  const conflictSegments = useMemo(() => travelSegments.filter(segment => !segment.ok), [travelSegments]);
+  const firstConflict = conflictSegments[0];
+  const totalDriveMinutes = useMemo(() => travelSegments.reduce((sum, segment) => sum + segment.travelMinutes, 0), [travelSegments]);
+  const onTimeLessonCount = Math.max(0, routeEvents.length - conflictSegments.length);
 
   const hours = Array.from({ length: 14 }, (_, i) => i + 8); // 8 AM to 9 PM
 
@@ -90,11 +215,67 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
     );
   }
 
+  const getIncomingSegment = (eventId: string) => travelSegments.find(segment => segment.toEventId === eventId);
+
+  const getEventRouteState = (event: CalendarEvent) => {
+    const lessonStatus = event.lessonStatus || 'scheduled';
+    if (lessonStatus === 'cancelled') return 'cancelled';
+    if (lessonStatus === 'no-show') return 'warning';
+    const incoming = getIncomingSegment(event.id);
+    if (!incoming) return 'normal';
+    if (!incoming.ok) return incoming.delayMinutes >= 15 ? 'conflict' : 'warning';
+    return 'ok';
+  };
+
+  const buildReschedulePreview = (conflict: TravelSegment) => {
+    const startIndex = routeEvents.findIndex(event => event.id === conflict.toEventId);
+    if (startIndex < 0) return;
+
+    const updates: RescheduleUpdate[] = [];
+    const newTimes = new Map<string, { start: Date; end: Date }>();
+
+    for (let index = startIndex; index < routeEvents.length; index += 1) {
+      const event = routeEvents[index];
+      const oldStart = new Date(event.start);
+      const oldEnd = new Date(event.end);
+      const duration = Math.max(1, differenceInMinutes(oldEnd, oldStart));
+
+      let nextStart = oldStart;
+      const previous = routeEvents[index - 1];
+
+      if (previous) {
+        const previousTimes = newTimes.get(previous.id);
+        const previousEnd = previousTimes?.end || new Date(previous.end);
+        const segment = travelSegments.find(item => item.fromEventId === previous.id && item.toEventId === event.id);
+        const earliestStart = addMinutes(previousEnd, (segment?.travelMinutes || 0) + SAFE_BUFFER_MINUTES);
+        if (nextStart < earliestStart) nextStart = earliestStart;
+      }
+
+      const nextEnd = addMinutes(nextStart, duration);
+      newTimes.set(event.id, { start: nextStart, end: nextEnd });
+
+      if (nextStart.getTime() !== oldStart.getTime() || nextEnd.getTime() !== oldEnd.getTime()) {
+        updates.push({
+          id: event.id,
+          studentName: event.studentName !== 'N/A' ? event.studentName : event.title,
+          oldStart: oldStart.toISOString(),
+          oldEnd: oldEnd.toISOString(),
+          newStart: nextStart.toISOString(),
+          newEnd: nextEnd.toISOString(),
+        });
+      }
+    }
+
+    setReschedulePreview({ conflict, updates });
+  };
+
   const renderEventContent = (event: CalendarEvent, compact = false) => {
     const start = new Date(event.start);
     const end = new Date(event.end);
     const lessonStatus = event.lessonStatus || 'scheduled';
     const lessonStatusLabel = lessonStatus === 'no-show' ? 'No Show' : lessonStatus === 'cancelled' ? 'Cancelled' : null;
+    const incomingSegment = getIncomingSegment(event.id);
+    const routeState = getEventRouteState(event);
     const wazeUrl = event.studentId && event.studentAddress
       ? `https://waze.com/ul?q=${encodeURIComponent(event.studentAddress)}&navigate=yes`
       : null;
@@ -112,6 +293,20 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
             )}>
               {lessonStatusLabel}
             </span>
+          )}
+          {!compact && routeState === 'conflict' && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={(clickEvent) => {
+                clickEvent.stopPropagation();
+                if (incomingSegment) buildReschedulePreview(incomingSegment);
+              }}
+              className="h-8 shrink-0 rounded-full border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 hover:bg-red-100"
+            >
+              Reschedule
+            </Button>
           )}
           {wazeUrl && (
             <a
@@ -152,6 +347,11 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
             <span className="min-w-0 truncate" title={event.studentAddress}>{event.studentAddress}</span>
           </div>
         )}
+        {!compact && incomingSegment && !incomingSegment.ok && (
+          <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+            Will be {incomingSegment.delayMinutes} min late due to travel time.
+          </div>
+        )}
       </>
     );
   };
@@ -165,6 +365,11 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
     if (lessonStatus === 'cancelled') return 'border-slate-400 bg-slate-100 text-slate-600';
     if (lessonStatus === 'no-show') return 'border-amber-500 bg-amber-100 text-amber-900';
 
+    const routeState = getEventRouteState(event);
+    if (routeState === 'conflict') return 'border-red-500 bg-red-50 text-red-950';
+    if (routeState === 'warning') return 'border-amber-500 bg-amber-50 text-amber-950';
+    if (routeState === 'ok') return 'border-emerald-500 bg-emerald-50 text-emerald-950';
+
     return {
       'border-chart-1 bg-chart-1/90 text-primary-foreground': colorName === 'chart-1',
       'border-chart-2 bg-chart-2/90 text-primary-foreground': colorName === 'chart-2',
@@ -177,6 +382,53 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
   return (
     <>
       <div className="space-y-3 md:hidden">
+        {firstConflict && (
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-orange-700">{conflictSegments.length} Conflict {conflictSegments.length === 1 ? 'Found' : 'Found'}</p>
+                <p className="mt-1 text-sm text-orange-900/80">
+                  Travel time ({firstConflict.travelMinutes} min) needs {firstConflict.requiredMinutes} min with buffer, but only {firstConflict.gapMinutes} min is available.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => buildReschedulePreview(firstConflict)}
+                className="h-9 shrink-0 rounded-xl bg-orange-600 px-3 text-xs font-bold text-white hover:bg-orange-700"
+              >
+                Resolve Now
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-4 gap-2 rounded-2xl border bg-card p-3 shadow-sm">
+          <div className="min-w-0 text-center">
+            <Clock className="mx-auto mb-1 h-5 w-5 text-blue-600" />
+            <p className="text-[10px] font-semibold text-muted-foreground">Lessons</p>
+            <p className="text-sm font-bold">{routeEvents.length}</p>
+          </div>
+          <div className="min-w-0 text-center">
+            <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-600" />
+            <p className="text-[10px] font-semibold text-muted-foreground">On time</p>
+            <p className="text-sm font-bold">{isCheckingTravel ? '...' : onTimeLessonCount}</p>
+          </div>
+          <div className="min-w-0 text-center">
+            <AlertTriangle className="mx-auto mb-1 h-5 w-5 text-orange-600" />
+            <p className="text-[10px] font-semibold text-muted-foreground">Conflicts</p>
+            <p className="text-sm font-bold">{isCheckingTravel ? '...' : conflictSegments.length}</p>
+          </div>
+          <div className="min-w-0 text-center">
+            <Route className="mx-auto mb-1 h-5 w-5 text-indigo-600" />
+            <p className="text-[10px] font-semibold text-muted-foreground">Drive</p>
+            <p className="text-sm font-bold">{Math.floor(totalDriveMinutes / 60)}h {totalDriveMinutes % 60}m</p>
+          </div>
+        </div>
+
         <div className="rounded-2xl border bg-card px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -235,9 +487,11 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
                 const start = new Date(event.start);
                 const previousEvent = dayEvents[index - 1];
                 const showTime = !previousEvent || !isSameDay(new Date(previousEvent.start), start) || format(new Date(previousEvent.start), 'h:mm a') !== format(start, 'h:mm a');
+                const outgoingSegment = travelSegments.find(segment => segment.fromEventId === event.id);
 
                 return (
-                  <div key={event.id} className="grid grid-cols-[4.25rem_1fr] gap-3 px-4 py-3">
+                  <div key={event.id}>
+                  <div className="grid grid-cols-[4.25rem_1fr] gap-3 px-4 py-3">
                     <div className="pt-1 text-right">
                       {showTime && (
                         <>
@@ -267,6 +521,26 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
                         {renderEventContent(event)}
                       </div>
                     </div>
+                  </div>
+                  {outgoingSegment && (
+                    <div className="grid grid-cols-[4.25rem_1fr] gap-3 px-4 pb-2">
+                      <div className="flex justify-end pt-1">
+                        <div className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full border bg-background shadow-sm",
+                          outgoingSegment.ok ? "text-emerald-600" : "text-red-600"
+                        )}>
+                          <Car className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "flex items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold",
+                        outgoingSegment.ok ? "bg-muted/50 text-muted-foreground" : "bg-red-50 text-red-700"
+                      )}>
+                        <span>Travel to next: {outgoingSegment.travelMinutes} min + {SAFE_BUFFER_MINUTES} min buffer</span>
+                        <span>{outgoingSegment.ok ? `Gap ${outgoingSegment.gapMinutes} min` : `${outgoingSegment.delayMinutes} min late`}</span>
+                      </div>
+                    </div>
+                  )}
                   </div>
                 );
               })}
@@ -365,6 +639,59 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, s
           onClose={() => setShowAiPreview(false)}
         />
       )}
+
+      <AlertDialog open={!!reschedulePreview} onOpenChange={(open) => !open && setReschedulePreview(null)}>
+        <AlertDialogContent className="w-[calc(100%-1rem)] max-w-lg overflow-hidden rounded-2xl p-0">
+          <AlertDialogHeader className="border-b bg-orange-50 px-5 py-5 text-left">
+            <AlertDialogTitle className="text-xl">Preview safer timing</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move the conflict lesson and any later lessons needed to keep ETA plus a {SAFE_BUFFER_MINUTES}-minute buffer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-[55vh] space-y-3 overflow-y-auto px-5 py-4">
+            {reschedulePreview?.updates.length ? (
+              reschedulePreview.updates.map(update => (
+                <div key={update.id} className="rounded-xl border bg-card p-3">
+                  <p className="font-semibold">{update.studentName}</p>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground line-through">
+                      {format(new Date(update.oldStart), 'h:mm a')} - {format(new Date(update.oldEnd), 'h:mm a')}
+                    </span>
+                    <span className="font-bold text-emerald-700">
+                      {format(new Date(update.newStart), 'h:mm a')} - {format(new Date(update.newEnd), 'h:mm a')}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">No timing changes are needed.</p>
+            )}
+          </div>
+          <AlertDialogFooter className="border-t px-5 py-4 sm:flex-row">
+            <AlertDialogCancel className="mt-0 rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!reschedulePreview?.updates.length || isApplyingReschedule}
+              className="rounded-xl bg-primary text-primary-foreground"
+              onClick={async () => {
+                if (!reschedulePreview?.updates.length || !onRescheduleEvents) return;
+                setIsApplyingReschedule(true);
+                try {
+                  await onRescheduleEvents(reschedulePreview.updates.map(update => ({
+                    id: update.id,
+                    start: update.newStart,
+                    end: update.newEnd,
+                  })));
+                  setReschedulePreview(null);
+                } finally {
+                  setIsApplyingReschedule(false);
+                }
+              }}
+            >
+              Apply changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
