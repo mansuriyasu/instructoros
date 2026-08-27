@@ -8,8 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, X } from 'lucide-react';
-import { LicenseType, StudentStatus } from '@/lib/types';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { LicenseType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import type { StudentStatusFilter } from './student-grid';
 
@@ -58,20 +58,30 @@ export function StudentGridHeader({
   };
 
   return (
-    <div className="flex flex-col gap-4 mb-6">
-      <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, phone, or license..."
-          className="pl-10"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+    <div className="mb-4 flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, phone, or license..."
+            className="h-14 rounded-2xl border-border/80 bg-card pl-12 text-base shadow-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-14 w-14 shrink-0 rounded-2xl bg-card shadow-sm"
+          aria-label="Student filters"
+        >
+          <SlidersHorizontal className="h-5 w-5" />
+        </Button>
       </div>
       <div className="flex w-full flex-wrap items-center gap-2">
-        <Filter className="h-5 w-5 shrink-0 text-muted-foreground" />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="min-w-[145px] flex-1">
+          <SelectTrigger className="h-10 min-w-[145px] flex-1 rounded-xl bg-card">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -83,7 +93,7 @@ export function StudentGridHeader({
           </SelectContent>
         </Select>
         <Select value={licenseTypeFilter} onValueChange={setLicenseTypeFilter}>
-          <SelectTrigger className="min-w-[92px] flex-1">
+          <SelectTrigger className="h-10 min-w-[92px] flex-1 rounded-xl bg-card">
             <SelectValue placeholder="License" />
           </SelectTrigger>
           <SelectContent>
@@ -95,7 +105,7 @@ export function StudentGridHeader({
           </SelectContent>
         </Select>
         <Select value={tagFilter} onValueChange={setTagFilter}>
-          <SelectTrigger className="min-w-[130px] flex-1">
+          <SelectTrigger className="h-10 min-w-[130px] flex-1 rounded-xl bg-card">
             <SelectValue placeholder="Tag" />
           </SelectTrigger>
           <SelectContent>

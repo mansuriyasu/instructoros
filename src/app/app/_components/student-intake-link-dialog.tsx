@@ -15,7 +15,11 @@ import { useSession } from '@/firebase';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 import { useToast } from '@/hooks/use-toast';
 
-export function StudentIntakeLinkDialog() {
+interface StudentIntakeLinkDialogProps {
+  triggerLabel?: string;
+}
+
+export function StudentIntakeLinkDialog({ triggerLabel = 'Share Link' }: StudentIntakeLinkDialogProps) {
   const { activeTenantId, role } = useSession();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -76,9 +80,9 @@ export function StudentIntakeLinkDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="h-11 gap-2 rounded-2xl px-4 font-semibold">
           <Link2 className="h-4 w-4" />
-          Share registration link
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent>

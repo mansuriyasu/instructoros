@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { addMonths, isSameDay, startOfDay } from 'date-fns';
 import { useStudents } from '@/hooks/use-students';
-import { Student, StudentStatus } from '@/lib/types';
+import { useEvents } from '@/hooks/use-events';
+import { CalendarEvent, Student, StudentStatus } from '@/lib/types';
 import { StudentCard } from './student-card';
 import { StudentGridHeader } from './student-grid-header';
 import { StudentDetailsDialog } from './student-details-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StudentGridActions } from './student-grid-actions';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { CalendarDays, GitMerge, Menu, Plus, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
 import { DuplicateMergeDialog } from './duplicate-merge-dialog';
-import { GitMerge } from 'lucide-react';
 import { useSession } from '@/firebase';
 import {
   AlertDialog,
@@ -36,12 +37,17 @@ function isMergedAuditRecord(student: Student) {
 
 export function StudentGrid() {
   const { students, loading, updateStudent, deleteStudent, mergeStudentGroups } = useStudents();
+  const currentTime = useMemo(() => new Date(), []);
+  const eventRangeStart = useMemo(() => startOfDay(new Date()), []);
+  const eventRangeEnd = useMemo(() => addMonths(eventRangeStart, 18), [eventRangeStart]);
+  const { events } = useEvents(eventRangeStart, eventRangeEnd);
   const { canManageTenant } = useSession();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>('current');
   const [licenseTypeFilter, setLicenseTypeFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'today'>('all');
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -62,26 +68,56 @@ export function StudentGrid() {
     return [...groups.values()].filter(group => group.length > 1);
   }, [students]);
 
+  const todayStudentIds = useMemo(() => {
+    const ids = new Set<string>();
+    events.forEach((event) => {
+      if (!event.studentId || event.lessonStatus === 'cancelled') return;
+      if (isSameDay(new Date(event.start), eventRangeStart)) {
+        ids.add(event.studentId);
+      }
+    });
+    return ids;
+  }, [events, eventRangeStart]);
+
+  const nextLessonByStudentId = useMemo(() => {
+    const map = new Map<string, CalendarEvent>();
+    const sortedEvents = [...events]
+      .filter(event => event.studentId && event.lessonStatus !== 'cancelled' && new Date(event.start) >= currentTime)
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+    sortedEvents.forEach((event) => {
+      if (!event.studentId || map.has(event.studentId)) return;
+      map.set(event.studentId, event);
+    });
+    return map;
+  }, [events, currentTime]);
+
   const filteredStudents = useMemo(() => {
     let studentList = (students || []).filter(student => !isMergedAuditRecord(student));
     if (searchTerm.trim() !== '') {
-        return studentList.filter(student => 
+        studentList = studentList.filter(student =>
             (student.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (student.licenseNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (student.mobileNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (Array.isArray(student.tags) ? student.tags : []).some(tag => tag && typeof tag === 'string' && tag.toLowerCase().includes(searchTerm.toLowerCase()))
-        ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }
-    
-    return studentList.filter(student => {
+        );
+    } else {
+      studentList = studentList.filter(student => {
         if (statusFilter === 'current' && !['active', 'booked'].includes(student.status)) return false;
         if (statusFilter !== 'all' && statusFilter !== 'current' && student.status !== statusFilter) return false;
         if (licenseTypeFilter !== 'all' && student.licenseType !== licenseTypeFilter) return false;
         if (tagFilter !== 'all' && !(Array.isArray(student.tags) ? student.tags : []).some(tag => tag && typeof tag === 'string' && tag.toLowerCase() === tagFilter.toLowerCase())) return false;
         return true;
-      }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      });
+    }
+
+    if (quickFilter === 'today') {
+      studentList = studentList.filter(student => todayStudentIds.has(student.id));
+    }
+
+    return studentList.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       
-  }, [students, searchTerm, statusFilter, licenseTypeFilter, tagFilter]);
+  }, [students, searchTerm, statusFilter, licenseTypeFilter, tagFilter, quickFilter, todayStudentIds]);
 
   const availableTags = useMemo(() => {
     return Array.from(
@@ -110,6 +146,10 @@ export function StudentGrid() {
   const handleAddNew = () => {
     router.push('/app/students/form');
   }
+
+  const handleScheduleStudent = () => {
+    router.push('/app/schedule');
+  };
 
   const handleStatusChange = async (studentId: string, status: StudentStatus) => {
     const studentToUpdate = students?.find(s => s.id === studentId);
@@ -148,25 +188,40 @@ export function StudentGrid() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Students</h1>
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 rounded-full md:hidden" aria-label="Open menu">
+            <Menu className="h-6 w-6" />
+          </Button>
+          <h1 className="truncate text-3xl font-bold tracking-tight md:text-2xl">Students</h1>
         </div>
         <div className="flex items-center gap-2">
           <StudentIntakeLinkDialog />
           {canManageTenant && duplicateGroups.length > 0 && (
-            <Button variant="outline" onClick={() => setIsDuplicateMergeOpen(true)} className="h-10 gap-2 px-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsDuplicateMergeOpen(true)}
+              className="h-11 w-11 rounded-2xl px-0 sm:w-auto sm:gap-2 sm:px-3"
+              aria-label={`Merge ${duplicateGroups.length} duplicate groups`}
+            >
               <GitMerge className="h-4 w-4" />
               <span className="hidden sm:inline">Merge duplicates{duplicateGroups.length > 0 ? ` (${duplicateGroups.length})` : ''}</span>
-              <span className="sm:hidden">Merge{duplicateGroups.length > 0 ? ` (${duplicateGroups.length})` : ''}</span>
             </Button>
           )}
           <StudentGridActions />
+          <Button
+            onClick={handleAddNew}
+            className="h-11 w-11 shrink-0 rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-700 md:hidden"
+            size="icon"
+            aria-label="Add Student"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
         </div>
       </div>
 
-      <div className="mt-6 flex-1 pb-24">
+      <div className="mt-5 flex-1 pb-24">
         <StudentGridHeader
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -178,19 +233,53 @@ export function StudentGrid() {
           setTagFilter={setTagFilter}
           availableTags={availableTags}
         />
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:max-w-md">
+          <button
+            type="button"
+            onClick={() => setQuickFilter('all')}
+            className={`flex h-14 items-center justify-between rounded-2xl border px-4 text-left shadow-sm transition ${
+              quickFilter === 'all' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-border bg-card text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2 font-semibold">
+              <Users className="h-5 w-5" />
+              All Students
+            </span>
+            <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white">
+              {(students || []).filter(student => !isMergedAuditRecord(student)).length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickFilter('today')}
+            className={`flex h-14 items-center justify-between rounded-2xl border px-4 text-left shadow-sm transition ${
+              quickFilter === 'today' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-border bg-card text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2 font-semibold">
+              <CalendarDays className="h-5 w-5" />
+              Today
+            </span>
+            <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-bold text-white">
+              {todayStudentIds.size}
+            </span>
+          </button>
+        </div>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
             {Array.from({ length: 12 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 rounded-lg" />
+              <Skeleton key={i} className="h-36 rounded-[24px]" />
             ))}
           </div>
         ) : filteredStudents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
             {filteredStudents.map((student) => (
               <StudentCard
                 key={student.id}
                 student={student}
+                nextLesson={nextLessonByStudentId.get(student.id)}
                 onClick={() => handleCardClick(student)}
+                onSchedule={handleScheduleStudent}
               />
             ))}
           </div>
@@ -204,7 +293,7 @@ export function StudentGrid() {
 
       <Button
         onClick={handleAddNew}
-        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg"
+        className="fixed bottom-20 right-4 hidden h-14 w-14 rounded-full shadow-lg md:inline-flex"
         size="icon"
       >
         <Plus className="h-6 w-6" />
