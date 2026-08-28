@@ -103,7 +103,7 @@ export function StudentCard({ student, nextLesson, onClick, onSchedule }: Studen
             <span className="truncate">{nextLessonLabel(nextLesson)}</span>
           </div>
           <div className="flex items-center justify-end gap-1.5">
-            {phone ? (
+            {phone && (
               <>
                 <Button
                   asChild
@@ -133,33 +133,19 @@ export function StudentCard({ student, nextLesson, onClick, onSchedule }: Studen
                   </a>
                 </Button>
               </>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full bg-card text-blue-600"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSchedule?.();
-                }}
-                aria-label={`Schedule ${student.name}`}
-              >
-                <Calendar className="h-5 w-5" />
-              </Button>
             )}
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              className="h-9 rounded-full bg-card px-3 text-xs font-semibold"
+              size="icon"
+              className="h-9 w-9 rounded-full bg-card text-blue-600"
               onClick={(event) => {
                 event.stopPropagation();
-                onClick();
+                onSchedule?.();
               }}
-              aria-label={`Open ${student.name}`}
+              aria-label={`Schedule ${student.name}`}
             >
-              Open
+              <Calendar className="h-5 w-5" />
             </Button>
           </div>
         </div>

@@ -84,6 +84,7 @@ interface EventDialogProps {
   onDelete: (eventId: string) => void;
   instructors?: InstructorOption[];
   canManageInstructorSchedules?: boolean;
+  initialStudentId?: string;
 }
 
 export function EventDialog({
@@ -95,6 +96,7 @@ export function EventDialog({
   onDelete,
   instructors = [],
   canManageInstructorSchedules = false,
+  initialStudentId,
 }: EventDialogProps) {
   const { students, updateStudent } = useStudents();
   const { services: allServices } = useServices();
@@ -172,7 +174,7 @@ export function EventDialog({
 
       form.reset({
         instructorId: defaultInstructorId,
-        studentId: event?.studentId ?? null,
+        studentId: event?.studentId ?? initialStudentId ?? null,
         date: format(dateToUse, 'yyyy-MM-dd'),
         startTime: startTimeStr,
         endTime: event ? format(new Date(event.end), 'HH:mm') : format(addMinutes(initialStartDateTime, 60), 'HH:mm'),
@@ -184,7 +186,7 @@ export function EventDialog({
       setMissingAddress('');
       setServiceWarning('');
     }
-  }, [event, selectedDate, isOpen, form, role, user, instructors, canManageInstructorSchedules]);
+  }, [event, selectedDate, isOpen, form, role, user, instructors, canManageInstructorSchedules, initialStudentId]);
 
   useEffect(() => {
       if (!allServices || !watchedServices || !watchedDate || !watchedStartTime) return;

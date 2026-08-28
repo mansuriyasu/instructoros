@@ -147,8 +147,8 @@ export function StudentGrid() {
     router.push('/app/students/form');
   }
 
-  const handleScheduleStudent = () => {
-    router.push('/app/schedule');
+  const handleScheduleStudent = (studentId: string) => {
+    router.push(`/app/schedule?studentId=${encodeURIComponent(studentId)}`);
   };
 
   const handleStatusChange = async (studentId: string, status: StudentStatus) => {
@@ -281,7 +281,7 @@ export function StudentGrid() {
                 student={student}
                 nextLesson={nextLessonByStudentId.get(student.id)}
                 onClick={() => handleCardClick(student)}
-                onSchedule={handleScheduleStudent}
+                onSchedule={() => handleScheduleStudent(student.id)}
               />
             ))}
           </div>

@@ -116,8 +116,10 @@ export function ScheduleView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const examStudentId = searchParams.get('examStudentId') || undefined;
+  const studentIdParam = searchParams.get('studentId') || undefined;
   const eventIdParam = searchParams.get('eventId');
   const [examStudentIdForDialog, setExamStudentIdForDialog] = useState<string | undefined>(undefined);
+  const [studentIdForDialog, setStudentIdForDialog] = useState<string | undefined>(undefined);
   const [missingPhoneStudent, setMissingPhoneStudent] = useState<Student | null>(null);
   const [pendingSmsData, setPendingSmsData] = useState<{ finalData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean } | null>(null);
 
@@ -359,12 +361,14 @@ export function ScheduleView() {
   const handleSlotClick = (date: Date) => {
     setSelectedEvent(null);
     setSelectedDateTime(date);
+    setStudentIdForDialog(undefined);
     setIsFormDialogOpen(true);
   }
 
   const handleAddNewClick = () => {
     setSelectedEvent(null);
     setSelectedDateTime(new Date(currentDate));
+    setStudentIdForDialog(undefined);
     setIsFormDialogOpen(true);
   }
 
@@ -462,6 +466,7 @@ export function ScheduleView() {
 
   const handleEditClick = (event: CalendarEvent) => {
     setSelectedEvent(event);
+    setStudentIdForDialog(undefined);
     setIsDetailsDialogOpen(false);
     // Delay opening the form dialog to allow the details dialog to unmount cleanly
     setTimeout(() => {
@@ -964,6 +969,15 @@ export function ScheduleView() {
     }
   }, [eventIdParam, allEvents, router]);
 
+  useEffect(() => {
+    if (!studentIdParam) return;
+    setSelectedEvent(null);
+    setSelectedDateTime(new Date(currentDate));
+    setStudentIdForDialog(studentIdParam);
+    setIsFormDialogOpen(true);
+    router.replace('/app/schedule');
+  }, [currentDate, router, studentIdParam]);
+
   const handleDeleteEvent = async (eventId: string) => {
     const eventToDelete = allEvents.find(event => event.id === eventId) || selectedEvent;
     const googleEventId = getUserGoogleEventId(eventToDelete)
@@ -1197,13 +1211,17 @@ export function ScheduleView() {
 
       <EventDialog
         isOpen={isFormDialogOpen}
-        onOpenChange={setIsFormDialogOpen}
+        onOpenChange={(open) => {
+          setIsFormDialogOpen(open);
+          if (!open) setStudentIdForDialog(undefined);
+        }}
         event={selectedEvent}
         selectedDate={selectedDateTime}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}
         instructors={isSchoolTenant ? instructorOptions : []}
         canManageInstructorSchedules={isSchoolTenant && canManageTenant}
+        initialStudentId={studentIdForDialog}
       />
 
       <ExamSchedulerDialog
