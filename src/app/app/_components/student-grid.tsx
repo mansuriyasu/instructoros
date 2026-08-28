@@ -194,7 +194,7 @@ export function StudentGrid() {
           <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 rounded-full md:hidden" aria-label="Open menu">
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="truncate text-3xl font-bold tracking-tight md:text-2xl">Students</h1>
+          <h1 className="truncate text-2xl font-bold tracking-tight md:text-2xl">Students</h1>
         </div>
         <div className="flex items-center gap-2">
           <StudentIntakeLinkDialog />
@@ -209,7 +209,9 @@ export function StudentGrid() {
               <span className="hidden sm:inline">Merge duplicates{duplicateGroups.length > 0 ? ` (${duplicateGroups.length})` : ''}</span>
             </Button>
           )}
-          <StudentGridActions />
+          <div className="hidden md:block">
+            <StudentGridActions />
+          </div>
           <Button
             onClick={handleAddNew}
             className="h-11 w-11 shrink-0 rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-700 md:hidden"

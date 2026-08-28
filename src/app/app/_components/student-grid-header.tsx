@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { LicenseType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import type { StudentStatusFilter } from './student-grid';
@@ -59,25 +59,14 @@ export function StudentGridHeader({
 
   return (
     <div className="mb-4 flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, phone, or license..."
-            className="h-14 rounded-2xl border-border/80 bg-card pl-12 text-base shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-14 w-14 shrink-0 rounded-2xl bg-card shadow-sm"
-          aria-label="Student filters"
-        >
-          <SlidersHorizontal className="h-5 w-5" />
-        </Button>
+      <div className="relative min-w-0 flex-1">
+        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by name, phone, or license..."
+          className="h-12 rounded-2xl border-border/80 bg-card pl-12 text-base shadow-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
       <div className="flex w-full flex-wrap items-center gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
