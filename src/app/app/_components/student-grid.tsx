@@ -36,6 +36,27 @@ function isMergedAuditRecord(student: Student) {
   return Boolean((student as StudentRecord).mergedIntoStudentId);
 }
 
+function ensureDialogStudent(student: Student | null): Student | null {
+  if (!student) return null;
+
+  return {
+    ...student,
+    name: student.name || '',
+    mobileNumber: student.mobileNumber || '',
+    email: student.email || '',
+    address: student.address || '',
+    birthdate: student.birthdate || '',
+    licenseNumber: student.licenseNumber || '',
+    licenseExpiry: student.licenseExpiry || '',
+    licenseType: student.licenseType || 'G2',
+    status: student.status || 'active',
+    comments: student.comments || '',
+    registrationDate: student.registrationDate || new Date(0).toISOString(),
+    tags: Array.isArray(student.tags) ? student.tags : [],
+    assignedInstructorIds: Array.isArray(student.assignedInstructorIds) ? student.assignedInstructorIds : [],
+  };
+}
+
 export function StudentGrid() {
   const { students, loading, updateStudent, deleteStudent, mergeStudentGroups } = useStudents();
   const firestore = useFirestore();
@@ -67,7 +88,7 @@ export function StudentGrid() {
     [firestore, isDetailsOpen, selectedStudent?.id, studentsPath]
   );
   const { data: fullSelectedStudent } = useDoc<Student>(selectedStudentRef);
-  const dialogStudent = fullSelectedStudent || selectedStudent;
+  const dialogStudent = ensureDialogStudent(fullSelectedStudent || selectedStudent);
 
   const duplicateGroups = useMemo(() => {
     const groups = new Map<string, Student[]>();
