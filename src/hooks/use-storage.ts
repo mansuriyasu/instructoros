@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-const MAX_INLINE_LICENSE_LENGTH = 700_000;
+const MAX_INLINE_LICENSE_LENGTH = 320_000;
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -25,8 +25,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 async function compressLicenseImage(file: File): Promise<string> {
   const sourceDataUrl = await readFileAsDataUrl(file);
   const image = await loadImage(sourceDataUrl);
-  const maxDimensions = [1600, 1400, 1200, 1000, 800];
-  const qualities = [0.82, 0.72, 0.62, 0.52, 0.42];
+  const maxDimensions = [1200, 1000, 850, 700, 560];
+  const qualities = [0.72, 0.62, 0.52, 0.42, 0.34];
 
   for (const maxDimension of maxDimensions) {
     const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));

@@ -321,7 +321,7 @@ export async function PUT(request: NextRequest) {
     const mobileNumber = clean(body.mobileNumber, 60);
     const phoneKey = normalizePhone(mobileNumber);
     const licenseNumber = clean(body.licenseNumber, 40).toUpperCase();
-    const licenseImageData = clean(body.licenseImageData, 1_900_000);
+    const licenseImageData = clean(body.licenseImageData, 340_000);
     if (
       licenseImageData &&
       !/^data:image\/(jpeg|jpg|png|webp|heic);base64,/i.test(licenseImageData)

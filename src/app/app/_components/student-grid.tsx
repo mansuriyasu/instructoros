@@ -15,7 +15,8 @@ import { CalendarDays, GitMerge, Menu, Plus, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
 import { DuplicateMergeDialog } from './duplicate-merge-dialog';
-import { useSession } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useSession, useTenantCollectionPath } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +38,8 @@ function isMergedAuditRecord(student: Student) {
 
 export function StudentGrid() {
   const { students, loading, updateStudent, deleteStudent, mergeStudentGroups } = useStudents();
+  const firestore = useFirestore();
+  const studentsPath = useTenantCollectionPath('students');
   const currentTime = useMemo(() => new Date(), []);
   const eventRangeStart = useMemo(() => startOfDay(new Date()), []);
   const eventRangeEnd = useMemo(() => addMonths(eventRangeStart, 18), [eventRangeStart]);
@@ -55,6 +58,16 @@ export function StudentGrid() {
   const [studentPendingDelete, setStudentPendingDelete] = useState<Student | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const selectedStudentRef = useMemoFirebase(
+    () => (
+      firestore && studentsPath && selectedStudent?.id && isDetailsOpen
+        ? doc(firestore, studentsPath, selectedStudent.id)
+        : null
+    ),
+    [firestore, isDetailsOpen, selectedStudent?.id, studentsPath]
+  );
+  const { data: fullSelectedStudent } = useDoc<Student>(selectedStudentRef);
+  const dialogStudent = fullSelectedStudent || selectedStudent;
 
   const duplicateGroups = useMemo(() => {
     const groups = new Map<string, Student[]>();
@@ -126,7 +139,7 @@ export function StudentGrid() {
   }, [students]);
 
   useEffect(() => {
-    if (!selectedStudent) return;
+    if (!selectedStudent?.id) return;
     const updatedStudent = students?.find(student => student.id === selectedStudent.id);
     if (updatedStudent) {
       setSelectedStudent(updatedStudent);
@@ -305,7 +318,7 @@ export function StudentGrid() {
       <StudentDetailsDialog
         isOpen={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
-        student={selectedStudent}
+        student={dialogStudent}
         onEdit={handleEdit}
         onDelete={requestDelete}
         onStatusChange={handleStatusChange}

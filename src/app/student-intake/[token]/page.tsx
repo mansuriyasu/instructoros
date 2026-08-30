@@ -293,11 +293,14 @@ export default function StudentIntakePage({
                         return;
                       }
                       try {
-                        let value = await compressImage(file, 1200, 0.72);
-                        if (value.length > 1_800_000) {
-                          value = await compressImage(file, 900, 0.58);
+                        let value = await compressImage(file, 900, 0.62);
+                        if (value.length > 320_000) {
+                          value = await compressImage(file, 700, 0.48);
                         }
-                        if (value.length > 1_800_000) {
+                        if (value.length > 320_000) {
+                          value = await compressImage(file, 560, 0.36);
+                        }
+                        if (value.length > 320_000) {
                           setLicenseUploadError(
                             "This image is still too large after resizing. Please take a closer screenshot of the licence and try again.",
                           );

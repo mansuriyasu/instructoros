@@ -3,21 +3,27 @@
 import { Suspense } from 'react';
 import { StudentForm } from './_components/student-form';
 import { useSearchParams } from 'next/navigation';
-import { useStudents } from '@/hooks/use-students';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useDoc, useFirestore, useMemoFirebase, useTenantCollectionPath } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { Student } from '@/lib/types';
 
 function StudentFormPageContent() {
   const searchParams = useSearchParams();
   const studentId = searchParams.get('id');
-  const { students, loading } = useStudents();
+  const firestore = useFirestore();
+  const studentsPath = useTenantCollectionPath('students');
+  const studentRef = useMemoFirebase(
+    () => (firestore && studentsPath && studentId ? doc(firestore, studentsPath, studentId) : null),
+    [firestore, studentId, studentsPath]
+  );
+  const { data: student, isLoading } = useDoc<Student>(studentRef);
   
-  if (studentId && loading) {
+  if (studentId && isLoading) {
     return <Skeleton className="w-full h-[600px] max-w-2xl mx-auto" />;
   }
-
-  const student = studentId ? students?.find(s => s.id === studentId) : null;
   
-  if (studentId && !loading && !student) {
+  if (studentId && !isLoading && !student) {
       return <div className="text-center">Student not found.</div>;
   }
 

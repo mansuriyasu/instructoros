@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 
-const MAX_INLINE_LICENSE_LENGTH = 700_000;
+const MAX_INLINE_LICENSE_LENGTH = 320_000;
 
 export function dataUriToBuffer(dataUri: string) {
   const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
@@ -58,7 +58,7 @@ export async function createEnhancedFaceThumbnail(licenseFile: string, faceBound
 
     const croppedBuffer = await image
       .extract({ left: extractLeft, top: extractTop, width: extractSize, height: extractSize })
-      .resize(360, 360, {
+      .resize(220, 220, {
         fit: 'cover',
         kernel: sharp.kernel.lanczos3,
       })
@@ -66,7 +66,7 @@ export async function createEnhancedFaceThumbnail(licenseFile: string, faceBound
       .normalise()
       .modulate({ brightness: 1.04, saturation: 1.06 })
       .sharpen({ sigma: 1.05 })
-      .jpeg({ quality: 86, mozjpeg: true })
+      .jpeg({ quality: 78, mozjpeg: true })
       .toBuffer();
 
     return `data:image/jpeg;base64,${croppedBuffer.toString('base64')}`;
@@ -84,8 +84,8 @@ export async function createStoredLicenseImage(licenseFile: string) {
     return licenseFile.length <= MAX_INLINE_LICENSE_LENGTH ? licenseFile : '';
   }
 
-  const widths = [1400, 1200, 1000, 850, 700];
-  const qualities = [78, 70, 62, 54, 46];
+  const widths = [1100, 900, 760, 620, 520];
+  const qualities = [70, 62, 54, 46, 38];
 
   for (const width of widths) {
     for (const quality of qualities) {

@@ -70,7 +70,7 @@ interface StudentFormProps {
 export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const { addStudent, updateStudent } = useStudents();
+  const { addStudent, updateStudent } = useStudents({ load: false });
   const { user, isUserLoading } = useUser();
   const { tenant } = useSession();
   const { sendSms: sendTwilioSms } = useTwilioSms();
