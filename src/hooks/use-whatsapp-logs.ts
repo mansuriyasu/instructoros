@@ -2,7 +2,7 @@
 
 import { WhatsAppLog } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, useUser, useTenantCollectionPath } from '@/firebase';
-import { collection, orderBy, query } from 'firebase/firestore';
+import { collection, limit, orderBy, query } from 'firebase/firestore';
 
 type SendMessageResult = {
   ok?: boolean;
@@ -44,7 +44,7 @@ export function useWhatsAppLogs() {
   );
 
   const whatsAppLogsQuery = useMemoFirebase(
-    () => (whatsAppLogsCollectionRef ? query(whatsAppLogsCollectionRef, orderBy('date', 'desc')) : null),
+    () => (whatsAppLogsCollectionRef ? query(whatsAppLogsCollectionRef, orderBy('date', 'desc'), limit(50)) : null),
     [whatsAppLogsCollectionRef]
   );
 

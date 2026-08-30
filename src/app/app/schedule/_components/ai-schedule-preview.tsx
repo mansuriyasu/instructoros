@@ -26,7 +26,7 @@ interface AiSchedulePreviewProps {
 export function AiSchedulePreview({ currentDate, selectedInstructorId, onClose }: AiSchedulePreviewProps) {
   const { tenant } = useSession();
   const { toast } = useToast();
-  const { addEvent } = useEvents();
+  const { addEvent } = useEvents(undefined, undefined, { load: false });
   const { services } = useServices();
 
   const [loading, setLoading] = useState(false);

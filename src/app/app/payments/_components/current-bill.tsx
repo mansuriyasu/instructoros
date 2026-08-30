@@ -68,7 +68,7 @@ export function CurrentBill({
   isEditing,
 }: CurrentBillProps) {
   const { payments, addPayment, updatePayment } = usePayments();
-  const { updateEvent } = useEvents();
+  const { updateEvent } = useEvents(undefined, undefined, { load: false });
   const { sendSms: sendTwilioSms } = useTwilioSms();
   const { tenant } = useSession();
   const { toast } = useToast();

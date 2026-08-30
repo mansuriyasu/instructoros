@@ -15,12 +15,16 @@ export async function POST(request: NextRequest) {
 
     const db = getAdminFirestore();
     const tenantRef = db.collection('tenants').doc(tenantId);
+    const eventsQuery = endDate
+      ? tenantRef.collection('events').where('start', '<=', endDate)
+      : tenantRef.collection('events');
+
     const [tenantSnap, memberSnap, assignedStudentsSnap, legacyStudentsSnap, eventsSnap] = await Promise.all([
       tenantRef.get(),
       tenantRef.collection('members').doc(actor.uid).get(),
       tenantRef.collection('students').where('assignedInstructorIds', 'array-contains', actor.uid).get(),
       tenantRef.collection('students').where('instructorId', '==', actor.uid).get(),
-      tenantRef.collection('events').get(),
+      eventsQuery.get(),
     ]);
     const member = memberSnap.data();
     if (!tenantSnap.exists || tenantSnap.data()?.status !== 'active' || member?.status !== 'active' || member.role !== 'schoolInstructor') {

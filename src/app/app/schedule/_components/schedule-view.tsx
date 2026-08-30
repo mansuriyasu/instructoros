@@ -11,6 +11,8 @@ import {
   subWeeks,
   startOfWeek,
   endOfWeek,
+  startOfMonth,
+  endOfMonth,
   eachDayOfInterval,
   isSameDay,
   parse,
@@ -131,7 +133,9 @@ export function ScheduleView() {
   const firestore = useFirestore();
   const { activeTenantId, canManageTenant, role, tenant, user } = useSession();
   const isSchoolTenant = tenant?.type === 'school';
-  const { events: allEvents, loading: isEventsLoading, addEvent, updateEvent: updateEventFirestore, deleteEvent: deleteEventFirestore } = useEvents();
+  const scheduleRangeStart = useMemo(() => startOfWeek(startOfMonth(currentDate)), [currentDate]);
+  const scheduleRangeEnd = useMemo(() => endOfWeek(endOfMonth(currentDate)), [currentDate]);
+  const { events: allEvents, loading: isEventsLoading, addEvent, updateEvent: updateEventFirestore, deleteEvent: deleteEventFirestore } = useEvents(scheduleRangeStart, scheduleRangeEnd);
   const { students: allStudents, updateStudent } = useStudents();
   const { payments, addPayment, updatePayment, getPaymentById, loading: paymentsLoading } = usePayments();
   const { services: allServices, loading: servicesLoading } = useServices();

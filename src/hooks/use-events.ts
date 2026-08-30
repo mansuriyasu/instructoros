@@ -15,18 +15,23 @@ import {
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import { useStudents } from './use-students';
 
-export function useEvents(startDate?: Date, endDate?: Date) {
+type UseEventsOptions = {
+  load?: boolean;
+};
+
+export function useEvents(startDate?: Date, endDate?: Date, options: UseEventsOptions = {}) {
+  const shouldLoadEvents = options.load !== false;
   const firestore = useFirestore();
   const { user, role, activeTenantId, isSessionLoading } = useSession();
   const eventsPath = useTenantCollectionPath('events');
-  const { students: allStudents } = useStudents();
+  const { students: allStudents } = useStudents({ load: shouldLoadEvents });
   const startDateIso = startDate?.toISOString();
   const endDateIso = endDate?.toISOString();
   const [assignedEvents, setAssignedEvents] = useState<Array<Omit<CalendarEvent, 'studentAddress'>> | null>(null);
   const [assignedEventsLoading, setAssignedEventsLoading] = useState(false);
 
   useEffect(() => {
-    if (role !== 'schoolInstructor' || !user || !activeTenantId || isSessionLoading) {
+    if (!shouldLoadEvents || role !== 'schoolInstructor' || !user || !activeTenantId || isSessionLoading) {
       setAssignedEvents(null);
       setAssignedEventsLoading(false);
       return;
@@ -49,11 +54,11 @@ export function useEvents(startDate?: Date, endDate?: Date) {
     });
 
     return () => { cancelled = true; };
-  }, [activeTenantId, endDateIso, isSessionLoading, role, startDateIso, user]);
+  }, [activeTenantId, endDateIso, isSessionLoading, role, shouldLoadEvents, startDateIso, user]);
 
   const eventsQuery = useMemoFirebase(
     () => {
-      if (!firestore || !eventsPath || isSessionLoading || !role) return null;
+      if (!shouldLoadEvents || !firestore || !eventsPath || isSessionLoading || !role) return null;
       let q = query(collection(firestore, eventsPath));
       
       if (startDateIso && endDateIso) {
@@ -75,7 +80,7 @@ export function useEvents(startDate?: Date, endDate?: Date) {
 
       return q;
     },
-    [endDateIso, eventsPath, firestore, isSessionLoading, role, startDateIso, user]
+    [endDateIso, eventsPath, firestore, isSessionLoading, role, shouldLoadEvents, startDateIso, user]
   );
   
   const filterFn = useMemo(() => {
