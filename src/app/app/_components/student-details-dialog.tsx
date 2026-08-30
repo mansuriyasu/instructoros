@@ -448,7 +448,7 @@ export function StudentDetailsDialog({
     link.href = student.licenseImageUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.download = `${student.name.replace(/[^a-z0-9]+/gi, "_")}_license`;
+    link.download = `${(student.name || "student").replace(/[^a-z0-9]+/gi, "_")}_license`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -457,10 +457,11 @@ export function StudentDetailsDialog({
   const handleSaveToContacts = () => {
     if (!student) return;
 
-    const nameParts = student.name.split(" ");
+    const safeStudentName = student.name || "Student";
+    const nameParts = safeStudentName.split(" ");
     const lastName = nameParts.length > 1 ? nameParts.pop() : "";
     const firstName = `Student ${nameParts.join(" ")}`;
-    const fullName = `Student ${student.name}`;
+    const fullName = `Student ${safeStudentName}`;
 
     let vcard = `BEGIN:VCARD\nVERSION:3.0\nN:${lastName || ""};${firstName || ""};;;\nFN:${fullName}\n`;
     if (student.mobileNumber) {
@@ -476,7 +477,7 @@ export function StudentDetailsDialog({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `${student.name.replace(/\s+/g, "_")}.vcf`);
+    link.setAttribute("download", `${safeStudentName.replace(/\s+/g, "_")}.vcf`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -660,18 +661,18 @@ export function StudentDetailsDialog({
                   {student.avatarUrl ? (
                     <img
                       src={student.avatarUrl}
-                      alt={student.name}
+                      alt={student.name || "Student"}
                       className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="h-full w-full bg-gradient-to-br from-[#C9A84C] to-[#a38535] flex items-center justify-center text-white">
-                      {student.name.charAt(0).toUpperCase()}
+                      {(student.name || "S").charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
                 <div className="space-y-1">
                   <DialogTitle className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-none">
-                    {student.name}
+                    {student.name || "Student"}
                   </DialogTitle>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1">
                     <DropdownMenu>
@@ -680,10 +681,10 @@ export function StudentDetailsDialog({
                           variant="outline"
                           className={cn(
                             "capitalize cursor-pointer shadow-sm hover:opacity-80 transition-opacity flex items-center gap-1",
-                            getStatusColor(student.status),
+                            getStatusColor(student.status || "active"),
                           )}
                         >
-                          {student.status.replace("-", " ")}{" "}
+                          {(student.status || "active").replace("-", " ")}{" "}
                           <ChevronDown className="w-3 h-3" />
                         </Badge>
                       </DropdownMenuTrigger>
@@ -831,7 +832,7 @@ export function StudentDetailsDialog({
                     </p>
                     <div className="flex items-center gap-2">
                       <p className="text-lg sm:text-xl font-mono font-semibold text-foreground">
-                        {student.licenseExpiry.replace(
+                        {(student.licenseExpiry || "").replace(
                           /(\d{4})(\d{2})(\d{2})/,
                           "$1-$2-$3",
                         )}
@@ -1000,7 +1001,7 @@ export function StudentDetailsDialog({
                         Date of Birth
                       </p>
                       <p className="font-medium text-base">
-                        {student.birthdate.replace(
+                        {(student.birthdate || "").replace(
                           /(\d{4})(\d{2})(\d{2})/,
                           "$1-$2-$3",
                         )}
