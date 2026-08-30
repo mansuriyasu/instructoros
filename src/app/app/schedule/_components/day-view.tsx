@@ -14,9 +14,8 @@ import { cn, getServiceColorName } from '@/lib/utils';
 import { CalendarEvent } from '@/lib/types';
 import { useEvents } from '@/hooks/use-events';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Clock, MapPin, Navigation, Package, UserRound, Sparkles, AlertTriangle, CheckCircle2, Car, Route } from 'lucide-react';
+import { Clock, MapPin, Navigation, Package, UserRound, AlertTriangle, CheckCircle2, Car, Route } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AiSchedulePreview } from './ai-schedule-preview';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 import {
   AlertDialog,
@@ -74,7 +73,6 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, o
 
   const [dragOverSlot, setDragOverSlot] = useState<Date | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [showAiPreview, setShowAiPreview] = useState(false);
   const [travelSegments, setTravelSegments] = useState<TravelSegment[]>([]);
   const [isCheckingTravel, setIsCheckingTravel] = useState(false);
   const [reschedulePreview, setReschedulePreview] = useState<ReschedulePreview>(null);
@@ -438,15 +436,6 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, o
               <h2 className="text-lg font-bold">{format(currentDate, 'MMMM d')}</h2>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAiPreview(true)}
-                className="rounded-full text-indigo-600 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 h-8 text-xs whitespace-nowrap"
-              >
-                <Sparkles className="h-3 w-3 mr-1" />
-                AI Schedule
-              </Button>
               <div className="rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground flex items-center">
                 {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
               </div>
@@ -556,17 +545,6 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, o
         )}
       </div>
 
-      <div className="hidden md:flex justify-end mb-4">
-              <Button
-          variant="outline"
-          onClick={() => setShowAiPreview(true)}
-          className="rounded-full text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 shadow-sm transition-all"
-        >
-          <Sparkles className="h-4 w-4 mr-2 text-indigo-500" />
-          Auto-Schedule Day (AI)
-        </Button>
-      </div>
-
       <div className="hidden overflow-auto rounded-lg border bg-background md:block">
         <div className="relative grid grid-cols-[4.5rem_1fr]">
         {hours.map((hour, hourIndex) => {
@@ -631,14 +609,6 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, o
         </div>
         </div>
       </div>
-
-      {showAiPreview && (
-        <AiSchedulePreview
-          currentDate={currentDate}
-          selectedInstructorId={selectedInstructorId}
-          onClose={() => setShowAiPreview(false)}
-        />
-      )}
 
       <AlertDialog open={!!reschedulePreview} onOpenChange={(open) => !open && setReschedulePreview(null)}>
         <AlertDialogContent className="w-[calc(100%-1rem)] max-w-lg overflow-hidden rounded-2xl p-0">
