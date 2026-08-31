@@ -11,7 +11,7 @@ import { StudentDetailsDialog } from './student-details-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StudentGridActions } from './student-grid-actions';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, GitMerge, Menu, Plus } from 'lucide-react';
+import { GitMerge, Menu, Plus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
 import { DuplicateMergeDialog } from './duplicate-merge-dialog';
@@ -73,7 +73,7 @@ export function StudentGrid() {
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>('current');
   const [licenseTypeFilter, setLicenseTypeFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
-  const [quickFilter, setQuickFilter] = useState<'all' | 'today'>('today');
+  const [quickFilter] = useState<'all' | 'today'>('all');
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -283,23 +283,6 @@ export function StudentGrid() {
           setTagFilter={setTagFilter}
           availableTags={availableTags}
         />
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:max-w-[14rem]">
-          <button
-            type="button"
-            onClick={() => setQuickFilter('today')}
-            className={`flex h-14 items-center justify-between rounded-2xl border px-4 text-left shadow-sm transition ${
-              quickFilter === 'today' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-border bg-card text-foreground'
-            }`}
-          >
-            <span className="flex items-center gap-2 font-semibold">
-              <CalendarDays className="h-5 w-5" />
-              Today
-            </span>
-            <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white">
-              {todayStudentIds.size}
-            </span>
-          </button>
-        </div>
         {loading ? (
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
             {Array.from({ length: 12 }).map((_, i) => (
@@ -320,8 +303,8 @@ export function StudentGrid() {
           </div>
         ) : (
             <div className="text-center py-16 border-2 border-dashed rounded-lg">
-                <h3 className="text-lg font-semibold">{quickFilter === 'today' && !searchTerm ? 'No students scheduled today' : 'No students found'}</h3>
-                <p className="text-muted-foreground mt-1">{searchTerm ? 'Your search returned no results.' : 'Search to find any student, or use the schedule page for appointments.'}</p>
+                <h3 className="text-lg font-semibold">No students found</h3>
+                <p className="text-muted-foreground mt-1">{searchTerm ? 'Your search returned no results.' : 'Try adjusting your filters or adding a new student.'}</p>
             </div>
         )}
       </div>
