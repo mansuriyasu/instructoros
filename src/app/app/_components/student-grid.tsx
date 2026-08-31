@@ -11,8 +11,8 @@ import { StudentDetailsDialog } from './student-details-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StudentGridActions } from './student-grid-actions';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, GitMerge, Menu, Plus, Users } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { CalendarDays, GitMerge, Menu, Plus } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
 import { DuplicateMergeDialog } from './duplicate-merge-dialog';
 import { useDoc, useFirestore, useMemoFirebase, useSession, useTenantCollectionPath } from '@/firebase';
@@ -67,11 +67,13 @@ export function StudentGrid() {
   const { events } = useEvents(eventRangeStart, eventRangeEnd);
   const { canManageTenant } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const studentIdParam = searchParams.get('studentId');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>('current');
   const [licenseTypeFilter, setLicenseTypeFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
-  const [quickFilter, setQuickFilter] = useState<'all' | 'today'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'today'>('today');
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -145,7 +147,7 @@ export function StudentGrid() {
       });
     }
 
-    if (quickFilter === 'today') {
+    if (quickFilter === 'today' && searchTerm.trim() === '') {
       studentList = studentList.filter(student => todayStudentIds.has(student.id));
     }
 
@@ -166,6 +168,18 @@ export function StudentGrid() {
       setSelectedStudent(updatedStudent);
     }
   }, [students, selectedStudent?.id]);
+
+  useEffect(() => {
+    if (!studentIdParam || !students?.length) return;
+    const student = students.find(item => item.id === studentIdParam);
+    if (!student) return;
+    setSelectedStudent(student);
+    setIsDetailsOpen(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('studentId');
+    const nextQuery = params.toString();
+    router.replace(`/app/students${nextQuery ? `?${nextQuery}` : ''}`, { scroll: false });
+  }, [router, searchParams, studentIdParam, students]);
 
   const handleCardClick = (student: Student) => {
     setSelectedStudent(student);
@@ -269,22 +283,7 @@ export function StudentGrid() {
           setTagFilter={setTagFilter}
           availableTags={availableTags}
         />
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:max-w-md">
-          <button
-            type="button"
-            onClick={() => setQuickFilter('all')}
-            className={`flex h-14 items-center justify-between rounded-2xl border px-4 text-left shadow-sm transition ${
-              quickFilter === 'all' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-border bg-card text-foreground'
-            }`}
-          >
-            <span className="flex items-center gap-2 font-semibold">
-              <Users className="h-5 w-5" />
-              All Students
-            </span>
-            <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white">
-              {(students || []).filter(student => !isMergedAuditRecord(student)).length}
-            </span>
-          </button>
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:max-w-[14rem]">
           <button
             type="button"
             onClick={() => setQuickFilter('today')}
@@ -296,7 +295,7 @@ export function StudentGrid() {
               <CalendarDays className="h-5 w-5" />
               Today
             </span>
-            <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-bold text-white">
+            <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-bold text-white">
               {todayStudentIds.size}
             </span>
           </button>
@@ -321,8 +320,8 @@ export function StudentGrid() {
           </div>
         ) : (
             <div className="text-center py-16 border-2 border-dashed rounded-lg">
-                <h3 className="text-lg font-semibold">No students found</h3>
-                <p className="text-muted-foreground mt-1">{searchTerm ? 'Your search returned no results.' : 'Try adjusting your filters or adding a new student.'}</p>
+                <h3 className="text-lg font-semibold">{quickFilter === 'today' && !searchTerm ? 'No students scheduled today' : 'No students found'}</h3>
+                <p className="text-muted-foreground mt-1">{searchTerm ? 'Your search returned no results.' : 'Search to find any student, or use the schedule page for appointments.'}</p>
             </div>
         )}
       </div>

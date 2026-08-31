@@ -112,6 +112,12 @@ export function EventDetailsDialog({
     }
   };
 
+  const handleViewStudent = () => {
+    if (!event.studentId) return;
+    onOpenChange(false);
+    router.push(`/app/students?studentId=${encodeURIComponent(event.studentId)}`);
+  };
+
   const isBlockedSlot = event.studentId === null;
   const canAddToBill = !isBlockedSlot && event.services && event.services.length > 0;
   const lessonStatus = event.lessonStatus || 'scheduled';
@@ -233,6 +239,10 @@ export function EventDetailsDialog({
 
         {!isBlockedSlot && (
           <div className="mt-2 grid grid-cols-2 gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={handleViewStudent} className="h-9 px-2 text-xs sm:h-10 sm:text-sm">
+              <User className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
+              View Student
+            </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => onEvaluate(event)} className="h-9 border-[#d4af37] bg-[#fff9e7] px-2 text-xs font-bold text-[#806000] hover:bg-[#fff1bd] sm:h-10 sm:text-sm">
               <ClipboardCheck className="mr-1 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />Evaluate
             </Button>

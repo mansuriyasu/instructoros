@@ -41,6 +41,12 @@ import {
   Eye,
   Download,
   ImageOff,
+  Mail,
+  Shield,
+  HeartPulse,
+  Target,
+  Gauge,
+  ClipboardList,
 } from "lucide-react";
 import { format } from "date-fns";
 import { usePayments } from "@/hooks/use-payments";
@@ -117,6 +123,52 @@ const defaultCustomerTags = ["Failed", "Passed", "Payment Done", "Pending"];
 
 function normalizeTagName(tag: string) {
   return tag.trim().replace(/\s+/g, " ");
+}
+
+function formatStudentDate(value?: string) {
+  if (!value) return "Not added";
+  if (/^\d{8}$/.test(value)) return value.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3");
+  return value;
+}
+
+function formatChoice(value?: string) {
+  if (!value) return "Not added";
+  return value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatSavedTimestamp(value?: string, pattern = "MMM dd, yyyy") {
+  if (!value) return "Not recorded";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return format(date, pattern);
+}
+
+function DetailCard({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-start gap-3 rounded-xl border border-border/50 bg-card/40 p-4", className)}>
+      <div className="mt-0.5 shrink-0 rounded-full bg-primary/10 p-2.5 text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+        <div className="break-words text-sm font-medium leading-relaxed text-foreground">
+          {value || "Not added"}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function StudentDetailsDialog({
@@ -914,34 +966,40 @@ export function StudentDetailsDialog({
           {/* Details Tabs */}
           <div className="p-6 sm:p-8 pt-6">
             <Tabs defaultValue="contact" className="w-full">
-              <TabsList className="w-full grid grid-cols-5 mb-6 bg-muted/40 p-1.5 rounded-xl">
+              <TabsList className="mb-6 grid h-auto w-full grid-cols-3 rounded-xl bg-muted/40 p-1.5 sm:grid-cols-6">
                 <TabsTrigger
                   value="contact"
-                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2"
+                  className="rounded-lg py-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm"
                 >
                   Contact
                 </TabsTrigger>
                 <TabsTrigger
                   value="lessons"
-                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2"
+                  className="rounded-lg py-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm"
                 >
                   Lessons
                 </TabsTrigger>
                 <TabsTrigger
                   value="evaluations"
-                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2"
+                  className="rounded-lg py-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm"
                 >
                   Tests
                 </TabsTrigger>
                 <TabsTrigger
                   value="notes"
-                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2"
+                  className="rounded-lg py-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm"
                 >
                   Notes
                 </TabsTrigger>
                 <TabsTrigger
+                  value="more"
+                  className="rounded-lg py-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm"
+                >
+                  More
+                </TabsTrigger>
+                <TabsTrigger
                   value="payments"
-                  className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium py-2"
+                  className="rounded-lg py-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm"
                 >
                   Payments
                 </TabsTrigger>
@@ -1456,6 +1514,141 @@ export function StudentDetailsDialog({
                         )}
                         Add Note
                       </Button>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent
+                value="more"
+                className="space-y-4 outline-none focus-visible:ring-0 animate-in fade-in duration-300"
+              >
+                <div className="rounded-2xl border border-border/50 bg-muted/25 p-4">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold">Complete student record</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Details collected from registration and profile edits.
+                      </p>
+                    </div>
+                    {student.registrationReview === "possible-duplicate" && (
+                      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
+                        Review duplicate
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <DetailCard icon={Mail} label="Email" value={student.email || student.portalEmail} />
+                    <DetailCard icon={Phone} label="Mobile" value={student.mobileNumber} />
+                    <DetailCard icon={UserIcon} label="Birthdate" value={formatStudentDate(student.birthdate)} />
+                    <DetailCard icon={MapPin} label="Pickup address" value={studentAddress || "Not added"} className="md:col-span-2" />
+                    {student.pickupAddress && (
+                      <DetailCard
+                        icon={MapPin}
+                        label="Structured pickup address"
+                        className="md:col-span-2"
+                        value={[
+                          student.pickupAddress.unit,
+                          student.pickupAddress.street,
+                          student.pickupAddress.city,
+                          student.pickupAddress.province,
+                          student.pickupAddress.postalCode,
+                        ].filter(Boolean).join(", ")}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                      <Target className="h-4 w-4 text-primary" />
+                      Driving profile
+                    </div>
+                    <div className="grid gap-3">
+                      <DetailCard icon={Car} label="Licence class" value={student.licenseType} />
+                      <DetailCard icon={FileText} label="Licence number" value={student.licenseNumber} />
+                      <DetailCard icon={CalendarCheck2} label="Licence expiry" value={formatStudentDate(student.licenseExpiry)} />
+                      <DetailCard icon={Target} label="Driving goal" value={formatChoice(student.drivingGoal)} />
+                      <DetailCard icon={Gauge} label="Experience level" value={formatChoice(student.experienceLevel)} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                      <ClipboardList className="h-4 w-4 text-primary" />
+                      Road test
+                    </div>
+                    <div className="grid gap-3">
+                      <DetailCard icon={Car} label="Test type" value={student.roadTest?.testType} />
+                      <DetailCard icon={CalendarCheck2} label="Date" value={formatStudentDate(student.roadTest?.date)} />
+                      <DetailCard icon={CalendarCheck2} label="Time" value={student.roadTest?.time} />
+                      <DetailCard icon={MapPin} label="Location" value={student.roadTest?.location} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                      <Shield className="h-4 w-4 text-primary" />
+                      Guardian
+                    </div>
+                    <div className="grid gap-3">
+                      <DetailCard icon={UserIcon} label="Name" value={student.guardianContact?.name} />
+                      <DetailCard icon={Phone} label="Phone" value={student.guardianContact?.phone} />
+                      <DetailCard icon={Shield} label="Relationship" value={student.guardianContact?.relationship} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                      <HeartPulse className="h-4 w-4 text-primary" />
+                      Emergency contact
+                    </div>
+                    <div className="grid gap-3">
+                      <DetailCard icon={UserIcon} label="Name" value={student.emergencyContact?.name} />
+                      <DetailCard icon={Phone} label="Phone" value={student.emergencyContact?.phone} />
+                      <DetailCard icon={HeartPulse} label="Relationship" value={student.emergencyContact?.relationship} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Submitted notes
+                  </div>
+                  <p className="whitespace-pre-wrap rounded-xl border border-border/50 bg-background/70 p-4 text-sm leading-relaxed text-foreground">
+                    {student.studentSubmittedNotes || "No submitted notes."}
+                  </p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                      <UserIcon className="h-4 w-4 text-primary" />
+                      Portal
+                    </div>
+                    <div className="grid gap-3">
+                      <DetailCard icon={UserIcon} label="Access status" value={formatChoice(student.portalStatus)} />
+                      <DetailCard icon={Mail} label="Portal email" value={student.portalEmail} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                      <CalendarCheck2 className="h-4 w-4 text-primary" />
+                      Registration
+                    </div>
+                    <div className="grid gap-3">
+                      <DetailCard icon={CalendarCheck2} label="Joined" value={formatSavedTimestamp(student.registrationDate)} />
+                      <DetailCard icon={CheckCircle2} label="Completed" value={student.registrationCompletedAt ? formatSavedTimestamp(student.registrationCompletedAt) : "Not completed"} />
+                      <DetailCard icon={CheckCircle2} label="Privacy accepted" value={formatSavedTimestamp(student.privacyAcceptedAt)} />
+                      <DetailCard icon={CheckCircle2} label="Terms accepted" value={formatSavedTimestamp(student.termsAcceptedAt)} />
+                      <DetailCard icon={CheckCircle2} label="Cancellation policy" value={formatSavedTimestamp(student.cancellationPolicyAcceptedAt)} />
+                      <DetailCard icon={Edit} label="Last profile update" value={formatSavedTimestamp(student.updatedAt, "MMM dd, yyyy · h:mm a")} />
                     </div>
                   </div>
                 </div>
