@@ -9,6 +9,23 @@ type AddressAutocompleteInputProps = React.ComponentProps<typeof Input> & {
 
 let googleMapsScriptPromise: Promise<void> | null = null;
 
+function setNativeInputValue(input: HTMLInputElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(input, "value")?.set;
+  const prototypeValueSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "value",
+  )?.set;
+
+  if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+    prototypeValueSetter.call(input, value);
+  } else {
+    valueSetter?.call(input, value);
+  }
+
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function loadGoogleMapsPlaces() {
   if (typeof window === "undefined") return Promise.resolve();
   const existingGoogle = (window as any).google;
@@ -77,14 +94,14 @@ export const AddressAutocompleteInput = React.forwardRef<HTMLInputElement, Addre
           listener = autocomplete.addListener("place_changed", () => {
             const place = autocomplete.getPlace();
             const selectedAddress = String(place?.formatted_address || place?.name || inputRef.current?.value || "").trim();
-            if (!selectedAddress) return;
+            if (!selectedAddress || !inputRef.current) return;
+            setNativeInputValue(inputRef.current, selectedAddress);
             onAddressSelect?.(selectedAddress);
             if (onChange && inputRef.current) {
               const event = {
                 target: inputRef.current,
                 currentTarget: inputRef.current,
               } as React.ChangeEvent<HTMLInputElement>;
-              inputRef.current.value = selectedAddress;
               onChange(event);
             }
           });

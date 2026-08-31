@@ -424,7 +424,11 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
                                 <FormItem>
                                 <FormLabel>Address</FormLabel>
                                 <FormControl>
-                                    <AddressAutocompleteInput placeholder="Start typing the pickup address" {...field} />
+                                    <AddressAutocompleteInput
+                                      placeholder="Start typing the pickup address"
+                                      {...field}
+                                      onAddressSelect={field.onChange}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                                 </FormItem>
