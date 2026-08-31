@@ -62,6 +62,10 @@ function loadGoogleMapsPlaces() {
 export const AddressAutocompleteInput = React.forwardRef<HTMLInputElement, AddressAutocompleteInputProps>(
   ({ onAddressSelect, onChange, autoComplete = "street-address", placeholder = "Start typing an address", ...props }, forwardedRef) => {
     const inputRef = React.useRef<HTMLInputElement | null>(null);
+    const autocompleteServiceRef = React.useRef<any>(null);
+    const debounceRef = React.useRef<number | null>(null);
+    const [predictions, setPredictions] = React.useState<Array<{ description: string; place_id: string }>>([]);
+    const [isFocused, setIsFocused] = React.useState(false);
 
     const setRefs = React.useCallback(
       (node: HTMLInputElement | null) => {
@@ -75,9 +79,55 @@ export const AddressAutocompleteInput = React.forwardRef<HTMLInputElement, Addre
       [forwardedRef],
     );
 
+    const updatePredictions = React.useCallback((value: string) => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+
+      const query = value.trim();
+      if (query.length < 3) {
+        setPredictions([]);
+        return;
+      }
+
+      debounceRef.current = window.setTimeout(() => {
+        void loadGoogleMapsPlaces()
+          .then(() => {
+            const google = (window as any).google;
+            if (!google?.maps?.places) return;
+            if (!autocompleteServiceRef.current) {
+              autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+            }
+
+            autocompleteServiceRef.current.getPlacePredictions(
+              {
+                input: query,
+                componentRestrictions: { country: "ca" },
+                types: ["address"],
+              },
+              (results: Array<{ description: string; place_id: string }> | null, status: string) => {
+                const ok = status === google.maps.places.PlacesServiceStatus.OK;
+                setPredictions(ok && results ? results.slice(0, 5) : []);
+              },
+            );
+          })
+          .catch(() => undefined);
+      }, 180);
+    }, []);
+
+    const selectAddress = React.useCallback((selectedAddress: string) => {
+      if (!selectedAddress || !inputRef.current) return;
+      setNativeInputValue(inputRef.current, selectedAddress);
+      setPredictions([]);
+      onAddressSelect?.(selectedAddress);
+      if (onChange && inputRef.current) {
+        const event = {
+          target: inputRef.current,
+          currentTarget: inputRef.current,
+        } as React.ChangeEvent<HTMLInputElement>;
+        onChange(event);
+      }
+    }, [onAddressSelect, onChange]);
+
     React.useEffect(() => {
-      let autocomplete: any = null;
-      let listener: any = null;
       let cancelled = false;
 
       void loadGoogleMapsPlaces()
@@ -85,47 +135,61 @@ export const AddressAutocompleteInput = React.forwardRef<HTMLInputElement, Addre
           if (cancelled || !inputRef.current) return;
           const google = (window as any).google;
           if (!google?.maps?.places) return;
-
-          autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-            fields: ["formatted_address", "name"],
-            componentRestrictions: { country: "ca" },
-            types: ["address"],
-          });
-          listener = autocomplete.addListener("place_changed", () => {
-            const place = autocomplete.getPlace();
-            const selectedAddress = String(place?.formatted_address || place?.name || inputRef.current?.value || "").trim();
-            if (!selectedAddress || !inputRef.current) return;
-            setNativeInputValue(inputRef.current, selectedAddress);
-            onAddressSelect?.(selectedAddress);
-            if (onChange && inputRef.current) {
-              const event = {
-                target: inputRef.current,
-                currentTarget: inputRef.current,
-              } as React.ChangeEvent<HTMLInputElement>;
-              onChange(event);
-            }
-          });
+          autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
         })
         .catch(() => undefined);
 
       return () => {
         cancelled = true;
-        if (listener?.remove) listener.remove();
-        if (autocomplete) {
-          const google = (window as any).google;
-          google?.maps?.event?.clearInstanceListeners?.(autocomplete);
-        }
+        if (debounceRef.current) window.clearTimeout(debounceRef.current);
       };
-    }, [onAddressSelect, onChange]);
+    }, []);
+
+    const handleChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      onChange?.(event);
+      updatePredictions(event.target.value);
+    }, [onChange, updatePredictions]);
 
     return (
-      <Input
-        {...props}
-        ref={setRefs}
-        autoComplete={autoComplete}
-        onChange={onChange}
-        placeholder={placeholder}
-      />
+      <div className="relative">
+        <Input
+          {...props}
+          ref={setRefs}
+          autoComplete={autoComplete}
+          onChange={handleChange}
+          onFocus={(event) => {
+            setIsFocused(true);
+            props.onFocus?.(event);
+            updatePredictions(event.currentTarget.value);
+          }}
+          onBlur={(event) => {
+            window.setTimeout(() => setIsFocused(false), 160);
+            props.onBlur?.(event);
+          }}
+          placeholder={placeholder}
+        />
+        {isFocused && predictions.length > 0 && (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.375rem)] z-[2147483647] overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-2xl">
+            {predictions.map((prediction) => (
+              <button
+                key={prediction.place_id}
+                type="button"
+                className="block min-h-12 w-full border-b border-slate-100 px-4 py-3 text-left text-sm last:border-b-0 active:bg-amber-50 hover:bg-slate-50"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  selectAddress(prediction.description);
+                }}
+                onTouchStart={(event) => {
+                  event.preventDefault();
+                  selectAddress(prediction.description);
+                }}
+              >
+                {prediction.description}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     );
   },
 );
