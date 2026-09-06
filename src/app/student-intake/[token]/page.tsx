@@ -95,24 +95,28 @@ export default function StudentIntakePage({
 
   const setField = (key: keyof Fields, value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
+  const requestOtp = async (claimToken: string) => {
+    const response = await fetch("/api/student-portal/claim-otp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        claimToken,
+        action: "send",
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "Could not send the SMS code.");
+    return data;
+  };
   const sendOtp = async () => {
     if (!submission) return;
     setOtpSending(true);
     setError("");
     try {
-      const response = await fetch("/api/student-portal/claim-otp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          claimToken: submission.claimToken,
-          action: "send",
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "Could not send the SMS code.");
+      await requestOtp(submission.claimToken);
       setOtpSent(true);
     } catch (error) {
       setError(
@@ -135,10 +139,21 @@ export default function StudentIntakePage({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       sessionStorage.setItem("studentPortalClaimToken", data.claimToken);
-      setSubmission({
+      const nextSubmission = {
         claimToken: data.claimToken,
         possibleDuplicate: Boolean(data.possibleDuplicate),
-      });
+      };
+      setSubmission(nextSubmission);
+      try {
+        await requestOtp(nextSubmission.claimToken);
+        setOtpSent(true);
+      } catch (otpError) {
+        setError(
+          `Your registration is saved, but the text code could not be sent. ${
+            otpError instanceof Error ? otpError.message : "Please use Send SMS code to try again."
+          }`,
+        );
+      }
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Could not submit the form.",
@@ -498,24 +513,13 @@ export default function StudentIntakePage({
                   registered mobile number. The code expires in 10 minutes.
                 </p>
               )}
-                <Field label="Create a 6-digit portal PIN" required>
-                <Input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="new-password"
-                  maxLength={6}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                  placeholder="6 digits"
-                />
-              </Field>
               {!otpSent ? (
                 <Button
-                  disabled={creating || pin.length !== 6}
+                  disabled={creating || otpSending}
                   onClick={createAccount}
                   className="h-12 w-full bg-amber-400 text-slate-950 hover:bg-amber-500"
                 >
-                  {creating ? "Creating account..." : "Send SMS code"}
+                  {creating || otpSending ? "Sending code..." : "Send SMS code"}
                 </Button>
               ) : (
                 <>
@@ -531,8 +535,19 @@ export default function StudentIntakePage({
                       placeholder="6-digit code"
                     />
                   </Field>
+                  <Field label="Create a 6-digit portal PIN" required>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={6}
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="6 digits"
+                    />
+                  </Field>
                   <Button
-                    disabled={creating || otpCode.length !== 6}
+                    disabled={creating || otpCode.length !== 6 || pin.length !== 6}
                     onClick={verifyOtp}
                     className="h-12 w-full bg-amber-400 text-slate-950 hover:bg-amber-500"
                   >

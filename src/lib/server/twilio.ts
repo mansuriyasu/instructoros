@@ -1,5 +1,16 @@
 const TWILIO_API_BASE = "https://api.twilio.com/2010-04-01/Accounts";
 
+function twilioErrorMessage(code: unknown, fallback: string) {
+  switch (String(code || "")) {
+    case "20003": return "The SMS service credentials need attention. Please contact your instructor.";
+    case "21211": return "The mobile number on the student record is invalid. Please contact your instructor.";
+    case "21608": return "This mobile number cannot receive messages from the current Twilio account.";
+    case "21610": return "This mobile number has opted out of SMS. Reply START to the InstructorOS number, then try again.";
+    case "30007": return "The mobile carrier rejected this text message. Please contact your instructor.";
+    default: return fallback || "Twilio could not send the SMS.";
+  }
+}
+
 function normalizePhone(value: unknown) {
   const digits = String(value || "").replace(/\D/g, "");
   if (digits.length === 10) return `+1${digits}`;
@@ -41,7 +52,13 @@ export async function sendTwilioSms(toValue: unknown, body: string) {
   );
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.message || "Twilio could not send the SMS.");
+    console.error("twilio_sms_failed", {
+      code: String(data.code || "unknown"),
+      status: response.status,
+    });
+    throw new Error(
+      twilioErrorMessage(data.code, data.message || "Twilio could not send the SMS."),
+    );
   }
   return { sid: data.sid, status: data.status };
 }
