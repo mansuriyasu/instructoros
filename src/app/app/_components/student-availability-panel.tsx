@@ -8,6 +8,7 @@ import { ChevronDown, Clock3, Link as LinkIcon, Loader2, Save, X } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useSearchParams } from 'next/navigation';
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const defaultWindow = { startTime: '07:00', endTime: '20:00' };
@@ -23,14 +24,16 @@ function normalizeAvailability(availability: StudentAvailability | null, tenantI
 }
 
 export function StudentAvailabilityPanel({ studentId, studentName }: { studentId: string, studentName: string }) {
-  const { tenant } = useSession();
+  const { tenant, user } = useSession();
+  const searchParams = useSearchParams();
   const db = useFirestore();
   const { toast } = useToast();
   const [availability, setAvailability] = useState<StudentAvailability | null>(null);
   const [draftWindows, setDraftWindows] = useState<AvailabilityWindow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(searchParams.get('section') === 'availability');
+  useEffect(() => { if (expanded && searchParams.get('section') === 'availability') document.getElementById('student-availability')?.scrollIntoView({ block: 'center' }); }, [expanded, searchParams]);
 
   useEffect(() => {
     if (!tenant?.id || !studentId || !db) return;
@@ -93,6 +96,7 @@ export function StudentAvailabilityPanel({ studentId, studentName }: { studentId
           ...data,
           weeklyWindows: draftWindows,
           updatedAt: new Date().toISOString(),
+          updatedByUid: user?.uid || null,
         },
         { merge: true },
       );
@@ -113,7 +117,7 @@ export function StudentAvailabilityPanel({ studentId, studentName }: { studentId
   }
 
   return (
-    <div aria-label={`${studentName} availability`} className="relative z-10 rounded-2xl border border-border/50 bg-muted/30 p-4 mt-4">
+    <div id="student-availability" aria-label={`${studentName} availability`} className="relative z-10 rounded-2xl border border-border/50 bg-muted/30 p-4 mt-4">
       <button
         type="button"
         className="flex w-full items-center justify-between gap-3 text-left"

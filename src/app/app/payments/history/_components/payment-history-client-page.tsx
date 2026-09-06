@@ -8,8 +8,8 @@ import { PaymentsDataTable } from './payments-data-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PaymentDetailsDialog } from './payment-details-dialog';
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { DateRangePicker } from './date-range-picker';
@@ -34,6 +34,13 @@ export function PaymentHistoryClientPage() {
 
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const notificationPaymentId = searchParams.get('paymentId');
+  useEffect(() => {
+    if (!notificationPaymentId) return;
+    const payment = payments?.find(p => p.id === notificationPaymentId);
+    if (payment) { setSelectedPayment(payment); setIsDetailsOpen(true); router.replace('/app/payments/history', { scroll: false }); }
+  }, [notificationPaymentId, payments, router]);
   const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [isTotalsHidden, setIsTotalsHidden] = useState(true);

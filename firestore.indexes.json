@@ -1,6 +1,17 @@
 {
-  "indexes": [],
+  "indexes": [
+    { "collectionGroup": "staffNotifications", "queryScope": "COLLECTION", "fields": [{"fieldPath":"tenantId","order":"ASCENDING"},{"fieldPath":"recipientUid","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"},{"fieldPath":"__name__","order":"DESCENDING"}] },
+    { "collectionGroup": "staffNotifications", "queryScope": "COLLECTION", "fields": [{"fieldPath":"tenantId","order":"ASCENDING"},{"fieldPath":"recipientUid","order":"ASCENDING"},{"fieldPath":"readAt","order":"ASCENDING"}] },
+    { "collectionGroup": "events", "queryScope": "COLLECTION", "fields": [{"fieldPath":"instructorId","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}] }
+  ],
   "fieldOverrides": [
+    { "collectionGroup": "events", "fieldPath": "start", "indexes": [{"order":"ASCENDING","queryScope":"COLLECTION"},{"order":"DESCENDING","queryScope":"COLLECTION"},{"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}] },
+    { "collectionGroup": "students", "fieldPath": "roadTest.date", "indexes": [{"order":"ASCENDING","queryScope":"COLLECTION"},{"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}] },
+    { "collectionGroup": "staffNotifications", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
+    { "collectionGroup": "pushDevices", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
+    { "collectionGroup": "notificationJobs", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
+    { "collectionGroup": "notificationDeliveries", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
+    { "collectionGroup": "notificationRateLimits", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
     {
       "collectionGroup": "studentAccounts",
       "fieldPath": "mobileNumberNormalized",

@@ -25,15 +25,15 @@ async function context(request: NextRequest) {
   const token = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) throw new RequestSecurityError('Please sign in before editing availability.', 401);
   const actor = await getAdminAuth().verifyIdToken(token);
-  return getStudentPortalContext(actor.uid);
+  return { ...await getStudentPortalContext(actor.uid), actorUid: actor.uid };
 }
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { tenantRef, studentRef } = await context(request);
+    const { tenantRef, studentRef, actorUid } = await context(request);
     const result = schema.safeParse(await request.json());
     if (!result.success) return NextResponse.json({ error: 'Please enter valid availability times.' }, { status: 400 });
-    await tenantRef.collection('studentAvailability').doc(studentRef.id).set({ ...result.data, tenantId: tenantRef.id, studentId: studentRef.id, updatedAt: new Date().toISOString() }, { merge: true });
+    await tenantRef.collection('studentAvailability').doc(studentRef.id).set({ ...result.data, tenantId: tenantRef.id, studentId: studentRef.id, updatedByUid: actorUid, updatedAt: new Date().toISOString() }, { merge: true });
     return NextResponse.json({ ok: true });
   } catch (error) {
     const status = error instanceof RequestSecurityError ? error.status : 500;

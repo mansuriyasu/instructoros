@@ -381,8 +381,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    match /{document=**} {
-      allow read, write: if isMainAdmin();
+    match /{rootCollection}/{document=**} {
+      allow read, write: if isMainAdmin()
+        && !(rootCollection in ["staffNotifications", "pushDevices", "notificationPreferences", "notificationJobs", "notificationDeliveries", "notificationRateLimits"]);
     }
   }
 }

@@ -8,6 +8,8 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { useSession } from "@/firebase";
 import { getWorkspaceAccess } from "@/lib/workspace-access";
+import { PwaProvider } from '@/components/pwa/pwa-provider';
+import { NotificationsProvider } from '@/hooks/use-notifications';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { tenant, canManageTenant } = useSession();
@@ -15,7 +17,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const billingActionLabel = tenant?.subscriptionStatus === 'checkout_pending' ? 'Continue trial setup' : 'Start free trial';
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <NotificationsProvider><div className="flex min-h-screen bg-background">
+      <PwaProvider />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
         <Header />
@@ -40,6 +43,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
       <WorkspaceSetupPrompt />
       <BottomNav />
-    </div>
+    </div></NotificationsProvider>
   );
 }

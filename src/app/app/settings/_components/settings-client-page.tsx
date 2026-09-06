@@ -5,7 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImportExportClientPage } from './import-export-client-page';
 import { WorkspaceProfileSettings } from './workspace-profile-settings';
 import { StudentTagSettings } from './student-tag-settings';
-import { CalendarDays, Database, Settings2 } from 'lucide-react';
+import { Bell, CalendarDays, Database, Settings2 } from 'lucide-react';
+import { NotificationSettings } from './notification-settings';
 import { useSession } from '@/firebase';
 import { GoogleCalendarSettings } from './google-calendar-settings';
 
@@ -17,6 +18,7 @@ export function SettingsClientPage() {
   const visibleTabs = useMemo(() => [
     { value: 'workspace', label: 'Workspace', icon: Settings2, visible: canManageWorkspace },
     { value: 'integrations', label: 'Integrations', icon: CalendarDays, visible: true },
+    { value: 'notifications', label: 'Notifications', icon: Bell, visible: true },
     { value: 'import-export', label: 'Import / Export', icon: Database, visible: canImportExport },
   ].filter(item => item.visible), [canImportExport, canManageWorkspace]);
 
@@ -49,7 +51,7 @@ export function SettingsClientPage() {
           </div>
         ) : (
         <>
-        <TabsList className="grid h-auto w-full max-w-3xl rounded-2xl bg-secondary/55 p-1 shadow-inner" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
+        <TabsList className="flex h-auto w-full max-w-3xl flex-wrap rounded-lg bg-secondary/55 p-1">
           {visibleTabs.map(({ value, label, icon: Icon }) => (
             <TabsTrigger key={value} value={value} className="flex min-h-10 items-center justify-center gap-2 rounded-xl text-xs sm:text-sm">
               <Icon className="h-4 w-4" />
@@ -58,6 +60,7 @@ export function SettingsClientPage() {
           ))}
         </TabsList>
         <div className="mt-6">
+            <TabsContent value="notifications"><NotificationSettings /></TabsContent>
             <TabsContent value="workspace">
                 {canManageWorkspace ? <div className="space-y-5"><WorkspaceProfileSettings /><StudentTagSettings /></div> : null}
             </TabsContent>

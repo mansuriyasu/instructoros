@@ -3,7 +3,8 @@
 import { useMemo, type ReactNode } from 'react';
 import { Bell, Check, CheckCheck, Copy, UserPlus } from 'lucide-react';
 import { addDays, formatDistanceToNow, isSameDay, isWithinInterval, parse, startOfDay } from 'date-fns';
-import { collection, doc, limit, orderBy, query, updateDoc } from 'firebase/firestore';
+import Link from 'next/link';
+import { useNotifications } from '@/hooks/use-notifications';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,7 +17,7 @@ import {
 } from '@/components/ui/sheet';
 import { useStudents } from '@/hooks/use-students';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase, useSession, useTenantCollectionPath } from '@/firebase';
+import { useSession } from '@/firebase';
 import { cn } from '@/lib/utils';
 import { Student, TenantNotification } from '@/lib/types';
 
@@ -28,22 +29,9 @@ interface NotificationsSheetProps {
 export function NotificationsSheet({ className, triggerType = 'button' }: NotificationsSheetProps) {
   const { students } = useStudents();
   const { toast } = useToast();
-  const { activeTenantId, tenant, user } = useSession();
-  const firestore = useFirestore();
-  const notificationsPath = useTenantCollectionPath('notifications');
-  const notificationsQuery = useMemoFirebase(
-    () =>
-      firestore && notificationsPath
-        ? query(
-            collection(firestore, notificationsPath),
-            orderBy('createdAt', 'desc'),
-            limit(20)
-          )
-        : null,
-    [firestore, notificationsPath]
-  );
-  const { data: tenantNotifications } =
-    useCollection<TenantNotification>(notificationsQuery);
+  const { tenant } = useSession();
+  const inbox = useNotifications();
+  const tenantNotifications: TenantNotification[] = inbox.items.map(item => ({ ...item, type: 'student-registration', status: item.read ? 'read' : 'unread' }));
 
   const notifications = useMemo(() => {
     if (!students) return { expiringLicenses: [], upcomingBirthdays: [] };
@@ -93,7 +81,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
   const totalNotifications =
     notifications.expiringLicenses.length +
     notifications.upcomingBirthdays.length +
-    (tenantNotifications || []).filter((item) => item.status !== 'read').length;
+    inbox.unread;
 
   const handleCopyBirthdayWish = async (student: Student) => {
     const firstName = student.name.split(' ')[0] || student.name;
@@ -104,30 +92,15 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
   };
 
   const markNotificationRead = async (notificationId: string) => {
-    if (!firestore || !activeTenantId || !user) return;
-    await updateDoc(doc(firestore, 'tenants', activeTenantId, 'notifications', notificationId), {
-      status: 'read',
-      readAt: new Date().toISOString(),
-      readByUid: user.uid,
-    });
+    await inbox.markRead(notificationId);
   };
 
-  const markAllTenantNotificationsRead = async (notificationIds: string[]) => {
-    if (!firestore || !activeTenantId || !user || notificationIds.length === 0) return;
-    const readAt = new Date().toISOString();
-    await Promise.all(
-      notificationIds.map((notificationId) =>
-        updateDoc(doc(firestore, 'tenants', activeTenantId, 'notifications', notificationId), {
-          status: 'read',
-          readAt,
-          readByUid: user.uid,
-        })
-      )
-    );
+  const markAllTenantNotificationsRead = async () => {
+    await inbox.markRead();
   };
 
   return (
-    <Sheet>
+    <Sheet onOpenChange={open => { if (open) void inbox.refresh(); }}>
       <SheetTrigger asChild>
         {triggerType === 'icon' ? (
           <button
@@ -186,11 +159,13 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
         </SheetHeader>
         <ScrollArea className="mt-4 h-[calc(100%-4rem)]">
           <div className="space-y-6">
+            {inbox.error && <p role="alert" className="text-sm text-red-700">{inbox.error}</p>}
             <TenantNotificationSection
               items={tenantNotifications || []}
               onMarkRead={markNotificationRead}
               onMarkAllRead={markAllTenantNotificationsRead}
             />
+            {inbox.more && <Button variant="outline" onClick={() => void inbox.more?.()}>Earlier notifications</Button>}
             <NotificationSection
               title="Expiring Licenses"
               items={notifications.expiringLicenses}
@@ -223,7 +198,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
                 </Button>
               )}
             />
-            {totalNotifications === 0 && (
+            {totalNotifications === 0 && tenantNotifications.length === 0 && (
               <p className="text-sm text-muted-foreground">No notifications.</p>
             )}
           </div>
@@ -251,9 +226,7 @@ function TenantNotificationSection({
   onMarkRead,
   onMarkAllRead,
 }: TenantNotificationSectionProps) {
-  const registrationItems = items.filter(
-    (item) => item.type === 'student-registration' && item.status !== 'read'
-  );
+  const registrationItems = items;
   if (registrationItems.length === 0) {
     return null;
   }
@@ -261,8 +234,8 @@ function TenantNotificationSection({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="font-semibold">Student Registrations</h3>
-        {registrationItems.length > 1 && (
+        <h3 className="font-semibold">Recent activity</h3>
+        {registrationItems.some(item => item.status !== 'read') && (
           <Button
             type="button"
             variant="outline"
@@ -271,7 +244,7 @@ function TenantNotificationSection({
             onClick={() => onMarkAllRead(registrationItems.map((item) => item.id))}
           >
             <CheckCheck className="h-4 w-4" />
-            Clear all
+            Mark all read
           </Button>
         )}
       </div>
@@ -297,7 +270,7 @@ function TenantNotificationSection({
                 <UserPlus className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{item.title}</p>
+                <Link href={`/app/notifications/open?id=${item.id}`} className={cn('text-sm', item.status === 'read' ? 'font-medium' : 'font-bold')}>{item.title}</Link>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {item.message}
                 </p>
@@ -305,7 +278,7 @@ function TenantNotificationSection({
                   {timeLabel}
                 </p>
               </div>
-              <Button
+              {item.status !== 'read' && <Button
                 type="button"
                 variant="outline"
                 size="sm"
@@ -314,8 +287,8 @@ function TenantNotificationSection({
                 aria-label={`Dismiss ${item.title}`}
               >
                 <Check className="h-4 w-4" />
-                Dismiss
-              </Button>
+                Read
+              </Button>}
             </div>
           );
         })}

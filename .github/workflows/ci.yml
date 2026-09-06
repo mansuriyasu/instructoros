@@ -20,6 +20,9 @@ jobs:
         run: npm ci
 
       - name: Type check
+        run: npm --prefix functions ci && npm --prefix functions test
+
+      - name: App type check
         run: npm run typecheck
 
       - name: Lint

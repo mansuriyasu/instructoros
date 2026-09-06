@@ -23,7 +23,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "BAP Shopify Site"]
+  "exclude": ["node_modules", "functions", "BAP Shopify Site"]
 }
-
-    

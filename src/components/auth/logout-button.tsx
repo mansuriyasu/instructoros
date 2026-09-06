@@ -6,6 +6,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@/firebase';
 import { cn } from '@/lib/utils';
+import { disablePush } from '@/firebase/messaging';
 
 interface LogoutButtonProps {
   className?: string;
@@ -19,6 +20,7 @@ export function LogoutButton({ className }: LogoutButtonProps) {
   if (!user) return null;
 
   const handleLogout = async () => {
+    if ('serviceWorker' in navigator) await disablePush().catch(() => {});
     await signOut(auth);
     router.replace('/login');
   };

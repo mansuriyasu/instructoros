@@ -63,6 +63,7 @@ export function usePayments() {
     return addDocumentNonBlocking(paymentsCollectionRef, removeUndefined({
       ...payment,
       instructorId: payment.instructorId || user?.uid || null,
+      updatedByUid: user.uid,
     }));
   };
 
@@ -74,7 +75,7 @@ export function usePayments() {
       throw new Error('The payments database is not ready yet. Please try again.');
     }
     const paymentRef = doc(firestore, paymentsPath, payment.id);
-    return updateDocumentNonBlocking(paymentRef, removeUndefined(payment));
+    return updateDocumentNonBlocking(paymentRef, removeUndefined({ ...payment, updatedByUid: user.uid }));
   };
 
   const deletePayment = async (paymentId: string) => {

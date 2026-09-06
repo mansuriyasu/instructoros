@@ -116,6 +116,7 @@ export function useEvents(startDate?: Date, endDate?: Date, options: UseEventsOp
     return addDocumentNonBlocking(eventsRef, {
       ...eventToSave,
       instructorId: eventToSave.instructorId || user?.uid || null,
+      updatedByUid: user?.uid || null,
     });
   };
 
@@ -124,7 +125,7 @@ export function useEvents(startDate?: Date, endDate?: Date, options: UseEventsOp
     const eventRef = doc(firestore, eventsPath, event.id);
 
     const { studentAddress, ...eventToSave } = event; // Don't save address to Firestore
-    return updateDocumentNonBlocking(eventRef, eventToSave);
+    return updateDocumentNonBlocking(eventRef, { ...eventToSave, updatedByUid: user?.uid || null });
   };
 
   const deleteEvent = async (eventId: string) => {

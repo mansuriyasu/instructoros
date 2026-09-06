@@ -120,6 +120,13 @@ export function ScheduleView() {
   const examStudentId = searchParams.get('examStudentId') || undefined;
   const studentIdParam = searchParams.get('studentId') || undefined;
   const eventIdParam = searchParams.get('eventId');
+  const notificationDate = searchParams.get('date');
+  useEffect(() => {
+    if (notificationDate && /^\d{4}-\d{2}-\d{2}$/.test(notificationDate)) {
+      const date = new Date(`${notificationDate}T12:00:00`);
+      if (!Number.isNaN(date.getTime())) setCurrentDate(date);
+    }
+  }, [notificationDate]);
   const [examStudentIdForDialog, setExamStudentIdForDialog] = useState<string | undefined>(undefined);
   const [studentIdForDialog, setStudentIdForDialog] = useState<string | undefined>(undefined);
   const [missingPhoneStudent, setMissingPhoneStudent] = useState<Student | null>(null);
