@@ -27,6 +27,12 @@ test('Google Calendar metadata does not create schedule changes', () => {
   assert.equal(model.eventChanged({ start: 'a', googleEventId: 'x' }, { start: 'a', googleEventId: 'y' }), false);
   assert.equal(model.eventChanged({ start: 'a' }, { start: 'b' }), true);
 });
+test('notification preferences never expose stored metadata', () => {
+  const prefs = model.preferences({ pushEnabled: true, lessonMinutes: 60, categories: { registrations: false }, tenantId: 'school', legacyMigrated: true });
+  assert.deepEqual(Object.keys(prefs).sort(), ['categories', 'lessonMinutes', 'pushEnabled']);
+  assert.equal(prefs.categories.registrations, false);
+  assert.equal(prefs.categories.lessons, true);
+});
 test('only active staff qualify, and instructors need assignments', () => {
   assert.equal(model.eligibleMember({ role: 'mainAdmin', status: 'active' }), false);
   assert.equal(model.eligibleMember({ role: 'schoolInstructor', status: 'disabled' }), false);

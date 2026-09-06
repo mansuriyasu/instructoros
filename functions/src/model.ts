@@ -5,7 +5,14 @@ export type Destination = { kind: 'student' | 'availability' | 'event' | 'paymen
 export type Preferences = { pushEnabled: boolean; categories: Record<Category, boolean>; lessonMinutes: 0 | 15 | 30 | 60 };
 export const defaults: Preferences = { pushEnabled: false, categories: { registrations: true, availability: true, lessons: true, schedule: true, payments: false, roadTests: true }, lessonMinutes: 30 };
 export function preferences(value?: Partial<Preferences>): Preferences {
-  return { ...defaults, ...value, categories: { ...defaults.categories, ...value?.categories } };
+  const lessonMinutes = [0, 15, 30, 60].includes(Number(value?.lessonMinutes))
+    ? Number(value?.lessonMinutes) as Preferences['lessonMinutes']
+    : defaults.lessonMinutes;
+  return {
+    pushEnabled: value?.pushEnabled === true,
+    categories: { ...defaults.categories, ...value?.categories },
+    lessonMinutes,
+  };
 }
 export function destinationUrl(target: Destination): string {
   if (target.kind === 'settings') return '/app/settings?tab=notifications';
