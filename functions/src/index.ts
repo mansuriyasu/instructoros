@@ -42,7 +42,7 @@ export const paymentNotice = onDocumentWritten({ document: 'tenants/{tenantId}/p
 export const deliveryNotice = onDocumentCreated({ document: 'notificationJobs/{jobId}', retry: true }, async event => {
   if (event.data?.data().kind === 'push') await processJob(event.params.jobId);
 });
-export const reminderWorker = onSchedule({ schedule: 'every 1 minutes', maxInstances: 1 }, async () => {
+export const reminderWorker = onSchedule({ schedule: 'every 1 minutes', region: 'northamerica-northeast1', maxInstances: 1 }, async () => {
   const jobs = await getFirestore().collection('notificationJobs').where('dueAt', '<=', Timestamp.now()).orderBy('dueAt').limit(100).get();
   // Keep provider concurrency and database reads bounded.
   for (let i = 0; i < jobs.docs.length; i += 5) await Promise.all(jobs.docs.slice(i, i + 5).map(doc => processJob(doc.id)));
@@ -54,7 +54,7 @@ export const preferenceReminders = onDocumentWritten({ document: 'notificationPr
   for (const doc of events.docs) await planLesson(p.tenantId, doc.id, doc.data());
 });
 // The daily bounded horizon seeds pre-existing events and repairs missed trigger work.
-export const reminderHorizon = onSchedule({ schedule: 'every day 00:10', timeZone: 'America/Toronto', maxInstances: 1 }, async () => {
+export const reminderHorizon = onSchedule({ schedule: 'every day 00:10', timeZone: 'America/Toronto', region: 'northamerica-northeast1', maxInstances: 1 }, async () => {
   const db = getFirestore();
   const events = await db.collectionGroup('events').where('start', '>=', new Date().toISOString()).where('start', '<', new Date(Date.now() + 86400000 * 2).toISOString()).get();
   for (const doc of events.docs) {

@@ -2,7 +2,7 @@
 
 ## Architecture
 
-The Next.js app stays on Hostinger. Firebase Functions (codebase `notifications`, Node 22, northamerica-northeast2) process Firestore business events and reminder jobs alongside the Toronto database. FCM sends data-only Web Push; the root-scope worker displays one notification and validates its ID before opening the authenticated notification resolver. No APNs certificate, App Store app, Twilio message, or Apple developer subscription is required for Web Push.
+The Next.js app stays on Hostinger. Firebase Functions (codebase `notifications`, Node 22, northamerica-northeast2) process Firestore business events alongside the Toronto database. The two Cloud Scheduler jobs run in Montréal (`northamerica-northeast1`), the nearest supported region. FCM sends data-only Web Push; the root-scope worker displays one notification and validates its ID before opening the authenticated notification resolver. No APNs certificate, App Store app, Twilio message, or Apple developer subscription is required for Web Push.
 
 All new notification collections are server-only, including for platform-admin browser sessions. `/api/notifications` verifies a Firebase ID token, resolves the user's stored active workspace, and checks active membership. It never accepts tenant or recipient IDs from the caller. Entity access is rechecked for inbox reads, clicks, and delivery. Settings are personal within a workspace. Changing membership/assignment takes effect at the next server check. An already delivered lock-screen message cannot be recalled remotely.
 
