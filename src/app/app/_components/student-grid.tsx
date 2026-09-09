@@ -213,12 +213,11 @@ export function StudentGrid() {
     const student = students?.find(item => item.id === studentId);
     if (!student) return;
 
-    setSelectedStudent(null);
     setIsDetailsOpen(false);
     setStudentPendingDelete(student);
-    // Let the detail dialog and its dropdown finish closing before opening
-    // the separate confirmation dialog. This prevents competing focus locks.
-    window.setTimeout(() => setIsDeleteConfirmOpen(true), 0);
+    // Keep the selected student mounted while Radix closes the details dialog.
+    // Unmounting an open dialog can leave its mobile pointer lock on the page.
+    window.setTimeout(() => setIsDeleteConfirmOpen(true), 200);
   };
 
   const handleDelete = async () => {
@@ -229,6 +228,7 @@ export function StudentGrid() {
       await deleteStudent(studentPendingDelete.id);
       setIsDeleteConfirmOpen(false);
       setStudentPendingDelete(null);
+      setSelectedStudent(null);
       router.refresh();
     } finally {
       setIsDeleting(false);
