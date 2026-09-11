@@ -33,6 +33,10 @@ test('notification preferences never expose stored metadata', () => {
   assert.equal(prefs.categories.registrations, false);
   assert.equal(prefs.categories.lessons, true);
 });
+test('notification expiry is exactly 24 hours after creation', () => {
+  const createdAt = Timestamp.fromMillis(Date.UTC(2026, 8, 11, 12));
+  assert.equal(service.notificationExpires(createdAt).toMillis() - createdAt.toMillis(), 86400000);
+});
 test('only active staff qualify, and instructors need assignments', () => {
   assert.equal(model.eligibleMember({ role: 'mainAdmin', status: 'active' }), false);
   assert.equal(model.eligibleMember({ role: 'schoolInstructor', status: 'disabled' }), false);
@@ -48,6 +52,8 @@ integration('correct recipient, independent inbox, no cross-tenant access', asyn
 integration('repeated and concurrent business events create one notification', async () => {
   await Promise.all([service.createNotification(notice()), service.createNotification(notice())]);
   assert.equal((await db.collection('staffNotifications').get()).size, 1);
+  const stored = (await db.collection('staffNotifications').limit(1).get()).docs[0].data();
+  assert.equal(stored.expiresAt.toMillis() - stored.createdAt.toMillis(), 86400000);
   assert.equal((await db.collection('notificationJobs').get()).size, 0);
 });
 integration('provider failure preserves inbox and schedules retry', async () => {

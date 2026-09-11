@@ -1644,6 +1644,7 @@ export function StudentDetailsDialog({
                     </div>
                     <div className="grid gap-3">
                       <DetailCard icon={CalendarCheck2} label="Joined" value={formatSavedTimestamp(student.registrationDate)} />
+                      <DetailCard icon={UserPlus} label="Registration source" value={student.createdVia === "student-intake" ? "Student registration link" : "Added by staff"} />
                       <DetailCard icon={CheckCircle2} label="Completed" value={student.registrationCompletedAt ? formatSavedTimestamp(student.registrationCompletedAt) : "Not completed"} />
                       <DetailCard icon={CheckCircle2} label="Privacy accepted" value={formatSavedTimestamp(student.privacyAcceptedAt)} />
                       <DetailCard icon={CheckCircle2} label="Terms accepted" value={formatSavedTimestamp(student.termsAcceptedAt)} />

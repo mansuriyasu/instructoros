@@ -8,6 +8,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
+const NOTIFICATION_RETENTION_MS = 24 * 60 * 60 * 1000;
 const deviceSchema = z.object({ action: z.literal('register'), token: z.string().min(20).max(4096), installationId: z.string().uuid(), platform: z.enum(['ios', 'android', 'desktop']) }).strict();
 const prefsSchema = z.object({ action: z.literal('preferences'), pushEnabled: z.boolean(), lessonMinutes: z.union([z.literal(0), z.literal(15), z.literal(30), z.literal(60)]), categories: z.object(Object.fromEntries(categories.map(c => [c, z.boolean()])) as Record<typeof categories[number], z.ZodBoolean>).strict() }).strict();
 const actionSchema = z.union([deviceSchema, prefsSchema, z.object({ action: z.literal('disable'), installationId: z.string().uuid() }).strict(), z.object({ action: z.literal('test') }).strict(), z.object({ action: z.literal('read'), id: z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict()]);
@@ -34,16 +35,18 @@ export async function GET(request: NextRequest) {
       const legacy = await db.collection(`tenants/${tenantId}/notifications`).orderBy('createdAt', 'desc').limit(50).get();
       for (const old of legacy.docs) {
         const n = old.data();
-        if (n.type !== 'student-registration' || !n.studentId || Date.parse(n.createdAt) < Date.now() - 90 * 86400000) continue;
+        const createdAtMillis = Date.parse(n.createdAt);
+        if (n.type !== 'student-registration' || !n.studentId || !Number.isFinite(createdAtMillis) || createdAtMillis < Date.now() - NOTIFICATION_RETENTION_MS) continue;
         const id = key(tenantId, uid, `registration:${n.studentId}`);
         if ((await db.doc(`staffNotifications/${id}`).get()).exists) continue;
-        const created = await createNotification({ tenantId, recipientUid: uid, eventKey: `registration:${n.studentId}`, type: 'student.registered', category: 'registrations', title: n.title || 'New student registered', message: `${n.studentName || 'A student'} completed registration.`, destination: { kind: 'student', id: n.studentId }, silent: true });
-        if (created && Number.isFinite(Date.parse(n.createdAt))) await db.doc(`staffNotifications/${created}`).update({ createdAt: Timestamp.fromDate(new Date(n.createdAt)), readAt: n.status === 'read' ? Timestamp.now() : null });
+        await createNotification({ tenantId, recipientUid: uid, eventKey: `registration:${n.studentId}`, type: 'student.registered', category: 'registrations', title: n.title || 'New student registered', message: `${n.studentName || 'A student'} completed registration.`, destination: { kind: 'student', id: n.studentId }, silent: true, createdAt: Timestamp.fromMillis(createdAtMillis) });
       }
       await preferenceRef.set({ legacyMigrated: true }, { merge: true });
     }
     const base = db.collection('staffNotifications').where('tenantId', '==', tenantId).where('recipientUid', '==', uid);
-    let query = base.orderBy('createdAt', 'desc').orderBy('__name__', 'desc').limit(21);
+    const cutoff = Timestamp.fromMillis(Date.now() - NOTIFICATION_RETENTION_MS);
+    const recent = base.where('createdAt', '>=', cutoff);
+    let query = recent.orderBy('createdAt', 'desc').orderBy('__name__', 'desc').limit(21);
     const cursor = request.nextUrl.searchParams.get('cursor');
     if (cursor) {
       if (!/^[a-f0-9]{64}$/.test(cursor)) throw new RequestSecurityError('Invalid page.', 400);
@@ -51,12 +54,12 @@ export async function GET(request: NextRequest) {
       if (c.data()?.tenantId !== tenantId || c.data()?.recipientUid !== uid) throw new RequestSecurityError('Invalid page.', 400);
       query = query.startAfter(c);
     }
-    const [records, count] = await Promise.all([query.get(), base.where('readAt', '==', null).count().get()]);
+    const [records, count] = await Promise.all([query.get(), recent.where('readAt', '==', null).count().get()]);
     const items = [];
     for (const doc of records.docs.slice(0, 20)) {
       const n = doc.data();
       if (n.expiresAt.toMillis() <= Date.now() || !await access(tenantId, uid, n.destination)) continue;
-      items.push({ id: doc.id, title: n.title, message: n.message, type: n.type, createdAt: n.createdAt.toDate().toISOString(), read: !!n.readAt });
+      items.push({ id: doc.id, title: n.title, message: n.message, type: n.type, studentId: n.destination?.kind === 'student' ? n.destination.id : undefined, createdAt: n.createdAt.toDate().toISOString(), read: !!n.readAt });
     }
     return json({ items, unread: count.data().count, cursor: records.size > 20 ? records.docs[19].id : null });
   } catch (error) { return requestSecurityErrorResponse(error, 'Could not load notifications. Please try again.'); }

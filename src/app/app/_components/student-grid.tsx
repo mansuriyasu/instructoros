@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { addMonths, isSameDay, startOfDay } from 'date-fns';
+import { addMonths, startOfDay } from 'date-fns';
 import { useStudents } from '@/hooks/use-students';
 import { useEvents } from '@/hooks/use-events';
 import { CalendarEvent, Student, StudentStatus } from '@/lib/types';
@@ -11,7 +11,7 @@ import { StudentDetailsDialog } from './student-details-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StudentGridActions } from './student-grid-actions';
 import { Button } from '@/components/ui/button';
-import { GitMerge, Menu, Plus } from 'lucide-react';
+import { GitMerge, Menu, Plus, UserPlus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentIntakeLinkDialog } from './student-intake-link-dialog';
 import { DuplicateMergeDialog } from './duplicate-merge-dialog';
@@ -27,13 +27,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useNotifications } from '@/hooks/use-notifications';
 
 export type StudentStatusFilter = StudentStatus | 'all' | 'current';
 
 type StudentRecord = Student & { mergedIntoStudentId?: string; mergedAt?: string };
+const REGISTRATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function isMergedAuditRecord(student: Student) {
   return Boolean((student as StudentRecord).mergedIntoStudentId);
+}
+
+function isRecentSelfRegistration(student: Student) {
+  const registeredAt = Date.parse(student.registrationDate);
+  const isSelfSubmitted = student.createdVia === 'student-intake' || Boolean(student.registrationCompletedAt || student.privacyAcceptedAt);
+  return isSelfSubmitted && Number.isFinite(registeredAt) && registeredAt >= Date.now() - REGISTRATION_WINDOW_MS;
 }
 
 function ensureDialogStudent(student: Student | null): Student | null {
@@ -66,6 +74,7 @@ export function StudentGrid() {
   const eventRangeEnd = useMemo(() => addMonths(eventRangeStart, 18), [eventRangeStart]);
   const { events } = useEvents(eventRangeStart, eventRangeEnd);
   const { canManageTenant } = useSession();
+  const inbox = useNotifications();
   const router = useRouter();
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get('studentId');
@@ -73,7 +82,7 @@ export function StudentGrid() {
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>('current');
   const [licenseTypeFilter, setLicenseTypeFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
-  const [quickFilter] = useState<'all' | 'today'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'new'>('all');
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -104,16 +113,15 @@ export function StudentGrid() {
     return [...groups.values()].filter(group => group.length > 1);
   }, [students]);
 
-  const todayStudentIds = useMemo(() => {
-    const ids = new Set<string>();
-    events.forEach((event) => {
-      if (!event.studentId || event.lessonStatus === 'cancelled') return;
-      if (isSameDay(new Date(event.start), eventRangeStart)) {
-        ids.add(event.studentId);
-      }
-    });
-    return ids;
-  }, [events, eventRangeStart]);
+  const unreadRegistrationByStudentId = useMemo(() => new Map(
+    inbox.items
+      .filter(item => item.type === 'student.registered' && !item.read && item.studentId)
+      .map(item => [item.studentId as string, item.id])
+  ), [inbox.items]);
+
+  const recentRegistrationIds = useMemo(() => new Set(
+    (students || []).filter(isRecentSelfRegistration).map(student => student.id)
+  ), [students]);
 
   const nextLessonByStudentId = useMemo(() => {
     const map = new Map<string, CalendarEvent>();
@@ -139,21 +147,30 @@ export function StudentGrid() {
         );
     } else {
       studentList = studentList.filter(student => {
-        if (statusFilter === 'current' && !['active', 'booked'].includes(student.status)) return false;
-        if (statusFilter !== 'all' && statusFilter !== 'current' && student.status !== statusFilter) return false;
+        if (quickFilter !== 'new' && statusFilter === 'current' && !['active', 'booked'].includes(student.status)) return false;
+        if (quickFilter !== 'new' && statusFilter !== 'all' && statusFilter !== 'current' && student.status !== statusFilter) return false;
         if (licenseTypeFilter !== 'all' && student.licenseType !== licenseTypeFilter) return false;
         if (tagFilter !== 'all' && !(Array.isArray(student.tags) ? student.tags : []).some(tag => tag && typeof tag === 'string' && tag.toLowerCase() === tagFilter.toLowerCase())) return false;
         return true;
       });
     }
 
-    if (quickFilter === 'today' && searchTerm.trim() === '') {
-      studentList = studentList.filter(student => todayStudentIds.has(student.id));
+    if (quickFilter === 'new' && searchTerm.trim() === '') {
+      studentList = studentList.filter(student => recentRegistrationIds.has(student.id));
     }
 
-    return studentList.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return studentList.sort((a, b) => {
+      const unreadDifference = Number(unreadRegistrationByStudentId.has(b.id)) - Number(unreadRegistrationByStudentId.has(a.id));
+      if (unreadDifference) return unreadDifference;
+      const recentDifference = Number(recentRegistrationIds.has(b.id)) - Number(recentRegistrationIds.has(a.id));
+      if (recentDifference) return recentDifference;
+      if (recentRegistrationIds.has(a.id) && recentRegistrationIds.has(b.id)) {
+        return Date.parse(b.registrationDate) - Date.parse(a.registrationDate);
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
       
-  }, [students, searchTerm, statusFilter, licenseTypeFilter, tagFilter, quickFilter, todayStudentIds]);
+  }, [students, searchTerm, statusFilter, licenseTypeFilter, tagFilter, quickFilter, recentRegistrationIds, unreadRegistrationByStudentId]);
 
   const availableTags = useMemo(() => {
     return Array.from(
@@ -184,6 +201,8 @@ export function StudentGrid() {
   const handleCardClick = (student: Student) => {
     setSelectedStudent(student);
     setIsDetailsOpen(true);
+    const notificationId = unreadRegistrationByStudentId.get(student.id);
+    if (notificationId) void inbox.markRead(notificationId);
   };
   
   const handleEdit = (student: Student) => {
@@ -283,6 +302,30 @@ export function StudentGrid() {
           setTagFilter={setTagFilter}
           availableTags={availableTags}
         />
+        {recentRegistrationIds.size > 0 && (
+          <div className="mb-3 flex w-fit items-center rounded-lg border bg-muted/40 p-1" aria-label="Student list view">
+            <Button
+              type="button"
+              size="sm"
+              variant={quickFilter === 'all' ? 'default' : 'ghost'}
+              className="h-8 rounded-md"
+              onClick={() => setQuickFilter('all')}
+            >
+              All students
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={quickFilter === 'new' ? 'default' : 'ghost'}
+              className="h-8 gap-1.5 rounded-md"
+              onClick={() => setQuickFilter('new')}
+            >
+              <UserPlus className="h-4 w-4" />
+              New registrations
+              <span className="rounded-full bg-background/80 px-1.5 text-xs text-foreground">{recentRegistrationIds.size}</span>
+            </Button>
+          </div>
+        )}
         {loading ? (
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
             {Array.from({ length: 12 }).map((_, i) => (
@@ -298,6 +341,8 @@ export function StudentGrid() {
                 nextLesson={nextLessonByStudentId.get(student.id)}
                 onClick={() => handleCardClick(student)}
                 onSchedule={() => handleScheduleStudent(student.id)}
+                isNewRegistration={unreadRegistrationByStudentId.has(student.id)}
+                showRegistrationTime={recentRegistrationIds.has(student.id)}
               />
             ))}
           </div>

@@ -20,6 +20,7 @@ const STUDENT_LIST_FIELDS = [
   'instructorId',
   'registrationDate',
   'registrationCompletedAt',
+  'createdVia',
   'portalEmail',
   'portalStatus',
   'privacyAcceptedAt',

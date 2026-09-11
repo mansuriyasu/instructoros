@@ -1,10 +1,10 @@
 'use client';
 
 import { useMemo, type ReactNode } from 'react';
-import { Bell, Check, CheckCheck, Copy, UserPlus } from 'lucide-react';
+import { Bell, CalendarClock, Car, Check, CheckCheck, Clock3, Copy, CreditCard, UserPlus } from 'lucide-react';
 import { addDays, formatDistanceToNow, isSameDay, isWithinInterval, parse, startOfDay } from 'date-fns';
 import Link from 'next/link';
-import { useNotifications } from '@/hooks/use-notifications';
+import { useNotifications, type InboxItem } from '@/hooks/use-notifications';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import { useStudents } from '@/hooks/use-students';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/firebase';
 import { cn } from '@/lib/utils';
-import { Student, TenantNotification } from '@/lib/types';
+import { Student } from '@/lib/types';
 
 interface NotificationsSheetProps {
   className?: string;
@@ -31,7 +31,6 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
   const { toast } = useToast();
   const { tenant } = useSession();
   const inbox = useNotifications();
-  const tenantNotifications: TenantNotification[] = inbox.items.map(item => ({ ...item, type: 'student-registration', status: item.read ? 'read' : 'unread' }));
 
   const notifications = useMemo(() => {
     if (!students) return { expiringLicenses: [], upcomingBirthdays: [] };
@@ -161,7 +160,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
           <div className="space-y-6">
             {inbox.error && <p role="alert" className="text-sm text-red-700">{inbox.error}</p>}
             <TenantNotificationSection
-              items={tenantNotifications || []}
+              items={inbox.items}
               onMarkRead={markNotificationRead}
               onMarkAllRead={markAllTenantNotificationsRead}
             />
@@ -198,7 +197,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
                 </Button>
               )}
             />
-            {totalNotifications === 0 && tenantNotifications.length === 0 && (
+            {totalNotifications === 0 && inbox.items.length === 0 && (
               <p className="text-sm text-muted-foreground">No notifications.</p>
             )}
           </div>
@@ -216,7 +215,7 @@ interface NotificationSectionProps {
 }
 
 interface TenantNotificationSectionProps {
-  items: TenantNotification[];
+  items: InboxItem[];
   onMarkRead: (notificationId: string) => void;
   onMarkAllRead: (notificationIds: string[]) => void;
 }
@@ -226,8 +225,7 @@ function TenantNotificationSection({
   onMarkRead,
   onMarkAllRead,
 }: TenantNotificationSectionProps) {
-  const registrationItems = items;
-  if (registrationItems.length === 0) {
+  if (items.length === 0) {
     return null;
   }
 
@@ -235,13 +233,13 @@ function TenantNotificationSection({
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="font-semibold">Recent activity</h3>
-        {registrationItems.some(item => item.status !== 'read') && (
+        {items.some(item => !item.read) && (
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-8 gap-2"
-            onClick={() => onMarkAllRead(registrationItems.map((item) => item.id))}
+            onClick={() => onMarkAllRead(items.filter(item => !item.read).map((item) => item.id))}
           >
             <CheckCheck className="h-4 w-4" />
             Mark all read
@@ -249,28 +247,29 @@ function TenantNotificationSection({
         )}
       </div>
       <div className="space-y-3">
-        {registrationItems.map((item) => {
+        {items.map((item) => {
           const createdAt = item.createdAt ? new Date(item.createdAt) : null;
           const timeLabel =
             createdAt && !Number.isNaN(createdAt.getTime())
               ? `${formatDistanceToNow(createdAt, { addSuffix: true })}`
               : 'Just now';
 
+          const visual = notificationVisual(item.type);
+          const Icon = visual.icon;
+
           return (
             <div
               key={item.id}
               className={cn(
                 'flex items-start gap-3 rounded-xl border p-3',
-                item.severity === 'warning'
-                  ? 'border-amber-200 bg-amber-50'
-                  : 'border-border bg-muted/30'
+                item.read ? 'border-border bg-muted/30' : visual.container
               )}
             >
-              <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#ffb300]/15 text-[#b77900]">
-                <UserPlus className="h-4 w-4" />
+              <span className={cn('mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full', visual.iconClass)}>
+                <Icon className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <Link href={`/app/notifications/open?id=${item.id}`} className={cn('text-sm', item.status === 'read' ? 'font-medium' : 'font-bold')}>{item.title}</Link>
+                <Link href={`/app/notifications/open?id=${item.id}`} className={cn('text-sm', item.read ? 'font-medium' : 'font-bold')}>{item.title}</Link>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {item.message}
                 </p>
@@ -278,7 +277,7 @@ function TenantNotificationSection({
                   {timeLabel}
                 </p>
               </div>
-              {item.status !== 'read' && <Button
+              {!item.read && <Button
                 type="button"
                 variant="outline"
                 size="sm"
@@ -295,6 +294,15 @@ function TenantNotificationSection({
       </div>
     </div>
   );
+}
+
+function notificationVisual(type: string) {
+  if (type === 'student.registered') return { icon: UserPlus, container: 'border-amber-200 bg-amber-50', iconClass: 'bg-amber-100 text-amber-700' };
+  if (type === 'student.availability_updated') return { icon: Clock3, container: 'border-teal-200 bg-teal-50', iconClass: 'bg-teal-100 text-teal-700' };
+  if (type === 'payment.recorded') return { icon: CreditCard, container: 'border-emerald-200 bg-emerald-50', iconClass: 'bg-emerald-100 text-emerald-700' };
+  if (type === 'roadtest.upcoming') return { icon: Car, container: 'border-violet-200 bg-violet-50', iconClass: 'bg-violet-100 text-violet-700' };
+  if (type.startsWith('schedule.')) return { icon: CalendarClock, container: type === 'schedule.cancelled' ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50', iconClass: type === 'schedule.cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700' };
+  return { icon: Bell, container: 'border-border bg-muted/30', iconClass: 'bg-muted text-muted-foreground' };
 }
 
 function NotificationSection({

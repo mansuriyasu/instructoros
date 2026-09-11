@@ -2,6 +2,7 @@
   "indexes": [
     { "collectionGroup": "staffNotifications", "queryScope": "COLLECTION", "fields": [{"fieldPath":"tenantId","order":"ASCENDING"},{"fieldPath":"recipientUid","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"},{"fieldPath":"__name__","order":"DESCENDING"}] },
     { "collectionGroup": "staffNotifications", "queryScope": "COLLECTION", "fields": [{"fieldPath":"tenantId","order":"ASCENDING"},{"fieldPath":"recipientUid","order":"ASCENDING"},{"fieldPath":"readAt","order":"ASCENDING"}] },
+    { "collectionGroup": "staffNotifications", "queryScope": "COLLECTION", "fields": [{"fieldPath":"tenantId","order":"ASCENDING"},{"fieldPath":"recipientUid","order":"ASCENDING"},{"fieldPath":"readAt","order":"ASCENDING"},{"fieldPath":"createdAt","order":"ASCENDING"}] },
     { "collectionGroup": "events", "queryScope": "COLLECTION", "fields": [{"fieldPath":"instructorId","order":"ASCENDING"},{"fieldPath":"start","order":"ASCENDING"}] }
   ],
   "fieldOverrides": [

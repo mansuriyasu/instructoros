@@ -9,10 +9,21 @@ import { createNotification, expires, key, notify, planLesson, processJob } from
 initializeApp();
 setGlobalOptions({ region: 'northamerica-northeast2', serviceAccount: `instructoros-notifications@${process.env.GCLOUD_PROJECT || 'instructoros'}.iam.gserviceaccount.com`, maxInstances: 2, minInstances: 0, memory: '256MiB', timeoutSeconds: 120 });
 
+const eventCreatedAt = (value?: string, storedValue?: unknown) => {
+  if (storedValue instanceof Timestamp) return storedValue;
+  const storedMillis = typeof storedValue === 'string' ? Date.parse(storedValue) : Number.NaN;
+  const eventMillis = value ? Date.parse(value) : Number.NaN;
+  const millis = Number.isFinite(storedMillis) ? storedMillis : Number.isFinite(eventMillis) ? eventMillis : Date.now();
+  return Timestamp.fromMillis(millis);
+};
+
+const isFresh = (createdAt: Timestamp) => createdAt.toMillis() >= Date.now() - 10 * 60 * 1000;
+
 export const registrationNotice = onDocumentCreated({ document: 'tenants/{tenantId}/notifications/{id}', retry: true }, async event => {
   const n = event.data?.data();
   if (n?.type !== 'student-registration' || !n.studentId) return;
-  await notify({ tenantId: event.params.tenantId, eventKey: `registration:${n.studentId}`, type: 'student.registered', category: 'registrations', title: n.title || 'New student registered', message: `${n.studentName || 'A student'} completed registration.`, destination: { kind: 'student', id: n.studentId } });
+  const createdAt = eventCreatedAt(event.time, n.createdAt);
+  await notify({ tenantId: event.params.tenantId, eventKey: `registration:${n.studentId}`, type: 'student.registered', category: 'registrations', title: n.title || 'New student registered', message: `${n.studentName || 'A student'} completed registration.`, destination: { kind: 'student', id: n.studentId }, createdAt, silent: !isFresh(createdAt) });
 });
 export const availabilityNotice = onDocumentWritten({ document: 'tenants/{tenantId}/studentAvailability/{studentId}', retry: true }, async event => {
   const before = event.data?.before.data();
@@ -20,7 +31,8 @@ export const availabilityNotice = onDocumentWritten({ document: 'tenants/{tenant
   if (!after || !before || !after.updatedByUid || JSON.stringify([before.weeklyWindows, before.overrides]) === JSON.stringify([after.weeklyWindows, after.overrides])) return;
   const student = (await getFirestore().doc(`tenants/${event.params.tenantId}/students/${event.params.studentId}`).get()).data();
   if (after.updatedByUid !== student?.portalUid) return;
-  await notify({ tenantId: event.params.tenantId, eventKey: event.id, type: 'student.availability_updated', category: 'availability', title: 'Availability updated', message: `${student?.name || 'A student'} updated their availability.`, destination: { kind: 'availability', id: event.params.studentId } });
+  const createdAt = eventCreatedAt(event.time);
+  await notify({ tenantId: event.params.tenantId, eventKey: event.id, type: 'student.availability_updated', category: 'availability', title: 'Availability updated', message: `${student?.name || 'A student'} updated their availability.`, destination: { kind: 'availability', id: event.params.studentId }, createdAt, silent: !isFresh(createdAt) });
 });
 export const scheduleNotice = onDocumentWritten({ document: 'tenants/{tenantId}/events/{eventId}', retry: true }, async event => {
   const before = event.data?.before.data();
@@ -31,13 +43,15 @@ export const scheduleNotice = onDocumentWritten({ document: 'tenants/{tenantId}/
   if (after && (!before || eventChanged(before, after))) await planLesson(event.params.tenantId, event.params.eventId, after);
   if (!before || !after || !eventChanged(before, after)) return;
   const cancelled = after.lessonStatus === 'cancelled';
-  await notify({ tenantId: event.params.tenantId, eventKey: event.id, type: cancelled ? 'schedule.cancelled' : 'schedule.changed', category: 'schedule', title: cancelled ? 'Lesson cancelled' : 'Schedule updated', message: `${after.studentName || 'Your lesson'} - ${cancelled ? 'lesson cancelled' : 'lesson details changed'}.`, destination: { kind: 'event', id: event.params.eventId, date: after.start?.slice(0, 10) } }, after.updatedByUid);
+  const createdAt = eventCreatedAt(event.time);
+  await notify({ tenantId: event.params.tenantId, eventKey: event.id, type: cancelled ? 'schedule.cancelled' : 'schedule.changed', category: 'schedule', title: cancelled ? 'Lesson cancelled' : 'Schedule updated', message: `${after.studentName || 'Your lesson'} - ${cancelled ? 'lesson cancelled' : 'lesson details changed'}.`, destination: { kind: 'event', id: event.params.eventId, date: after.start?.slice(0, 10) }, createdAt, silent: !isFresh(createdAt) }, after.updatedByUid);
 });
 export const paymentNotice = onDocumentWritten({ document: 'tenants/{tenantId}/payments/{paymentId}', retry: true }, async event => {
   const before = event.data?.before.data();
   const after = event.data?.after.data();
   if (!after || Number(after.paidAmount) <= Number(before?.paidAmount || 0)) return;
-  await notify({ tenantId: event.params.tenantId, eventKey: event.id, type: 'payment.recorded', category: 'payments', title: 'Payment recorded', message: `A payment was recorded for ${after.studentName || 'a student'}.`, destination: { kind: 'payment', id: event.params.paymentId } }, after.updatedByUid);
+  const createdAt = eventCreatedAt(event.time);
+  await notify({ tenantId: event.params.tenantId, eventKey: event.id, type: 'payment.recorded', category: 'payments', title: 'Payment recorded', message: `A payment was recorded for ${after.studentName || 'a student'}.`, destination: { kind: 'payment', id: event.params.paymentId }, createdAt, silent: !isFresh(createdAt) }, after.updatedByUid);
 });
 export const deliveryNotice = onDocumentCreated({ document: 'notificationJobs/{jobId}', retry: true }, async event => {
   if (event.data?.data().kind === 'push') await processJob(event.params.jobId);

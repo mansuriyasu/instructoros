@@ -40,6 +40,7 @@ export interface Student {
   portalStatus?: 'not-activated' | 'active' | 'revoked';
   portalEmail?: string;
   registrationReview?: 'possible-duplicate';
+  createdVia?: string;
 }
 
 export type TenantNotificationType = 'student-registration';

@@ -5,6 +5,7 @@ import { canSee, eligibleMember, preferences, destinationUrl, invalidToken, type
 
 export const key = (...parts: string[]) => createHash('sha256').update(JSON.stringify(parts)).digest('hex');
 export const expires = (days = 90) => Timestamp.fromMillis(Date.now() + days * 86400000);
+export const notificationExpires = (createdAt: Timestamp) => Timestamp.fromMillis(createdAt.toMillis() + 86400000);
 export async function access(tenantId: string, uid: string, target?: Destination) {
   const db = getFirestore();
   const tenant = db.doc(`tenants/${tenantId}`);
@@ -24,17 +25,20 @@ export async function recipients(tenantId: string, target: Destination): Promise
   const allowed = await Promise.all(members.docs.map(async m => await access(tenantId, m.id, target) ? m.id : null));
   return allowed.filter((uid): uid is string => !!uid);
 }
-export type Notice = { tenantId: string; recipientUid: string; eventKey: string; type: NotificationType; category?: Category; title: string; message: string; destination: Destination; silent?: boolean };
+export type Notice = { tenantId: string; recipientUid: string; eventKey: string; type: NotificationType; category?: Category; title: string; message: string; destination: Destination; silent?: boolean; createdAt?: Timestamp };
 export async function createNotification(input: Notice) {
   if (!await access(input.tenantId, input.recipientUid, input.destination)) return;
   const db = getFirestore();
   const id = key(input.tenantId, input.recipientUid, input.eventKey);
   const notice = db.doc(`staffNotifications/${id}`);
   const settings = await getPreferences(input.tenantId, input.recipientUid);
+  const { createdAt: requestedCreatedAt, ...noticeData } = input;
+  const createdAt = requestedCreatedAt || Timestamp.now();
+  const expiresAt = notificationExpires(createdAt);
   await db.runTransaction(async tx => {
     if ((await tx.get(notice)).exists) return;
-    tx.create(notice, { ...input, createdAt: Timestamp.now(), expiresAt: expires(), readAt: null });
-    if (!input.silent && settings.pushEnabled && (!input.category || settings.categories[input.category])) {
+    tx.create(notice, { ...noticeData, createdAt, expiresAt, readAt: null });
+    if (expiresAt.toMillis() > Date.now() && !input.silent && settings.pushEnabled && (!input.category || settings.categories[input.category])) {
       tx.create(db.doc(`notificationJobs/${id}`), { kind: 'push', notificationId: id, tenantId: input.tenantId, recipientUid: input.recipientUid, dueAt: Timestamp.now(), attempts: 0, expiresAt: expires(7) });
     }
   });
@@ -50,7 +54,7 @@ export async function sendNotification(id: string) {
   const db = getFirestore();
   const record = await db.doc(`staffNotifications/${id}`).get();
   const n = record.data();
-  if (!n || !await access(n.tenantId, n.recipientUid, n.destination)) return;
+  if (!n || n.createdAt?.toMillis() < Date.now() - 86400000 || n.expiresAt?.toMillis() <= Date.now() || !await access(n.tenantId, n.recipientUid, n.destination)) return;
   const settings = await getPreferences(n.tenantId, n.recipientUid);
   if (!settings.pushEnabled || (n.category && !settings.categories[n.category as Category])) return;
   const devices = await db.collection('pushDevices').where('userUid', '==', n.recipientUid).get();

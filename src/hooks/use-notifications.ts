@@ -2,7 +2,7 @@
 import { createContext, createElement, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSession } from '@/firebase';
 import { notificationRequest } from '@/firebase/messaging';
-export type InboxItem = { id: string; title: string; message: string; createdAt: string; read: boolean; type: string };
+export type InboxItem = { id: string; title: string; message: string; createdAt: string; read: boolean; type: string; studentId?: string };
 function useInbox() {
   const { user, activeTenantId, isSessionLoading } = useSession();
   const [items, setItems] = useState<InboxItem[]>([]);

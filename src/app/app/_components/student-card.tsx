@@ -1,16 +1,19 @@
 'use client';
 
-import { format, isSameDay, isTomorrow } from 'date-fns';
+import { format, formatDistanceToNow, isSameDay, isTomorrow } from 'date-fns';
 import { Calendar, MessageCircle, Phone } from 'lucide-react';
 import { CalendarEvent, Student, StudentStatus } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface StudentCardProps {
   student: Student;
   nextLesson?: CalendarEvent;
+  isNewRegistration?: boolean;
+  showRegistrationTime?: boolean;
   onClick: () => void;
   onSchedule?: () => void;
 }
@@ -46,7 +49,7 @@ function nextLessonTone(nextLesson?: CalendarEvent) {
   return 'text-blue-600';
 }
 
-export function StudentCard({ student, nextLesson, onClick, onSchedule }: StudentCardProps) {
+export function StudentCard({ student, nextLesson, isNewRegistration = false, showRegistrationTime = false, onClick, onSchedule }: StudentCardProps) {
   const phone = normalizePhone(student.mobileNumber);
   const tags = Array.isArray(student.tags) ? student.tags.filter(tag => tag && typeof tag === 'string') : [];
   const isSelfSubmitted = Boolean(student.registrationCompletedAt || student.portalEmail || student.privacyAcceptedAt);
@@ -55,7 +58,10 @@ export function StudentCard({ student, nextLesson, onClick, onSchedule }: Studen
   return (
     <Card
       onClick={onClick}
-      className="cursor-pointer rounded-[20px] border-border/70 bg-card p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+      className={cn(
+        "cursor-pointer rounded-[20px] border-border/70 bg-card p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        isNewRegistration && "border-amber-300 bg-amber-50/60 ring-1 ring-amber-200/70 dark:bg-amber-950/20",
+      )}
     >
       <div className="flex items-start gap-3">
         <Avatar className="h-12 w-12 shrink-0 border bg-amber-50 shadow-sm">
@@ -66,12 +72,24 @@ export function StudentCard({ student, nextLesson, onClick, onSchedule }: Studen
         </Avatar>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-bold leading-tight text-foreground" title={student.name}>
-            {student.name}
-          </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-base font-bold leading-tight text-foreground" title={student.name}>
+              {student.name}
+            </p>
+            {isNewRegistration && (
+              <Badge className="h-5 shrink-0 rounded-full bg-amber-500 px-2 text-[10px] font-bold text-white hover:bg-amber-500">
+                New
+              </Badge>
+            )}
+          </div>
           <p className="mt-1 truncate text-sm leading-tight text-muted-foreground">
             {student.mobileNumber || 'No phone'}
           </p>
+          {showRegistrationTime && Number.isFinite(Date.parse(student.registrationDate)) && (
+            <p className="mt-1 truncate text-[11px] font-medium text-amber-700 dark:text-amber-300">
+              Registered {formatDistanceToNow(new Date(student.registrationDate), { addSuffix: true })}
+            </p>
+          )}
 
           <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
             {student.licenseType && (
