@@ -120,16 +120,16 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
           <button
             type="button"
             className={cn(
-              'relative flex h-full w-full flex-col items-center justify-center gap-2 rounded-[20px] border border-[#FFD1D7] bg-[#FFF1F2] p-3 text-center shadow-elevated transition-transform outline-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'group relative flex h-full w-full min-w-0 flex-col items-center gap-2 rounded-2xl px-1 py-1 text-center outline-none transition-transform hover:-translate-y-0.5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
               className
             )}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E11D48] text-white">
-              <Bell className="h-5 w-5" />
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.07] text-primary transition-colors group-hover:bg-primary/[0.12] sm:h-14 sm:w-14">
+              <Bell className="h-7 w-7 stroke-[1.8] sm:h-8 sm:w-8" />
             </span>
-            <span className="text-xs font-bold leading-tight text-foreground">Notifications</span>
+            <span className="max-w-full text-[11px] font-semibold leading-tight text-foreground sm:text-xs">Notifications</span>
             {totalNotifications > 0 && (
-              <span className="absolute right-2 top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-bold text-destructive-foreground">
+              <span className="absolute right-0 top-0 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-bold text-destructive-foreground sm:right-2">
                 {totalNotifications}
               </span>
             )}

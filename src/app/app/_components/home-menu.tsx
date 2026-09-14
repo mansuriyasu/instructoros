@@ -77,6 +77,27 @@ export function HomeMenu() {
 
   return (
     <div className="mx-auto flex min-w-0 w-full max-w-6xl flex-col gap-5 overflow-x-hidden pb-32">
+      <section className="rounded-[28px] border border-white/80 bg-card px-3 py-5 shadow-elevated sm:px-6 sm:py-6">
+        <div className="mb-5 flex items-center justify-between gap-3 px-1 sm:mb-6">
+          <div>
+            <h2 className="text-xl font-black tracking-tight text-foreground sm:text-2xl">Quick actions</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Open the tools you use most.</p>
+          </div>
+          <ArrowRight className="h-5 w-5 text-primary" aria-hidden="true" />
+        </div>
+        <div className="grid grid-cols-4 gap-x-1 gap-y-6 sm:grid-cols-5 sm:gap-x-3 lg:grid-cols-9">
+          <ActionTile href="/app/students" icon={Users} label="Students" />
+          <ActionTile href="/app/schedule" icon={CalendarDays} label="Schedule" />
+          <ActionTile href="/app/payments" icon={Wallet} label="POS" />
+          <ActionTile href="/app/payments/history" icon={History} label="History" />
+          <ActionTile href="/app/services" icon={BriefcaseBusiness} label="Services" />
+          {canManageTenant && <ActionTile href="/app/billing" icon={CreditCard} label="Billing" />}
+          <ActionTile href="/app/settings?tab=import-export" icon={Upload} label="Import" />
+          <NotificationsTile />
+          <ActionTile href="/app/settings" icon={Settings} label="Settings" />
+        </div>
+      </section>
+
       <section className="flex items-end justify-between gap-3 px-1">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your workspace</p>
@@ -215,23 +236,6 @@ export function HomeMenu() {
         </div>
       </section>
 
-      <section>
-        <div className="mb-3">
-          <h2 className="text-base font-bold">Quick actions</h2>
-          <p className="text-xs text-muted-foreground">The tools you use most often.</p>
-        </div>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-          <ActionTile href="/app/students" icon={Users} label="Students" tone="gold" />
-          <ActionTile href="/app/schedule" icon={CalendarDays} label="Schedule" tone="blue" />
-          <ActionTile href="/app/payments" icon={Wallet} label="POS" tone="green" />
-          <ActionTile href="/app/payments/history" icon={History} label="History" tone="purple" />
-          <ActionTile href="/app/services" icon={BriefcaseBusiness} label="Services" tone="teal" />
-          {canManageTenant && <ActionTile href="/app/billing" icon={CreditCard} label="Billing" tone="navy" />}
-          <ActionTile href="/app/settings?tab=import-export" icon={Upload} label="Import" tone="blue" />
-          <NotificationsTile />
-          <ActionTile href="/app/settings" icon={Settings} label="Settings" tone="slate" />
-        </div>
-      </section>
     </div>
   );
 }
@@ -275,26 +279,23 @@ function MetricCard({
   );
 }
 
-function ActionTile({ href, icon: Icon, label, tone }: { href: string; icon: ElementType; label: string; tone: Tone }) {
-  const classes = toneClasses[tone];
+function ActionTile({ href, icon: Icon, label }: { href: string; icon: ElementType; label: string }) {
   return (
     <Link
       href={href}
-    className={`aspect-square rounded-[20px] border p-3 shadow-elevated transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${classes.card}`}
+      className="group flex min-w-0 flex-col items-center gap-2 rounded-2xl px-1 py-1 text-center outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.98]"
     >
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm ${classes.icon}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className="text-xs font-bold leading-tight text-foreground">{label}</span>
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.07] text-primary transition-colors group-hover:bg-primary/[0.12] sm:h-14 sm:w-14">
+        <Icon className="h-7 w-7 stroke-[1.8] sm:h-8 sm:w-8" />
       </div>
+      <span className="max-w-full text-[11px] font-semibold leading-tight text-foreground sm:text-xs">{label}</span>
     </Link>
   );
 }
 
 function NotificationsTile() {
   return (
-    <div className="min-w-0 aspect-square">
+    <div className="min-w-0">
       <NotificationsSheet triggerType="tile" className="h-full" />
     </div>
   );
