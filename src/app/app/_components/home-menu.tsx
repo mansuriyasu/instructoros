@@ -8,6 +8,7 @@ import {
   Clock3,
   CreditCard,
   History,
+  MapPin,
   ReceiptText,
   Settings,
   Upload,
@@ -85,8 +86,9 @@ export function HomeMenu() {
           </div>
           <ArrowRight className="h-5 w-5 text-primary" aria-hidden="true" />
         </div>
-        <div className="grid grid-cols-4 gap-x-1 gap-y-6 sm:grid-cols-5 sm:gap-x-3 lg:grid-cols-9">
+        <div className="grid grid-cols-4 gap-x-1 gap-y-6 sm:grid-cols-5 sm:gap-x-3 lg:grid-cols-10">
           <ActionTile href="/app/students" icon={Users} label="Students" />
+          <ActionTile href="/app/students/map" icon={MapPin} label="Student Map" />
           <ActionTile href="/app/schedule" icon={CalendarDays} label="Schedule" />
           <ActionTile href="/app/payments" icon={Wallet} label="POS" />
           <ActionTile href="/app/payments/history" icon={History} label="History" />

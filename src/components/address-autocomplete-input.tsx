@@ -1,13 +1,12 @@
 "use client";
 
+import { loadGoogleMapsPlaces } from "@/lib/google-maps-loader";
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 
 type AddressAutocompleteInputProps = React.ComponentProps<typeof Input> & {
   onAddressSelect?: (address: string) => void;
 };
-
-let googleMapsScriptPromise: Promise<void> | null = null;
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
   const valueSetter = Object.getOwnPropertyDescriptor(input, "value")?.set;
@@ -24,39 +23,6 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
 
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-function loadGoogleMapsPlaces() {
-  if (typeof window === "undefined") return Promise.resolve();
-  const existingGoogle = (window as any).google;
-  if (existingGoogle?.maps?.places) return Promise.resolve();
-
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) return Promise.resolve();
-
-  if (!googleMapsScriptPromise) {
-    googleMapsScriptPromise = new Promise((resolve, reject) => {
-      const existingScript = document.querySelector<HTMLScriptElement>(
-        'script[data-google-maps-places="true"]',
-      );
-      if (existingScript) {
-        existingScript.addEventListener("load", () => resolve(), { once: true });
-        existingScript.addEventListener("error", () => reject(new Error("Google Places failed to load.")), { once: true });
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      script.dataset.googleMapsPlaces = "true";
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Google Places failed to load."));
-      document.head.appendChild(script);
-    });
-  }
-
-  return googleMapsScriptPromise;
 }
 
 export const AddressAutocompleteInput = React.forwardRef<HTMLInputElement, AddressAutocompleteInputProps>(

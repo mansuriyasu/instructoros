@@ -28,6 +28,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Student map checks
+        run: node --test scripts/student-map.test.cjs
+
       - name: Security boundary checks
         run: npm run security:check
 

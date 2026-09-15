@@ -8,7 +8,7 @@ export default function TermsPage() {
           InstructorOS
         </Link>
         <h1 className="mt-8 text-3xl font-black sm:text-4xl">Terms of Service</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: July 30, 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: September 15, 2026</p>
         <div className="mt-8 space-y-7 text-[15px] leading-7 text-slate-700">
           <section>
             <h2 className="text-lg font-black text-[#102033]">Using InstructorOS</h2>
@@ -25,6 +25,10 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-black text-[#102033]">Service limits</h2>
             <p className="mt-2">Do not use InstructorOS to upload unlawful, abusive, malicious, or unauthorized content, or to interfere with the service. We may limit or suspend access when necessary to protect users, data, or the service.</p>
+          </section>
+          <section>
+            <h2 className="text-lg font-black text-[#102033]">Google Maps</h2>
+            <p className="mt-2">Use of Google Maps features is also subject to the <a className="underline" href="https://maps.google.com/help/terms_maps/">Google Maps/Google Earth Additional Terms of Service</a>.</p>
           </section>
           <section>
             <h2 className="text-lg font-black text-[#102033]">Contact</h2>
