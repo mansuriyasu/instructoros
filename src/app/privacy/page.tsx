@@ -8,7 +8,7 @@ export default function PrivacyPage() {
           InstructorOS
         </Link>
         <h1 className="mt-8 text-3xl font-black sm:text-4xl">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: September 15, 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: September 16, 2026</p>
         <div className="mt-8 space-y-7 text-[15px] leading-7 text-slate-700">
           <section>
             <h2 className="text-lg font-black text-[#102033]">Information we use</h2>
@@ -29,6 +29,10 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-black text-[#102033]">Student maps</h2>
             <p className="mt-2">When staff open Student Map, student addresses are sent to Google to locate them. Student names and phone numbers are used within InstructorOS and are not included in address lookup requests. Coordinates are temporarily cached in browser memory for up to one hour. Google Maps is subject to the <a className="underline" href="https://policies.google.com/privacy">Google Privacy Policy</a>.</p>
+          </section>
+          <section>
+            <h2 className="text-lg font-black text-[#102033]">Offline access</h2>
+            <p className="mt-2">If you enable offline access on a trusted device, a limited copy of student contact details and lessons, plus drafts you create, is stored on that device. Drafts upload when you return to the signed-in app with internet access. Logout clears this local data after warning about unsynced entries. Clearing browser storage may remove unsynced drafts.</p>
           </section>
           <section>
             <h2 className="text-lg font-black text-[#102033]">Contact</h2>

@@ -1,5 +1,6 @@
 'use client';
 
+import { OfflineIdentityGuard } from '@/components/offline/offline-provider';
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { FirebaseProvider, useUser } from '@/firebase/provider';
@@ -98,6 +99,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
   const [initError, setInitError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!navigator.onLine && window.location.pathname.startsWith('/app')) { window.location.replace('/offline.html'); return; }
     try {
       const svcs = initializeFirebase();
       (window as any).firebaseServices = svcs;
@@ -122,6 +124,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       auth={firebaseServices.auth}
       firestore={firebaseServices.firestore}
     >
+      <OfflineIdentityGuard />
       <AuthGate auth={firebaseServices.auth}>
         {children}
       </AuthGate>

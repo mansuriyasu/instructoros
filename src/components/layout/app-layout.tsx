@@ -1,5 +1,6 @@
 "use client";
 
+import { OfflineProvider, OfflineBanner } from "@/components/offline/offline-provider";
 import { Header } from "./header";
 import { BottomNav } from "./bottom-nav";
 import { Sidebar } from "./sidebar";
@@ -17,11 +18,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const billingActionLabel = tenant?.subscriptionStatus === 'checkout_pending' ? 'Continue trial setup' : 'Start free trial';
 
   return (
-    <NotificationsProvider><div className="flex min-h-screen bg-background">
+    <OfflineProvider><NotificationsProvider><div className="flex min-h-screen bg-background">
       <PwaProvider />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
         <Header />
+        <OfflineBanner />
         {!workspaceAccess.canWrite && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:px-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -43,6 +45,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
       <WorkspaceSetupPrompt />
       <BottomNav />
-    </div></NotificationsProvider>
+    </div></NotificationsProvider></OfflineProvider>
   );
 }

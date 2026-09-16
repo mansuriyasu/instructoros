@@ -1,11 +1,30 @@
 /* global firebase */
-const CACHE = 'instructoros-shell-v1';
+const CACHE = 'instructoros-shell-v2';
+const OFFLINE_ASSETS = ['/offline.html', '/offline.css?v=2', '/offline-app.js?v=2', '/offline-store.js?v=2', '/icons/icon-192.png'];
 const OWNER_CACHE = 'instructoros-push-owner';
 const OWNER_URL = '/__push_owner__';
-self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(['/offline.html', '/icons/icon-192.png']))));
+self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(OFFLINE_ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(Promise.all([self.clients.claim(), caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('instructoros-shell-') && k !== CACHE).map(k => caches.delete(k))))])));
 self.addEventListener('fetch', event => {
-  if (event.request.mode === 'navigate') event.respondWith(fetch(event.request).catch(() => caches.match('/offline.html')));
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || event.request.method !== 'GET') return;
+  if (OFFLINE_ASSETS.includes(url.pathname + url.search)) {
+    event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(event.request)) || fetch(event.request)));
+    return;
+  }
+  if (event.request.mode === 'navigate' && (url.pathname === '/app' || url.pathname.startsWith('/app/'))) {
+    event.respondWith((async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      try {
+        const response = await fetch(event.request, { signal: controller.signal });
+        if (response.status >= 500) throw new Error('Server unavailable');
+        return response;
+      } catch {
+        return (await caches.open(CACHE)).match('/offline.html');
+      } finally { clearTimeout(timeout); }
+    })());
+  }
 });
 self.addEventListener('message', event => {
   if (event.data?.type === 'PUSH_OWNER') event.waitUntil(caches.open(OWNER_CACHE).then(async cache => {
@@ -27,6 +46,7 @@ self.addEventListener('notificationclick', event => {
 });
 const config = new URL(self.location.href).searchParams.get('config');
 if (config) {
+  try {
   importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js');
   importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-messaging-compat.js');
   firebase.initializeApp(JSON.parse(config));
@@ -36,4 +56,5 @@ if (config) {
     if (!owner || await owner.text() !== data.recipientUid) return;
     await self.registration.showNotification(data.title || 'InstructorOS', { body: data.body || 'You have a new notification.', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', tag: data.notificationId, data: { notificationId: data.notificationId } });
   });
+  } catch { /* The offline workspace must remain available if push libraries cannot load. */ }
 }

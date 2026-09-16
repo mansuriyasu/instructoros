@@ -1,0 +1,4 @@
+export type OfflineStudent = { id: string; name: string; address: string; mobileNumber: string; licenseType: string; status: string };
+export type OfflineLesson = { id: string; studentId: string; studentName: string; start: string; end: string; notes: string; version: string; canWriteNotes: boolean; canEvaluate: boolean };
+export type OfflineSnapshot = { scope: string; uid: string; tenantId: string; workspaceName: string; downloadedAt: string; expiresAt: string; canWrite: boolean; students: OfflineStudent[]; lessons: OfflineLesson[]; criteria: { id: string; label: string; testTypes: string[]; maneuvers: { id: string; label: string }[] }[] };
+export type OfflineDraft = { id: string; scope: string; kind: 'student' | 'note' | 'evaluation'; label: string; createdAt: string; payload: Record<string, unknown>; status: 'pending' | 'sending' | 'synced' | 'conflict' | 'blocked'; message?: string; recordId?: string };

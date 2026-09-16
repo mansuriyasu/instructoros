@@ -9,6 +9,7 @@ import {
   CreditCard,
   History,
   MapPin,
+  Download,
   ReceiptText,
   Settings,
   Upload,
@@ -89,6 +90,7 @@ export function HomeMenu() {
         <div className="grid grid-cols-4 gap-x-1 gap-y-6 sm:grid-cols-5 sm:gap-x-3 lg:grid-cols-10">
           <ActionTile href="/app/students" icon={Users} label="Students" />
           <ActionTile href="/app/students/map" icon={MapPin} label="Student Map" />
+          <ActionTile href="/app/offline" icon={Download} label="Offline" />
           <ActionTile href="/app/schedule" icon={CalendarDays} label="Schedule" />
           <ActionTile href="/app/payments" icon={Wallet} label="POS" />
           <ActionTile href="/app/payments/history" icon={History} label="History" />

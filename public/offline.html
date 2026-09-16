@@ -1,1 +1,16 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>InstructorOS - Offline</title><style>body{font:16px system-ui;margin:0;padding:24px;background:#f5f7f8;color:#17212b;display:grid;min-height:85vh;place-content:center;text-align:center}img{width:72px;height:72px;margin:auto}h1{font-size:24px}a{display:inline-block;padding:14px 24px;background:#ffcc00;color:#17212b;text-decoration:none;border-radius:8px}</style><img src="/icons/icon-192.png" alt="InstructorOS"><h1>You are offline</h1><p>Reconnect to view your students and schedule.</p><p>No changes have been saved from this screen.</p><a href="/app">Try again</a></html>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#102033"><title>InstructorOS · Offline workspace</title><link rel="stylesheet" href="/offline.css?v=2"><script type="module" src="/offline-app.js?v=2"></script></head>
+<body><main>
+<header><p class="eyebrow">InstructorOS</p><h1>Offline workspace</h1><p id="workspace"></p><p id="status" role="status">Opening saved data…</p><a class="button secondary" href="/app/offline" target="_top" id="reconnect">Reconnect & sync</a></header>
+<p id="message" role="status" aria-live="polite"></p>
+<section id="empty" hidden><h2>No offline download available</h2><p>Open InstructorOS with internet and choose Offline access → Enable on this trusted phone. Download your students and schedule before leaving coverage.</p></section>
+<div id="content" hidden>
+<nav aria-label="Offline sections"><button data-view="schedule" class="active">Schedule</button><button data-view="students">Students</button><button data-view="drafts">Pending <span id="count">0</span></button></nav>
+<p id="stale" class="warning" hidden>This download is over seven days old. Reconnect before adding new drafts. Pending drafts remain saved on this phone.</p>
+<section id="schedule"><h2>Saved lessons</h2><p class="muted">Today and the next seven days · last downloaded version</p><div id="lessons" class="cards"></div></section>
+<section id="students" hidden><div class="heading"><h2>Active & booked students</h2><button id="new-student">New student draft</button></div><label>Search students<input id="search" type="search" placeholder="Name or address"></label><div id="student-list" class="cards"></div></section>
+<section id="drafts" hidden><h2>Saved on this phone</h2><p class="muted">Pending entries upload when InstructorOS is open with internet. Conflicts stay here for your review. Clearing browser data erases unsynced drafts.</p><div id="draft-list" class="cards"></div></section>
+<section id="editor" hidden tabindex="-1"></section>
+</div>
+<footer>Payments, booking changes, messages and Google Maps require internet. Offline entries do not send customer messages.</footer>
+</main></body></html>

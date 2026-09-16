@@ -17,6 +17,7 @@ import {FirestorePermissionError} from '@/firebase/errors';
  * Does NOT await the write operation internally.
  */
 export function setDocumentNonBlocking(docRef: DocumentReference, data: any, options: SetOptions) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.reject(new Error('You are offline. Open the saved workspace to save notes, evaluations or student drafts on this phone.'));
   return setDoc(docRef, data, options).catch(error => {
     errorEmitter.emit(
       'permission-error',
@@ -38,6 +39,7 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
  * Returns the Promise for the new doc ref, but typically not awaited by caller.
  */
 export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.reject(new Error('You are offline. Open the saved workspace to save notes, evaluations or student drafts on this phone.'));
   const promise = addDoc(colRef, data)
     .catch(error => {
       errorEmitter.emit(
@@ -59,6 +61,7 @@ export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
  * Does NOT await the write operation internally.
  */
 export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.reject(new Error('You are offline. Open the saved workspace to save notes, evaluations or student drafts on this phone.'));
   return updateDoc(docRef, data)
     .catch(error => {
       errorEmitter.emit(
@@ -79,6 +82,7 @@ export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) 
  * Does NOT await the write operation internally.
  */
 export function deleteDocumentNonBlocking(docRef: DocumentReference) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.reject(new Error('You are offline. Open the saved workspace to save notes, evaluations or student drafts on this phone.'));
   return deleteDoc(docRef)
     .catch(error => {
       errorEmitter.emit(

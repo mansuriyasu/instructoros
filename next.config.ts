@@ -45,6 +45,13 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
+        source: '/offline.html',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests" },
+        ],
+      },
+      {
         source: '/((?!_next/static|_next/image|favicon.ico|api/).*)',
         headers: [
           {
