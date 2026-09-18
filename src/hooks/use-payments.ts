@@ -25,7 +25,8 @@ function removeUndefined<T>(value: T): T {
   return value;
 }
 
-export function usePayments() {
+export function usePayments(options: { load?: boolean } = {}) {
+  const shouldLoad = options.load !== false;
   const firestore = useFirestore();
   const { user, role, isSessionLoading } = useSession();
   const paymentsPath = useTenantCollectionPath('payments');
@@ -41,13 +42,13 @@ export function usePayments() {
 
   const paymentsQuery = useMemoFirebase(
     () => {
-      if (!paymentsCollectionRef) return null;
+      if (!paymentsCollectionRef || !shouldLoad) return null;
       if (role === 'schoolInstructor' && user) {
         return query(paymentsCollectionRef, where('instructorId', '==', user.uid));
       }
       return paymentsCollectionRef;
     },
-    [paymentsCollectionRef, role, user]
+    [paymentsCollectionRef, role, user, shouldLoad]
   );
 
   const { data: payments, isLoading } =

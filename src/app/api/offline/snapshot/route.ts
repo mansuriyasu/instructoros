@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const fields = ['name', 'address', 'mobileNumber', 'licenseType', 'status', 'assignedInstructorIds', 'instructorId', 'mergedIntoStudentId'];
     const studentSets = member.role === 'schoolInstructor'
       ? await Promise.all([studentsRef.where('assignedInstructorIds', 'array-contains', actor.uid).select(...fields).get(), studentsRef.where('instructorId', '==', actor.uid).select(...fields).get()])
-      : [await studentsRef.select(...fields).get()];
+      : [await studentsRef.where('status', 'in', ['active', 'booked']).select(...fields).get()];
     const studentDocs = [...new Map(studentSets.flatMap(set => set.docs).map(doc => [doc.id, doc])).values()].filter(doc => currentStudent(doc.data()));
     const studentData = new Map(studentDocs.map(doc => [doc.id, doc.data()]));
     const students = studentDocs.map(doc => { const s = doc.data(); return { id: doc.id, name: String(s.name || ''), address: String(s.address || ''), mobileNumber: String(s.mobileNumber || ''), licenseType: String(s.licenseType || 'G2'), status: s.status }; });

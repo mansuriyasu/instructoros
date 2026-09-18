@@ -14,7 +14,7 @@ This release intentionally leaves scheduling edits, money movement/payment recor
 
 ## Online refresh and sync
 
-The signed-in app checks on opening, returning to the foreground, reconnecting, and every 15 seconds while visible. Downloads refresh after five minutes or an explicit refresh; uploads retry on the next check. Rate-limit responses back off for 15 minutes. Network errors back off for 30 seconds.
+The signed-in app checks on opening, returning to the foreground, reconnecting, and every 15 seconds while visible. Automatic downloads refresh at most once every 24 hours while the app is visible. Use Download latest & sync before leaving coverage for a fresh copy. Successful draft uploads and conflict review also refresh the copy; uploads retry on the next check. Rate-limit responses back off for 15 minutes. Network errors back off for 30 seconds.
 
 The standalone saved workspace does not store auth tokens. Use **Reconnect & sync** to return to the signed-in app; keep it open until entries say Synced. iPhone background execution is not required. Downloads older than seven days remain readable with a stale warning but cannot accept new drafts until refreshed.
 

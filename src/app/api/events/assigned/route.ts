@@ -15,21 +15,23 @@ export async function POST(request: NextRequest) {
 
     const db = getAdminFirestore();
     const tenantRef = db.collection('tenants').doc(tenantId);
-    const eventsQuery = endDate
-      ? tenantRef.collection('events').where('start', '<=', endDate)
+    const eventsQuery = startDate && endDate
+      ? tenantRef.collection('events').where('end', '>', startDate)
       : tenantRef.collection('events');
 
-    const [tenantSnap, memberSnap, assignedStudentsSnap, legacyStudentsSnap, eventsSnap] = await Promise.all([
-      tenantRef.get(),
-      tenantRef.collection('members').doc(actor.uid).get(),
-      tenantRef.collection('students').where('assignedInstructorIds', 'array-contains', actor.uid).get(),
-      tenantRef.collection('students').where('instructorId', '==', actor.uid).get(),
-      eventsQuery.get(),
+    const [tenantSnap, memberSnap] = await Promise.all([
+      tenantRef.get(), tenantRef.collection('members').doc(actor.uid).get(),
     ]);
     const member = memberSnap.data();
     if (!tenantSnap.exists || tenantSnap.data()?.status !== 'active' || member?.status !== 'active' || member.role !== 'schoolInstructor') {
       return NextResponse.json({ error: 'This instructor is not active in the selected school workspace.' }, { status: 403 });
     }
+    // Verify membership before incurring collection reads.
+    const [assignedStudentsSnap, legacyStudentsSnap, eventsSnap] = await Promise.all([
+      tenantRef.collection('students').where('assignedInstructorIds', 'array-contains', actor.uid).select().get(),
+      tenantRef.collection('students').where('instructorId', '==', actor.uid).select().get(),
+      eventsQuery.get(),
+    ]);
 
     const assignedStudentIds = new Set([
       ...assignedStudentsSnap.docs.map(snapshot => snapshot.id),

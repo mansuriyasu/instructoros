@@ -61,22 +61,15 @@ export function useEvents(startDate?: Date, endDate?: Date, options: UseEventsOp
       if (!shouldLoadEvents || !firestore || !eventsPath || isSessionLoading || !role) return null;
       let q = query(collection(firestore, eventsPath));
       
+      // A lower bound on end excludes completed history and retains lessons
+      // spanning the visible range. Filter the upper start bound locally so
+      // this works with the existing single-field index, including long events.
       if (startDateIso && endDateIso) {
-        // Query for events that *end* after the start of the range
-        // and *start* before the end of the range.
-        // This ensures we catch events that span across the view boundaries.
-        q = query(q, 
-            where('start', '<=', endDateIso),
-        );
+        q = query(q, where('end', '>', startDateIso), orderBy('end', 'asc'));
+      } else {
+        q = query(q, orderBy('start', 'asc'));
       }
-
       if (role === 'schoolInstructor' && user) return null;
-      
-      // We are fetching a slightly wider range and filtering on the client
-      // because Firestore doesn't support inequality filters on multiple fields ('start' and 'end').
-      // This is a common strategy for calendar-like queries.
-      // We order by start time to make client-side filtering and sorting efficient.
-      q = query(q, orderBy('start', 'asc'));
 
       return q;
     },
@@ -100,7 +93,7 @@ export function useEvents(startDate?: Date, endDate?: Date, options: UseEventsOp
 
   const eventsWithAddress = useMemo(() => {
     if (!events || !allStudents) return [];
-    return events.map(event => {
+    return [...events].sort((a, b) => a.start.localeCompare(b.start)).map(event => {
       const student = allStudents.find(s => s.id === event.studentId);
       return {
         ...event,

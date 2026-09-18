@@ -6,6 +6,7 @@ import { serviceWorker } from '@/firebase/messaging';
 import { activateOffline, claimNextDraft, clearOffline, enableOffline, readOfflineState, saveSnapshot, setDraftResult, subscribeOffline, suspendOffline, type OfflineState } from '../../../public/offline-store';
 import type { OfflineSnapshot } from '@/lib/offline-types';
 import Link from 'next/link';
+import { shouldRefreshOffline } from '@/lib/offline-refresh';
 
 type OfflineContext = { state: OfflineState | null; enabled: boolean; online: boolean; busy: boolean; message: string; download: () => Promise<void>; enable: () => Promise<void> };
 const Context = createContext<OfflineContext | null>(null);
@@ -105,20 +106,20 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      if (wrote || force || !current.snapshot || Date.now() - Date.parse(current.snapshot.downloadedAt) > 5 * 60000) await download();
+      if (shouldRefreshOffline(current.snapshot?.downloadedAt, force, wrote)) await download();
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Offline sync could not finish.'); nextAttempt.current = Date.now() + 30000; }
     finally { running.current = false; setBusy(false); await refresh(); }
   }, [scope, isSessionLoading, auth, user?.uid, request, activeTenantId, download, refresh]);
 
   useEffect(() => {
     setOnline(navigator.onLine);
-    const onOnline = () => { setOnline(true); nextAttempt.current = 0; void sync(true); };
+    const onOnline = () => { setOnline(true); nextAttempt.current = 0; void sync(); };
     const onOffline = () => setOnline(false);
-    const onVisible = () => { if (!document.hidden) void sync(true); };
+    const onVisible = () => { if (!document.hidden) void sync(); };
     window.addEventListener('online', onOnline); window.addEventListener('offline', onOffline); document.addEventListener('visibilitychange', onVisible);
     const unsubscribe = subscribeOffline(() => { void refresh(); });
     const timer = window.setInterval(() => { if (!document.hidden) void sync(); }, 15000);
-    void activateOffline(scope).then(refresh).then(() => sync(true)).catch(() => {});
+    void activateOffline(scope).then(refresh).then(() => sync()).catch(() => {});
     return () => { unsubscribe(); window.clearInterval(timer); window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); document.removeEventListener('visibilitychange', onVisible); };
   }, [scope, refresh, sync]);
 

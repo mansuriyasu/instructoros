@@ -179,8 +179,8 @@ export function StudentDetailsDialog({
   onDelete,
   onStatusChange,
 }: StudentDetailsDialogProps) {
-  const { payments, updatePayment } = usePayments();
-  const { events, updateEvent } = useEvents();
+  const { payments, updatePayment } = usePayments({ load: isOpen && !!student });
+  const { events, updateEvent } = useEvents(undefined, undefined, { load: isOpen && !!student });
   const { evaluations } = useEvaluations(student?.id);
   const { students, updateStudent, deleteStudent } = useStudents();
   const { tenant, activeTenantId } = useSession();
