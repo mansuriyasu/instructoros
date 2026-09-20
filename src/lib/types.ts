@@ -135,6 +135,7 @@ export interface CalendarEvent {
   notes?: string;
   googleEventId?: string;
   googleEventIds?: Record<string, string>;
+  googleSyncSignatures?: Record<string, string>;
   paymentId?: string;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod;

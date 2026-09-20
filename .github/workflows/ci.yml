@@ -29,7 +29,7 @@ jobs:
         run: npm run lint
 
       - name: Student map checks
-        run: node --test scripts/student-map.test.cjs scripts/offline-sync.test.cjs scripts/database-usage.test.cjs
+        run: node --test scripts/student-map.test.cjs scripts/offline-sync.test.cjs scripts/database-usage.test.cjs scripts/calendar-reconciliation.test.cjs
 
       - name: Security boundary checks
         run: npm run security:check

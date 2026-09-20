@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   addMonths,
   subMonths,
@@ -35,6 +35,8 @@ import { DayView } from './day-view';
 import { EventDetailsDialog } from './event-details-dialog';
 import { ExamSchedulerDialog } from './exam-scheduler-dialog';
 import { ListView } from './list-view';
+import { storedCalendarPayload } from '@/lib/google-calendar-sync';
+import { useCalendarReconciliation } from '@/hooks/use-calendar-reconciliation';
 import { useGoogleCalendar } from '@/hooks/use-google-calendar';
 import { AlertTriangle, CalendarDays, Car, MapPin, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -61,10 +63,7 @@ import type { TenantMember } from '@/lib/auth-config';
 type ViewMode = 'month' | 'week' | 'day' | 'list';
 const PENDING_GOOGLE_SYNC_KEY = 'sparkon_google_calendar_pending_sync';
 const viewModes: ViewMode[] = ['day', 'week', 'month', 'list'];
-const BUSINESS_TIME_ZONE = 'America/Toronto';
 const TRAVEL_WARNING_MINUTES = 10;
-const SPARKON_GOOGLE_EVENT_ID_PROPERTY = 'sparkonEventId';
-const SPARKON_GOOGLE_DESCRIPTION_MARKER = 'Synced from InstructorOS.';
 
 const clearScheduleInteractionLock = () => {
   if (typeof document === 'undefined') return;
@@ -81,20 +80,6 @@ const releaseScheduleInteractionLockSoon = () => {
   [0, 80, 250, 600].forEach(delay => window.setTimeout(clearScheduleInteractionLock, delay));
 };
 
-const toGoogleLocalDateTime = (dateValue: string) => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: BUSINESS_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(dateValue));
-  const value = (type: string) => parts.find(part => part.type === type)?.value || '00';
-  return `${value('year')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}:${value('second')}`;
-};
 
 export function ScheduleView() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -113,8 +98,6 @@ export function ScheduleView() {
     travelWarnings: string[];
   } | null>(null);
   const [selectedDateTime, setSelectedDateTime] = useState<Date | null>(null);
-  const [isSyncingGoogle, setIsSyncingGoogle] = useState(false);
-  const autoSyncSignatureRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const examStudentId = searchParams.get('examStudentId') || undefined;
@@ -148,11 +131,11 @@ export function ScheduleView() {
   const { services: allServices, loading: servicesLoading } = useServices();
   const {
     isConnected,
-    fetchEvents: fetchGEvents,
     deleteEvent: deleteGEvent,
     findEvent: findGEvent,
-    syncEvents: syncGoogleEventsBatch,
   } = useGoogleCalendar();
+  const calendarSync = useCalendarReconciliation(allEvents, isConnected, isEventsLoading);
+  const { enqueue: enqueueGoogleSync } = calendarSync;
   const { toast } = useToast();
   const { sendAndLogWhatsApp } = useWhatsAppLogs();
   const { sendSms: sendTwilioSms } = useTwilioSms();
@@ -226,109 +209,15 @@ export function ScheduleView() {
     }
   }, [canManageTenant, instructorNameById, role, selectedInstructorId, tenant?.type, user?.uid]);
 
-  const toGoogleEvent = useCallback((eventData: Omit<CalendarEvent, 'id'> | CalendarEvent) => {
-    const services = eventData.services?.map(service => service.name).join(', ');
-    const descriptionParts = [
-      eventData.studentName && eventData.studentName !== 'N/A' ? `Student: ${eventData.studentName}` : '',
-      services ? `Services: ${services}` : '',
-      'lessonStatus' in eventData && eventData.lessonStatus && eventData.lessonStatus !== 'scheduled'
-        ? `Lesson status: ${eventData.lessonStatus}`
-        : '',
-      eventData.notes || '',
-      SPARKON_GOOGLE_DESCRIPTION_MARKER,
-    ].filter(Boolean);
-    const sparkonEventId = 'id' in eventData ? eventData.id : undefined;
-
-    return {
-      summary: eventData.title,
-      description: descriptionParts.join('\n'),
-      location: eventData.studentAddress || undefined,
-      start: { dateTime: toGoogleLocalDateTime(eventData.start), timeZone: BUSINESS_TIME_ZONE },
-      end: { dateTime: toGoogleLocalDateTime(eventData.end), timeZone: BUSINESS_TIME_ZONE },
-      extendedProperties: sparkonEventId
-        ? { private: { [SPARKON_GOOGLE_EVENT_ID_PROPERTY]: sparkonEventId } }
-        : undefined,
-    };
-  }, []);
-
-  const googleDateTimeMinute = (dateTime?: string) => dateTime?.slice(0, 16) || '';
   const getUserGoogleEventId = useCallback((event?: Partial<CalendarEvent> | null) => {
     if (!event) return undefined;
     return (user?.uid ? event.googleEventIds?.[user.uid] : undefined) || event.googleEventId;
   }, [user?.uid]);
 
-  const buildGoogleEventIdUpdate = useCallback((eventId: string, googleEventId: string) => {
-    return user?.uid
-      ? ({ id: eventId, [`googleEventIds.${user.uid}`]: googleEventId } as Partial<CalendarEvent> & { id: string })
-      : ({ id: eventId, googleEventId } as Partial<CalendarEvent> & { id: string });
-  }, [user?.uid]);
-
-  const googleEventMatchesLocalEvent = useCallback((
-    googleEvent: { id?: string; summary?: string; description?: string; start?: { dateTime?: string }; end?: { dateTime?: string }; extendedProperties?: { private?: Record<string, string> } },
-    localEvent: CalendarEvent
-  ) => {
-    if (googleEvent.id && getUserGoogleEventId(localEvent) === googleEvent.id) return true;
-
-    const googleSparkonEventId = googleEvent.extendedProperties?.private?.[SPARKON_GOOGLE_EVENT_ID_PROPERTY];
-    const localGoogleEvent = toGoogleEvent(localEvent);
-    const timeMatches = googleDateTimeMinute(googleEvent.start?.dateTime) === googleDateTimeMinute(localGoogleEvent.start.dateTime)
-      && googleDateTimeMinute(googleEvent.end?.dateTime) === googleDateTimeMinute(localGoogleEvent.end.dateTime);
-
-    if (googleSparkonEventId) {
-      return googleSparkonEventId === localEvent.id && timeMatches;
-    }
-
-    return googleEvent.description?.includes(SPARKON_GOOGLE_DESCRIPTION_MARKER)
-      && googleEvent.summary === localGoogleEvent.summary
-      && timeMatches;
-  }, [getUserGoogleEventId, toGoogleEvent]);
-
-  const cleanupOrphanedGoogleEvents = useCallback(async (localEvents: CalendarEvent[]) => {
-    if (!isConnected) return;
-
-    const googleEvents = await fetchGEvents();
-    for (const googleEvent of googleEvents) {
-      if (!googleEvent.id || googleEvent.status === 'cancelled') continue;
-
-      const isSparkonEvent = googleEvent.description?.includes(SPARKON_GOOGLE_DESCRIPTION_MARKER)
-        || Boolean(googleEvent.extendedProperties?.private?.[SPARKON_GOOGLE_EVENT_ID_PROPERTY]);
-      if (!isSparkonEvent) continue;
-
-      const hasLocalMatch = localEvents.some(localEvent => googleEventMatchesLocalEvent(googleEvent, localEvent));
-      if (!hasLocalMatch) {
-        await deleteGEvent(googleEvent.id);
-      }
-    }
-  }, [deleteGEvent, fetchGEvents, googleEventMatchesLocalEvent, isConnected]);
-
-  const syncGoogleEventAfterLocalSave = useCallback(async (
-    savedEventId: string | undefined,
-    eventData: Omit<CalendarEvent, 'id'> | CalendarEvent
-  ) => {
-    if (!isConnected || !savedEventId) return;
-
-    // The batch endpoint handles create, update, stale Google IDs, and retry
-    // behavior in one request.
-    const eventWithId = { ...eventData, id: savedEventId } as CalendarEvent;
-    const googleEvent = toGoogleEvent(eventWithId);
-    const existingGoogleEventId = getUserGoogleEventId(eventData);
-    const result = await syncGoogleEventsBatch([{
-      localId: savedEventId,
-      googleEventId: existingGoogleEventId,
-      event: googleEvent,
-    }]);
-    const syncedEvent = result?.results[0];
-
-    if (syncedEvent?.googleEventId) {
-      await updateEventFirestore(buildGoogleEventIdUpdate(savedEventId, syncedEvent.googleEventId));
-    } else if (syncedEvent?.error) {
-      toast({
-        title: 'Google Calendar update delayed',
-        description: `The lesson was saved in InstructorOS, but Google Calendar could not be updated: ${syncedEvent.error}`,
-        variant: 'destructive',
-      });
-    }
-  }, [buildGoogleEventIdUpdate, getUserGoogleEventId, isConnected, syncGoogleEventsBatch, toast, toGoogleEvent, updateEventFirestore]);
+  const syncGoogleEventAfterLocalSave = async (savedEventId: string | undefined, _eventData: Omit<CalendarEvent, 'id'> | CalendarEvent) => {
+    void _eventData;
+    if (savedEventId) enqueueGoogleSync([savedEventId]);
+  };
 
   const isScheduleOverlayOpen = isFormDialogOpen
     || isDetailsDialogOpen
@@ -458,6 +347,7 @@ export function ScheduleView() {
           start: opt.suggestedStartTime,
           end: opt.suggestedEndTime
         });
+        enqueueGoogleSync([originalEvent.id]);
       }
     }
     
@@ -897,77 +787,12 @@ export function ScheduleView() {
     }
   };
 
-  const syncGoogleEvents = useCallback(async (showToast = true) => {
-    setIsSyncingGoogle(true);
-    try {
-      // Automatic reconciliation only repairs lessons that have never been
-      // linked. Updating every known event on every page load quickly hits
-      // Google's per-user Queries quota. Explicit manual sync still checks
-      // every lesson so date/time changes can be repaired on demand.
-      const eventsToSync = showToast ? allEvents : allEvents.filter(event => !getUserGoogleEventId(event));
-      if (eventsToSync.length === 0) return;
-      const result = await syncGoogleEventsBatch(eventsToSync.map(event => ({
-        localId: event.id,
-        googleEventId: getUserGoogleEventId(event),
-        event: toGoogleEvent(event),
-      })));
-
-      if (!result) return;
-
-      for (const syncedEvent of result.results) {
-        if (syncedEvent.googleEventId) {
-          await updateEventFirestore(buildGoogleEventIdUpdate(syncedEvent.localId, syncedEvent.googleEventId));
-        }
-      }
-
-      if (showToast) await cleanupOrphanedGoogleEvents(allEvents);
-
-      if (showToast || result.failed) {
-        toast({
-          title: result.failed ? 'Google Calendar partly synced' : 'Google Calendar synced',
-          description: `${result.created} added, ${result.updated} updated${result.failed ? `, ${result.failed} failed` : ''}. Old duplicates removed.`,
-          variant: result.failed ? 'destructive' : 'default',
-        });
-      }
-    } finally {
-      setIsSyncingGoogle(false);
-    }
-  }, [
-    allEvents,
-    buildGoogleEventIdUpdate,
-    cleanupOrphanedGoogleEvents,
-    getUserGoogleEventId,
-    syncGoogleEventsBatch,
-    toGoogleEvent,
-    toast,
-    updateEventFirestore,
-  ]);
-
-  // Reconcile lessons that were created before Google Calendar was connected,
-  // and lessons saved while the connection status was still loading. The
-  // signature excludes Google IDs so writing the repaired IDs does not cause
-  // another sync loop, while date/time changes do trigger a fresh update.
-  const scheduleSyncSignature = useMemo(() => {
-    if (!user?.uid || !activeTenantId || !isConnected || isEventsLoading || allEvents.length === 0) return null;
-    return `${user.uid}:${activeTenantId}:${allEvents
-      .map(event => `${event.id}|${event.start}|${event.end}|${event.title}|${event.studentId || ''}`)
-      .sort()
-      .join('||')}`;
-  }, [activeTenantId, allEvents, isConnected, isEventsLoading, user?.uid]);
-
   useEffect(() => {
-    if (!scheduleSyncSignature || isSyncingGoogle || autoSyncSignatureRef.current === scheduleSyncSignature) return;
-    autoSyncSignatureRef.current = scheduleSyncSignature;
-    void syncGoogleEvents(false);
-  }, [isSyncingGoogle, scheduleSyncSignature, syncGoogleEvents]);
-
-  useEffect(() => {
-    if (!isConnected || isSyncingGoogle || isEventsLoading) return;
+    if (!isConnected || isEventsLoading) return;
     if (window.sessionStorage.getItem(PENDING_GOOGLE_SYNC_KEY) !== '1') return;
-
+    enqueueGoogleSync(allEvents.map(event => event.id), false);
     window.sessionStorage.removeItem(PENDING_GOOGLE_SYNC_KEY);
-    void syncGoogleEvents();
-  }, [isConnected, isEventsLoading, isSyncingGoogle, syncGoogleEvents]);
+  }, [isConnected, isEventsLoading, allEvents, enqueueGoogleSync]);
 
   useEffect(() => {
     if (eventIdParam && allEvents.length > 0) {
@@ -992,7 +817,7 @@ export function ScheduleView() {
   const handleDeleteEvent = async (eventId: string) => {
     const eventToDelete = allEvents.find(event => event.id === eventId) || selectedEvent;
     const googleEventId = getUserGoogleEventId(eventToDelete)
-      || (eventToDelete && isConnected ? await findGEvent(eventToDelete.id, toGoogleEvent(eventToDelete)) : null);
+      || (eventToDelete && isConnected ? await findGEvent(eventToDelete.id, storedCalendarPayload(eventToDelete)) : null);
 
     await deleteEventFirestore(eventId);
     setIsDetailsDialogOpen(false);
@@ -1001,7 +826,6 @@ export function ScheduleView() {
 
     if (googleEventId && isConnected) {
       await deleteGEvent(googleEventId);
-      void cleanupOrphanedGoogleEvents(allEvents.filter(event => event.id !== eventId));
     }
   }
 
@@ -1011,7 +835,7 @@ export function ScheduleView() {
 
     await updateEventFirestore(updates);
 
-    if (event && isConnected) {
+    if (event) {
       const updatedEvent = { ...event, ...updates };
       await syncGoogleEventAfterLocalSave(eventId, updatedEvent);
     }
@@ -1024,7 +848,7 @@ export function ScheduleView() {
       const event = allEvents.find(item => item.id === update.id);
       await updateEventFirestore(update);
 
-      if (event && isConnected) {
+      if (event) {
         await syncGoogleEventAfterLocalSave(update.id, { ...event, ...update });
       }
     }
@@ -1067,6 +891,11 @@ export function ScheduleView() {
 
   return (
     <div className="h-full flex flex-col gap-4">
+      <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+        <span>{calendarSync.busy ? 'Google Calendar · Syncing…' : calendarSync.pending ? `Google Calendar · ${calendarSync.pending} pending${calendarSync.error ? ' · Update failed, retry scheduled' : ''}` : calendarSync.confirmed ? 'Google Calendar · Synced' : isConnected ? 'Google Calendar · Connected' : 'Google Calendar · Not connected'}{calendarSync.pending > 0 && !isConnected ? ' · Connect Google Calendar in Settings' : ''}</span>
+        {calendarSync.pending > 0 && <Button size="sm" variant="outline" disabled={calendarSync.busy || !isConnected} onClick={calendarSync.retry}>Retry sync</Button>}
+        {calendarSync.error && <p className="w-full text-xs text-destructive">{calendarSync.error} Changes remain saved in InstructorOS. Keep Schedule open to retry.</p>}
+      </div>
       <div className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0">
         <div className="rounded-[22px] border border-white/75 bg-card p-3 shadow-elevated md:p-4">
           <div className="flex items-start justify-between gap-3">
