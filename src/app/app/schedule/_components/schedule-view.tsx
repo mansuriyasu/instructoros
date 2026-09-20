@@ -891,11 +891,14 @@ export function ScheduleView() {
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
-        <span>{calendarSync.busy ? 'Google Calendar · Syncing…' : calendarSync.pending ? `Google Calendar · ${calendarSync.pending} pending${calendarSync.error ? ' · Update failed, retry scheduled' : ''}` : calendarSync.confirmed ? 'Google Calendar · Synced' : isConnected ? 'Google Calendar · Connected' : 'Google Calendar · Not connected'}{calendarSync.pending > 0 && !isConnected ? ' · Connect Google Calendar in Settings' : ''}</span>
-        {calendarSync.pending > 0 && <Button size="sm" variant="outline" disabled={calendarSync.busy || !isConnected} onClick={calendarSync.retry}>Retry sync</Button>}
-        {calendarSync.error && <p className="w-full text-xs text-destructive">{calendarSync.error} Changes remain saved in InstructorOS. Keep Schedule open to retry.</p>}
-      </div>
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer py-1 font-medium"><span className={calendarSync.error ? 'text-destructive' : ''}>{calendarSync.busy ? 'Google Calendar · Syncing…' : calendarSync.pending ? `Google Calendar · ${calendarSync.pending} pending${calendarSync.error ? ' · Needs attention' : ''}` : calendarSync.confirmed ? 'Google Calendar · Synced' : isConnected ? 'Google Calendar · Connected' : 'Google Calendar · Not connected'}</span></summary>
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          <p>{calendarSync.pending > 0 && !isConnected ? 'Connect Google Calendar in Settings.' : 'Keep Schedule open until pending changes are synced.'}</p>
+          {calendarSync.pending > 0 && <Button size="sm" variant="outline" disabled={calendarSync.busy || !isConnected} onClick={calendarSync.retry}>Retry sync</Button>}
+          {calendarSync.error && <p className="w-full text-destructive">{calendarSync.error} Changes remain saved in InstructorOS.</p>}
+        </div>
+      </details>
       <div className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0">
         <div className="rounded-[22px] border border-white/75 bg-card p-3 shadow-elevated md:p-4">
           <div className="flex items-start justify-between gap-3">

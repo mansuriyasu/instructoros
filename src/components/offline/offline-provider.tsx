@@ -152,8 +152,11 @@ export function OfflineBanner() {
   const offline = useOffline();
   if (!offline) return null;
   const pending = offline.enabled ? offline.state?.drafts.filter(draft => draft.status !== 'synced').length || 0 : 0;
-  return <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-secondary/50 px-4 py-2 text-xs">
+  return <details className="border-b bg-secondary/30 px-4 text-xs">
+    <summary className="cursor-pointer py-2 font-medium">{!offline.online ? 'Offline' : offline.busy ? 'Offline copy · Syncing…' : pending ? `Offline copy · ${pending} pending` : 'Offline access'}</summary>
+    <div className="space-y-2 pb-3">
     <span>{!offline.online ? 'Offline · ' : ''}{offline.busy ? 'Syncing…' : pending ? `${pending} saved on this phone · pending or needs review` : offline.enabled && offline.state?.snapshot ? `Offline copy saved ${new Date(offline.state.snapshot.downloadedAt).toLocaleString()}` : 'Offline access available on trusted devices'}</span>
-    <div className="flex gap-3"><Link href="/app/offline" className="font-semibold underline">Offline access</Link>{offline.enabled && <a href="/offline.html" className="font-semibold underline">Open saved workspace</a>}</div>
-  </div>;
+    <div className="flex flex-wrap gap-3"><Link href="/app/offline" className="font-semibold underline">Offline access</Link>{offline.enabled && <a href="/offline.html" className="font-semibold underline">Open saved workspace</a>}</div>
+    </div>
+  </details>;
 }

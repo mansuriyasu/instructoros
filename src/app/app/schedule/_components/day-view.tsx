@@ -404,7 +404,9 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, o
           </div>
         )}
 
-        <div className="grid grid-cols-4 gap-2 rounded-2xl border bg-card p-3 shadow-sm">
+        <details className="rounded-xl border bg-card px-3">
+          <summary className="cursor-pointer py-2 text-xs font-medium">Day summary · {routeEvents.length} lessons{!isCheckingTravel && conflictSegments.length > 0 ? ` · ${conflictSegments.length} conflicts` : ''}</summary>
+          <div className="grid grid-cols-4 gap-2 pb-3 pt-1">
           <div className="min-w-0 text-center">
             <Clock className="mx-auto mb-1 h-5 w-5 text-blue-600" />
             <p className="text-[10px] font-semibold text-muted-foreground">Lessons</p>
@@ -425,7 +427,8 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, o
             <p className="text-[10px] font-semibold text-muted-foreground">Drive</p>
             <p className="text-sm font-bold">{Math.floor(totalDriveMinutes / 60)}h {totalDriveMinutes % 60}m</p>
           </div>
-        </div>
+          </div>
+        </details>
 
         <div className="rounded-2xl border bg-card px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between gap-3">
