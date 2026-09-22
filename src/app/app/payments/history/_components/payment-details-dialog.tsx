@@ -499,15 +499,16 @@ export function PaymentDetailsDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">{payment.studentName}</DialogTitle>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-[calc(100%-2rem)] max-w-md flex-col gap-0 overflow-hidden rounded-lg p-0">
+          <DialogHeader className="shrink-0 border-b p-4 pr-12 text-left">
+            <DialogTitle className="break-words text-xl">{payment.studentName}</DialogTitle>
             <DialogDescription>
               Payment on {format(new Date(payment.paymentDate), 'MMMM d, yyyy')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
+          <div className="space-y-4 pb-4">
               <div className="grid grid-cols-2 gap-4">
                   <InfoItem label="Total Amount" value={formatCurrency(payment.total)} />
                   <InfoItem label="Payment Method" value={payment.paymentMethod} />
@@ -634,6 +635,7 @@ export function PaymentDetailsDialog({
                 </Button>
               </div>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
