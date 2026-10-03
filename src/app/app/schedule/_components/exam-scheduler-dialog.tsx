@@ -24,6 +24,25 @@ import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 
 const CUSTOM_EXAM_CENTER_VALUE = '__custom_exam_center__';
 
+function getStudentFirstName(fullName: string) {
+  const normalizedName = fullName.trim();
+  if (!normalizedName) return 'Student';
+
+  const nameAfterComma = normalizedName.includes(',')
+    ? normalizedName.split(',')[1]?.trim()
+    : normalizedName;
+
+  return nameAfterComma?.split(/\s+/)[0] || 'Student';
+}
+
+function getExamClass(serviceName: string, student?: { licenseType?: string; roadTest?: { testType: 'G2' | 'G' } }) {
+  if (/\bG2\b/i.test(serviceName)) return 'G2';
+  if (/\bG\b/i.test(serviceName)) return 'G';
+  if (student?.roadTest?.testType) return student.roadTest.testType;
+  if (student?.licenseType === 'G1') return 'G2';
+  return 'G';
+}
+
 interface ExamSchedulerDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -311,13 +330,16 @@ export function ExamSchedulerDialog({
             return;
         }
 
+        const savedStudentName = student?.name || studentName || 'N/A';
+        const examTitle = `${getStudentFirstName(savedStudentName)} • ${getExamClass(examService.name, student)} • ${format(examDateTime, 'h:mm a')}`;
+
         await onSave({
-            title: `Exam: ${student?.name || studentName} @ ${finalExamCenter}`,
+            title: examTitle,
             start: start.toISOString(),
             end: end.toISOString(),
             instructorId: selectedInstructorId || null,
             studentId: selectedStudentId || null,
-            studentName: student?.name || studentName || 'N/A',
+            studentName: savedStudentName,
             services: eventServices.map(service => ({
                 id: service.id,
                 name: service.name,
