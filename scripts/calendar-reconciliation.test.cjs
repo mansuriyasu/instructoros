@@ -103,6 +103,15 @@ test('disconnected edits survive reload and upload in batches instead of one req
   assert.equal(status.pending, 0);
   await restored.tick(); assert.equal(restored.calls.length, 2);
 });
+test('a saved change starts syncing without waiting for the interval', async () => {
+  const client = clientHarness();
+  client.respond(body => ({ ok: true, json: async () => ({ results: body.ids.map(id => ({ localId: id, signature: shared.calendarSyncSignature(lesson) })) }) }));
+  client.render([lesson]);
+  client.render([lesson]);
+  await client.flush();
+  assert.equal(client.calls.length, 1);
+  assert.deepEqual(client.calls[0].ids, ['lesson']);
+});
 test('failed upload stays queued; a second edit during an upload is not discarded', async () => {
   const client = clientHarness();
   client.respond(() => ({ ok: false, json: async () => ({ error: 'Rate limited' }) }));

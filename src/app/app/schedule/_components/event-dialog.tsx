@@ -33,7 +33,7 @@ import { AddressAutocompleteInput } from '@/components/address-autocomplete-inpu
 import { CalendarEvent, InstructorOption } from '@/lib/types';
 import { useStudents } from '@/hooks/use-students';
 import { useServices } from '@/hooks/use-services';
-import { format, setHours, setMinutes, parse, addMinutes } from 'date-fns';
+import { format, setHours, setMinutes, parse, addMinutes, differenceInMinutes } from 'date-fns';
 import { CalendarDays, Clock3, MessageSquareText, Trash2, Plus, Loader2, X } from 'lucide-react';
 import {
     AlertDialog,
@@ -195,9 +195,25 @@ export function EventDialog({
           const serviceDetails = allServices.find(s => s.id === currentService.id);
           return acc + (serviceDetails?.duration || 0);
       }, 0);
-      
-      // If no services, default to a 60 min block, but don't override if user sets end time manually
-      const effectiveDuration = totalDuration > 0 ? totalDuration : 60;
+
+      const isExamEvent = Boolean(
+        event?.examCenter
+        || event?.examDateTime
+        || event?.examImageDataUri
+        || event?.title?.toLowerCase().includes('exam')
+      );
+      const savedDuration = event
+        ? differenceInMinutes(new Date(event.end), new Date(event.start))
+        : 0;
+
+      // Exam appointments include pickup, travel, warm-up, early arrival, the
+      // exam, and return travel. Their full saved block must not be replaced by
+      // the billable service's ordinary lesson duration while editing.
+      const effectiveDuration = isExamEvent && savedDuration > 0
+        ? savedDuration
+        : totalDuration > 0
+          ? totalDuration
+          : 60;
 
       try {
         const startDateTime = parse(`${watchedDate} ${watchedStartTime}`, 'yyyy-MM-dd HH:mm', new Date());
@@ -208,7 +224,7 @@ export function EventDialog({
       } catch (e) {
         console.error("Error parsing date/time:", e);
       }
-  }, [allServices, watchedServices, watchedDate, watchedStartTime, form]);
+  }, [allServices, watchedServices, watchedDate, watchedStartTime, form, event]);
 
 
   const onSubmit = async (data: EventFormData) => {

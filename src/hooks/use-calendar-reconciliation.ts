@@ -100,6 +100,12 @@ export function useCalendarReconciliation(events: CalendarEvent[], connected: bo
     if (!changed.length && !Object.keys(queue.current).length && events.length) setConfirmed(true);
   }, [events, connected, loading, scope, user, restore, enqueue]);
   useEffect(() => {
+    // Start uploading a saved reschedule immediately. The interval below is a
+    // retry safety net, but users may close or background Schedule before its
+    // first tick.
+    if (pending > 0) void process();
+  }, [pending, process]);
+  useEffect(() => {
     const tick = () => { if (!document.hidden) void process(); };
     const timer = window.setInterval(tick, 3000);
     window.addEventListener('online', tick);

@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Student, StudentStatus } from "@/lib/types";
+import { CalendarEvent, Student, StudentStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import {
   Edit,
@@ -480,6 +480,17 @@ export function StudentDetailsDialog({
   const handleScheduleExam = () => {
     onOpenChange(false);
     router.push(`/app/schedule?examStudentId=${student.id}`);
+  };
+
+  const handleManageLesson = (lesson: CalendarEvent) => {
+    const lessonDate = new Date(lesson.start);
+    const dateParam = Number.isNaN(lessonDate.getTime())
+      ? ""
+      : `&date=${format(lessonDate, "yyyy-MM-dd")}`;
+    onOpenChange(false);
+    router.push(
+      `/app/schedule?eventId=${encodeURIComponent(lesson.id)}${dateParam}`,
+    );
   };
 
   const handleCopyToClipboard = (text: string, field: string) => {
@@ -1320,12 +1331,7 @@ export function StudentDetailsDialog({
                             <div
                               key={lesson.id}
                               className="p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
-                              onClick={() => {
-                                onOpenChange(false);
-                                router.push(
-                                  `/app/schedule?eventId=${lesson.id}`,
-                                );
-                              }}
+                              onClick={() => handleManageLesson(lesson)}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
@@ -1376,6 +1382,19 @@ export function StudentDetailsDialog({
                                             : "Booked"}
                                     </Badge>
                                   )}
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleManageLesson(lesson);
+                                    }}
+                                    className="h-8 rounded-full px-3 text-xs"
+                                  >
+                                    <Edit className="mr-1.5 h-3.5 w-3.5" />
+                                    Manage
+                                  </Button>
                                   <Button
                                     type="button"
                                     variant="outline"

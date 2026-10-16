@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, type ReactNode } from 'react';
-import { Bell, CalendarClock, Car, Check, CheckCheck, Clock3, Copy, CreditCard, UserPlus } from 'lucide-react';
+import { Bell, CalendarClock, Car, Check, CheckCheck, Clock3, Copy, CreditCard, MessageCircle, UserPlus } from 'lucide-react';
 import { addDays, formatDistanceToNow, isSameDay, isWithinInterval, parse, startOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useNotifications, type InboxItem } from '@/hooks/use-notifications';
@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/firebase';
 import { cn } from '@/lib/utils';
 import { Student } from '@/lib/types';
+import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
 
 interface NotificationsSheetProps {
   className?: string;
@@ -31,6 +32,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
   const { toast } = useToast();
   const { tenant } = useSession();
   const inbox = useNotifications();
+  const { sendAndLogWhatsApp } = useWhatsAppLogs();
 
   const notifications = useMemo(() => {
     if (!students) return { expiringLicenses: [], upcomingBirthdays: [] };
@@ -82,12 +84,46 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
     notifications.upcomingBirthdays.length +
     inbox.unread;
 
-  const handleCopyBirthdayWish = async (student: Student) => {
+  const buildBirthdayWish = (student: Student) => {
     const firstName = student.name.split(' ')[0] || student.name;
     const senderName = tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor';
-    const wish = `Happy birthday, ${firstName}! Wishing you a wonderful year ahead filled with happiness, success, and safe drives. Have an amazing day! - ${senderName}`;
-    await navigator.clipboard.writeText(wish);
+    return `Happy birthday, ${firstName}! Wishing you a wonderful year ahead filled with happiness, success, and safe drives. Have an amazing day! - ${senderName}`;
+  };
+
+  const handleCopyBirthdayWish = async (student: Student) => {
+    await navigator.clipboard.writeText(buildBirthdayWish(student));
     toast({ title: 'Birthday wish copied' });
+  };
+
+  const handleSendBirthdayWish = async (student: Student) => {
+    if (!student.mobileNumber?.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Phone number missing',
+        description: `Add a mobile number for ${student.name} before opening WhatsApp.`,
+      });
+      return;
+    }
+
+    try {
+      const result = await sendAndLogWhatsApp(student.mobileNumber, buildBirthdayWish(student));
+      if (!result.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'WhatsApp not opened',
+          description: result.error,
+        });
+        return;
+      }
+
+      toast({ title: 'Birthday wish opened in WhatsApp' });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'WhatsApp not opened',
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
+    }
   };
 
   const markNotificationRead = async (notificationId: string) => {
@@ -185,16 +221,29 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
                 )}`
               }
               renderAction={(student) => (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 flex-shrink-0"
-                  onClick={() => handleCopyBirthdayWish(student)}
-                  aria-label={`Copy birthday wish for ${student.name}`}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 px-3"
+                    onClick={() => void handleSendBirthdayWish(student)}
+                    aria-label={`Send birthday wish to ${student.name} on WhatsApp`}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 flex-shrink-0"
+                    onClick={() => void handleCopyBirthdayWish(student)}
+                    aria-label={`Copy birthday wish for ${student.name}`}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             />
             {totalNotifications === 0 && inbox.items.length === 0 && (

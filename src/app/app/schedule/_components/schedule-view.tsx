@@ -891,7 +891,7 @@ export function ScheduleView() {
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <details className="text-xs text-muted-foreground">
+      <details open={calendarSync.pending > 0 || Boolean(calendarSync.error)} className="text-xs text-muted-foreground">
         <summary className="cursor-pointer py-1 font-medium"><span className={calendarSync.error ? 'text-destructive' : ''}>{calendarSync.busy ? 'Google Calendar · Syncing…' : calendarSync.pending ? `Google Calendar · ${calendarSync.pending} pending${calendarSync.error ? ' · Needs attention' : ''}` : calendarSync.confirmed ? 'Google Calendar · Synced' : isConnected ? 'Google Calendar · Connected' : 'Google Calendar · Not connected'}</span></summary>
         <div className="flex flex-wrap items-center gap-2 pt-2">
           <p>{calendarSync.pending > 0 && !isConnected ? 'Connect Google Calendar in Settings.' : 'Keep Schedule open until pending changes are synced.'}</p>
