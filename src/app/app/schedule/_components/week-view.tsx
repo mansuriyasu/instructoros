@@ -248,7 +248,7 @@ export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, 
                         draggable
                         onDragStart={(e) => handleDragStart(e, event)}
                         className={cn(
-                          "absolute left-1 w-[calc(100%-8px)] cursor-pointer overflow-hidden rounded-lg border-l-4 p-2 shadow-sm transition-all hover:z-20 hover:shadow-md",
+                          "absolute left-1 w-[calc(100%-8px)] cursor-pointer overflow-hidden rounded-lg border-l-4 p-2 shadow-sm transition duration-200 ease-out hover:z-20 hover:shadow-md",
                           isBlocked
                             ? 'bg-slate-100 border-slate-300 text-slate-600'
                             : {

@@ -80,9 +80,9 @@ export function StudentIntakeLinkDialog({ triggerLabel = 'Share Link' }: Student
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="h-11 gap-2 rounded-2xl px-4 font-semibold">
+        <Button variant="outline" className="h-11 w-11 gap-2 rounded-2xl px-0 font-semibold sm:w-auto sm:px-4" aria-label={triggerLabel}>
           <Link2 className="h-4 w-4" />
-          {triggerLabel}
+          <span className="hidden sm:inline">{triggerLabel}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>

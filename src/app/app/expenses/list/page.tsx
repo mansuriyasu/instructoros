@@ -70,9 +70,9 @@ export default function ExpensesList() {
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shadow-inner w-full sm:w-auto">
-            <button onClick={() => setFilterType('all')} className={`flex-1 sm:flex-none px-4 py-1.5 text-sm rounded-lg font-medium transition-all ${filterType === 'all' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>All</button>
-            <button onClick={() => setFilterType('business')} className={`flex-1 sm:flex-none px-4 py-1.5 text-sm rounded-lg font-medium transition-all ${filterType === 'business' ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-muted-foreground hover:text-foreground"}`}>Business</button>
-            <button onClick={() => setFilterType('personal')} className={`flex-1 sm:flex-none px-4 py-1.5 text-sm rounded-lg font-medium transition-all ${filterType === 'personal' ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400" : "text-muted-foreground hover:text-foreground"}`}>Personal</button>
+            <button onClick={() => setFilterType('all')} className={`flex-1 sm:flex-none px-4 py-1.5 text-sm rounded-lg font-medium transition duration-200 ease-out ${filterType === 'all' ? "bg-white dark:bg-slate-700 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>All</button>
+            <button onClick={() => setFilterType('business')} className={`flex-1 sm:flex-none px-4 py-1.5 text-sm rounded-lg font-medium transition duration-200 ease-out ${filterType === 'business' ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-muted-foreground hover:text-foreground"}`}>Business</button>
+            <button onClick={() => setFilterType('personal')} className={`flex-1 sm:flex-none px-4 py-1.5 text-sm rounded-lg font-medium transition duration-200 ease-out ${filterType === 'personal' ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400" : "text-muted-foreground hover:text-foreground"}`}>Personal</button>
           </div>
 
           <div className="relative">
@@ -80,7 +80,7 @@ export default function ExpensesList() {
             <select 
               value={selectedYear} 
               onChange={e => setSelectedYear(e.target.value)}
-              className="bg-white dark:bg-background border rounded-lg pl-9 pr-8 py-2 text-sm font-medium shadow-sm focus:ring-2 focus:ring-[#C9A84C] outline-none transition-all w-full sm:w-[120px]"
+              className="bg-white dark:bg-background border rounded-lg pl-9 pr-8 py-2 text-sm font-medium shadow-sm focus:ring-2 focus:ring-[#C9A84C] outline-none transition duration-200 ease-out w-full sm:w-[120px]"
             >
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
@@ -91,7 +91,7 @@ export default function ExpensesList() {
             <select 
               value={selectedCategory} 
               onChange={e => setSelectedCategory(e.target.value)}
-              className="bg-white dark:bg-background border rounded-lg pl-9 pr-8 py-2 text-sm font-medium shadow-sm focus:ring-2 focus:ring-[#C9A84C] outline-none transition-all w-full sm:w-[180px] truncate"
+              className="bg-white dark:bg-background border rounded-lg pl-9 pr-8 py-2 text-sm font-medium shadow-sm focus:ring-2 focus:ring-[#C9A84C] outline-none transition duration-200 ease-out w-full sm:w-[180px] truncate"
             >
               <option value="All">All Categories</option>
               {categories.map(c => <option key={c} value={c}>{c}</option>)}

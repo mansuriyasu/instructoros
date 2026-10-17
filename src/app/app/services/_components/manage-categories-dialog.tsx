@@ -154,7 +154,7 @@ export function ManageCategoriesDialog({
                         onDragEnd={handleDragEnd}
                         onDragOver={(e) => e.preventDefault()}
                         className={cn(
-                            "flex items-center gap-2 p-2 rounded-md border bg-card cursor-grab transition-all",
+                            "flex items-center gap-2 p-2 rounded-md border bg-card cursor-grab transition duration-200 ease-out",
                             draggedItem.current?.id === category.id && "opacity-50",
                             dragOverItem?.id === category.id && "ring-2 ring-primary"
                         )}

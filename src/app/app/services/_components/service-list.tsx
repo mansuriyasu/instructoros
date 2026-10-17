@@ -125,7 +125,7 @@ export function ServiceList() {
               onDragEnd={handleDragEnd}
               onDragOver={(e) => e.preventDefault()}
               className={cn(
-                "cursor-grab transition-all duration-200 border border-border/50 shadow-md rounded-2xl bg-card hover:shadow-lg hover:-translate-y-1 aspect-square flex flex-col relative group overflow-hidden",
+                "cursor-grab transition duration-200 ease-out border border-border/50 shadow-md rounded-2xl bg-card hover:shadow-lg hover:-translate-y-1 aspect-square flex flex-col relative group overflow-hidden",
                 draggedItem.current?.id === service.id && "opacity-50 scale-95",
                 dragOverItem?.id === service.id && "ring-2 ring-primary scale-105"
               )}

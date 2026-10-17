@@ -152,6 +152,8 @@ export function OfflineBanner() {
   const offline = useOffline();
   if (!offline) return null;
   const pending = offline.enabled ? offline.state?.drafts.filter(draft => draft.status !== 'synced').length || 0 : 0;
+  // Stay out of the way unless there is something to act on; the Offline page is in Quick actions.
+  if (offline.online && !offline.busy && !pending) return null;
   return <details className="border-b bg-secondary/30 px-4 text-xs">
     <summary className="cursor-pointer py-2 font-medium">{!offline.online ? 'Offline' : offline.busy ? 'Offline copy · Syncing…' : pending ? `Offline copy · ${pending} pending` : 'Offline access'}</summary>
     <div className="space-y-2 pb-3">

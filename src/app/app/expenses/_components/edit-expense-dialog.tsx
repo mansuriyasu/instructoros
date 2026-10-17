@@ -119,7 +119,7 @@ export function EditExpenseDialog({ expense, isOpen, onClose }: EditExpenseDialo
                     <Button
                       type="button"
                       variant="ghost"
-                      className={cn("flex-1 sm:flex-none rounded-lg px-6 gap-2 transition-all", field.value === 'business' ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground")}
+                      className={cn("flex-1 sm:flex-none rounded-lg px-6 gap-2 transition duration-200 ease-out", field.value === 'business' ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground")}
                       onClick={() => {
                         field.onChange('business')
                         form.setValue('category', '')
@@ -130,7 +130,7 @@ export function EditExpenseDialog({ expense, isOpen, onClose }: EditExpenseDialo
                     <Button
                       type="button"
                       variant="ghost"
-                      className={cn("flex-1 sm:flex-none rounded-lg px-6 gap-2 transition-all", field.value === 'personal' ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground")}
+                      className={cn("flex-1 sm:flex-none rounded-lg px-6 gap-2 transition duration-200 ease-out", field.value === 'personal' ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground")}
                       onClick={() => {
                         field.onChange('personal')
                         form.setValue('category', '')
@@ -246,7 +246,7 @@ export function EditExpenseDialog({ expense, isOpen, onClose }: EditExpenseDialo
 
             <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
               <Button type="button" variant="outline" onClick={onClose} className="rounded-full px-6">Cancel</Button>
-              <Button type="submit" className="rounded-full px-8 bg-gradient-to-r from-[#0D1B2A] to-[#1E3A8A] text-[#F0D080] hover:from-[#1a2b40] hover:to-[#2a4a9a] dark:from-[#C9A84C] dark:to-[#F0D080] dark:text-[#0D1B2A] dark:hover:from-[#d4b561] dark:hover:to-[#f5d996] shadow-md transition-all hover:shadow-lg">
+              <Button type="submit" className="rounded-full px-8 bg-gradient-to-r from-[#0D1B2A] to-[#1E3A8A] text-[#F0D080] hover:from-[#1a2b40] hover:to-[#2a4a9a] dark:from-[#C9A84C] dark:to-[#F0D080] dark:text-[#0D1B2A] dark:hover:from-[#d4b561] dark:hover:to-[#f5d996] shadow-md transition duration-200 ease-out hover:shadow-lg">
                 Save Changes
               </Button>
             </div>

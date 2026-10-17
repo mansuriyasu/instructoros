@@ -891,6 +891,7 @@ export function ScheduleView() {
 
   return (
     <div className="h-full flex flex-col gap-4">
+      {(calendarSync.busy || calendarSync.pending > 0 || calendarSync.error) && (
       <details open={calendarSync.pending > 0 || Boolean(calendarSync.error)} className="text-xs text-muted-foreground">
         <summary className="cursor-pointer py-1 font-medium"><span className={calendarSync.error ? 'text-destructive' : ''}>{calendarSync.busy ? 'Google Calendar · Syncing…' : calendarSync.pending ? `Google Calendar · ${calendarSync.pending} pending${calendarSync.error ? ' · Needs attention' : ''}` : calendarSync.confirmed ? 'Google Calendar · Synced' : isConnected ? 'Google Calendar · Connected' : 'Google Calendar · Not connected'}</span></summary>
         <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -899,6 +900,7 @@ export function ScheduleView() {
           {calendarSync.error && <p className="w-full text-destructive">{calendarSync.error} Changes remain saved in InstructorOS.</p>}
         </div>
       </details>
+      )}
       <div className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0">
         <div className="rounded-[22px] border border-white/75 bg-card p-3 shadow-elevated md:p-4">
           <div className="flex items-start justify-between gap-3">
@@ -906,24 +908,32 @@ export function ScheduleView() {
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Schedule
               </p>
-              <h1 className="truncate text-xl font-semibold md:text-2xl">{headerTitle()}</h1>
+              <h1 className="truncate text-xl font-semibold md:text-2xl">
+                {view === 'day' || view === 'list' ? (
+                  <>
+                    <span className="sm:hidden">{format(currentDate, 'EEE, MMM d')}</span>
+                    <span className="hidden sm:inline">{headerTitle()}</span>
+                  </>
+                ) : headerTitle()}
+              </h1>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleOptimizeRoute}
-                className="h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 px-3 text-primary shadow-inner hover:bg-secondary"
+                aria-label="Optimize timing"
+                className="h-10 gap-2 rounded-full border-border bg-secondary/45 px-3 text-foreground shadow-inner hover:bg-secondary"
               >
-                <Sparkles className="h-4 w-4 text-purple-500" />
-                <span className="sm:hidden">Optimize</span>
+                <Sparkles className="h-4 w-4 text-purple-600" />
                 <span className="hidden sm:inline">Optimize Timing</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsExamDialogOpen(true)}
-                className="h-10 gap-2 rounded-full border-primary/20 bg-secondary/45 text-primary shadow-inner hover:bg-secondary"
+                aria-label="Schedule exam"
+                className="h-10 gap-2 rounded-full border-border bg-secondary/45 text-foreground shadow-inner hover:bg-secondary"
               >
                 <Car className="h-4 w-4" />
                 <span className="hidden sm:inline">Schedule Exam</span>
@@ -998,7 +1008,7 @@ export function ScheduleView() {
 
           </div>
 
-          <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden">
+          <div className="mt-3 grid grid-cols-7 gap-1 md:hidden">
             {mobileWeekDays.map(day => {
               const selected = isSameDay(day, currentDate);
               const eventCount = mobileEventCountByDay.get(format(day, 'yyyy-MM-dd')) || 0;
@@ -1012,14 +1022,14 @@ export function ScheduleView() {
                     setView('day');
                   }}
                   className={cn(
-                    "flex min-w-14 flex-col items-center rounded-2xl border px-3 py-2 text-sm shadow-elevated transition active:scale-[0.98]",
+                    "flex min-w-0 flex-col items-center rounded-xl border py-2 text-sm shadow-elevated transition-transform duration-150 ease-out active:scale-[0.96]",
                     selected
                       ? "border-primary bg-primary text-primary-foreground shadow-sm"
                       : "border-border bg-background text-foreground"
                   )}
                   aria-pressed={selected}
                 >
-                  <span className={cn("text-[11px] font-semibold uppercase", selected ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                  <span className={cn("text-[10px] font-semibold uppercase", selected ? "text-primary-foreground/75" : "text-muted-foreground")}>
                     {format(day, 'EEE')}
                   </span>
                   <span className="mt-1 text-lg font-bold leading-none">{format(day, 'd')}</span>

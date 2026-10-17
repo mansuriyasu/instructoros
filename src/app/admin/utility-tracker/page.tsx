@@ -82,7 +82,7 @@ export default function UtilityTrackerDashboard() {
           { label: "Total Utilities", value: kpis.totalUtilities },
           { label: "Per Person Avg (Yearly)", value: kpis.perPersonUtil },
         ].map((kpi, i) => (
-          <div key={i} className="bg-card border rounded-xl p-4 shadow-sm flex flex-col justify-center transition-all hover:shadow-md">
+          <div key={i} className="bg-card border rounded-xl p-4 shadow-sm flex flex-col justify-center transition duration-200 ease-out hover:shadow-md">
             <p className="text-sm text-muted-foreground font-medium mb-1">{kpi.label}</p>
             <p className={`text-2xl font-bold ${kpi.isNet ? (kpi.value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-[#0D1B2A] dark:text-[#F0D080]'}`}>
               ${kpi.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

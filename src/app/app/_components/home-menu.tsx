@@ -171,7 +171,7 @@ export function HomeMenu() {
               <h2 className="text-base font-bold">Next lesson</h2>
               <p className="text-xs text-muted-foreground">What needs attention first.</p>
             </div>
-            <Link href="/app/schedule" className="text-xs font-semibold text-primary">
+            <Link href="/app/schedule" className="text-xs font-semibold text-amber-700 dark:text-primary">
               Schedule
             </Link>
           </div>

@@ -115,7 +115,7 @@ export default function MarketingHomePage() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
           <Link href="/" aria-label="InstructorOS home">
-            <Logo imageClassName="w-[150px]" />
+            <Logo imageClassName="w-[124px] sm:w-[150px]" />
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-bold text-[#102033]/70 md:flex">
             {navLinks.map(link => (
@@ -127,13 +127,13 @@ export default function MarketingHomePage() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="hidden text-sm font-black text-[#102033]/70 hover:text-[#102033] sm:inline"
+              className="text-sm font-black text-[#102033]/70 hover:text-[#102033]"
             >
               Log in
             </Link>
             <Link
               href="/login?next=/app"
-              className="inline-flex h-10 items-center justify-center rounded-md bg-[#facc15] px-5 text-sm font-black text-[#102033] shadow-sm hover:bg-[#eab308]"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-[#facc15] px-3 text-sm sm:px-5 font-black text-[#102033] shadow-sm hover:bg-[#eab308]"
             >
               Start Free Trial
             </Link>
