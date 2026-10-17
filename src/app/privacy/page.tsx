@@ -32,7 +32,7 @@ export default function PrivacyPage() {
           </section>
           <section>
             <h2 className="text-lg font-black text-[#102033]">Offline access</h2>
-            <p className="mt-2">If you enable offline access on a trusted device, a limited copy of student contact details and lessons, plus drafts you create, is stored on that device. Drafts upload when you return to the signed-in app with internet access. Logout clears this local data after warning about unsynced entries. Clearing browser storage may remove unsynced drafts.</p>
+            <p className="mt-2">If you enable trusted-device storage, data used while signed in may be cached in browser storage for InstructorOS, including student, schedule, service and payment records. The offline workspace also stores a limited copy of student contact details and lessons, plus drafts you create. Drafts upload when you return to the signed-in app with internet access. Logout clears this local data after warning about unsynced entries. Clearing browser storage may remove unsynced drafts.</p>
           </section>
           <section>
             <h2 className="text-lg font-black text-[#102033]">Contact</h2>

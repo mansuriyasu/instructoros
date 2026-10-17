@@ -1,11 +1,12 @@
 'use client';
 
 import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
 import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
+import { clearOffline } from '../../../public/offline-store';
+import { clearFirestoreDeviceCache, forgetTrustedDeviceCache } from '@/lib/trusted-device-cache';
 
 type AccessDeniedProps = {
   message?: string;
@@ -13,12 +14,15 @@ type AccessDeniedProps = {
 
 export function AccessDenied({ message }: AccessDeniedProps) {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user } = useUser();
-  const router = useRouter();
 
   const handleLogout = async () => {
+    await clearOffline().catch(() => undefined);
+    forgetTrustedDeviceCache(user?.uid);
     await signOut(auth);
-    router.replace('/login');
+    await clearFirestoreDeviceCache(firestore).catch(() => undefined);
+    window.location.assign('/login');
   };
 
   return (

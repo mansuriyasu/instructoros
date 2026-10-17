@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
-function load(file, imports = {}) {
+function load(file, imports = {}, globals = {}) {
   const compiled = { exports: {} };
-  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, { module: compiled, exports: compiled.exports, require: n => imports[n] || require(n), Date });
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, { module: compiled, exports: compiled.exports, require: n => imports[n] || require(n), Date, ...globals });
   return compiled.exports;
 }
 const { shouldRefreshOffline, OFFLINE_REFRESH_INTERVAL_MS } = load('src/lib/offline-refresh.ts');
@@ -77,4 +77,44 @@ test('background UI waits until its data is needed', () => {
 test('Firestore keeps a persistent cache shared across browser tabs', () => {
   const source = fs.readFileSync('src/firebase/index.ts', 'utf8');
   assert.match(source, /persistentLocalCache\(\{ tabManager: persistentMultipleTabManager\(\) \}\)/);
+});
+test('persistent Firestore cache requires a trusted-device choice', async () => {
+  const values = new Map();
+  const localStorage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: key => values.delete(key),
+  };
+  const calls = [];
+  const cache = load('src/lib/trusted-device-cache.ts', {
+    'firebase/firestore': {
+      terminate: async firestore => calls.push(`terminate:${firestore.id}`),
+      clearIndexedDbPersistence: async firestore => calls.push(`clear:${firestore.id}`),
+    },
+  }, { window: { localStorage }, localStorage });
+
+  assert.equal(cache.isTrustedDeviceCacheEnabled(), false);
+  assert.equal(cache.getTrustedDeviceChoice('user-a'), null);
+  cache.enableTrustedDeviceCache('user-a', 'user-a:tenant-a');
+  assert.equal(cache.isTrustedDeviceCacheEnabled(), true);
+  assert.equal(cache.getTrustedDeviceCacheOwner(), 'user-a');
+  assert.equal(cache.getTrustedDeviceChoice('user-a'), 'enabled');
+  cache.declineTrustedDeviceCache('user-a');
+  assert.equal(cache.isTrustedDeviceCacheEnabled(), false);
+  assert.equal(cache.getTrustedDeviceChoice('user-a'), 'declined');
+  await cache.clearFirestoreDeviceCache({ id: 'db' });
+  assert.equal(calls.join(','), 'terminate:db,clear:db');
+
+  const firebaseSource = fs.readFileSync('src/firebase/index.ts', 'utf8');
+  assert.match(firebaseSource, /if \(!isTrustedDeviceCacheEnabled\(\)\)/);
+});
+test('trusted-device UI can remove data and logout clears the cache', () => {
+  const offline = fs.readFileSync('src/components/offline/offline-provider.tsx', 'utf8');
+  const settings = fs.readFileSync('src/app/app/settings/_components/offline-storage-settings.tsx', 'utf8');
+  const logout = fs.readFileSync('src/components/auth/logout-button.tsx', 'utf8');
+  assert.match(offline, /Keep app data on this device\?/);
+  assert.match(offline, /declineTrustedDeviceCache\(user\.uid\)/);
+  assert.match(settings, /Remove saved data/);
+  assert.match(logout, /forgetTrustedDeviceCache\(user\.uid\)/);
+  assert.match(logout, /clearFirestoreDeviceCache\(firestore\)/);
 });

@@ -46,6 +46,8 @@ import { useActiveTenantId, useAuth, useFirestore, useSession, useUser } from '@
 import { Student } from '@/lib/types';
 import { downloadJson } from '@/lib/utils';
 import type { AppUserProfile, Tenant } from '@/lib/auth-config';
+import { clearOffline } from '../../../../../public/offline-store';
+import { clearFirestoreDeviceCache, forgetTrustedDeviceCache } from '@/lib/trusted-device-cache';
 
 type BackupMode = 'merge' | 'replace';
 
@@ -537,7 +539,10 @@ export function ImportExportClientPage() {
         title: 'Account deleted',
         description: `Your profile, login, memberships, and ${data.deletedTenants?.length || 0} owned workspace(s) were deleted.`,
       });
+      await clearOffline().catch(() => undefined);
+      forgetTrustedDeviceCache(user.uid);
       await signOut(auth).catch(() => undefined);
+      await clearFirestoreDeviceCache(firestore).catch(() => undefined);
       window.location.assign('/');
     } catch (error) {
       toast({

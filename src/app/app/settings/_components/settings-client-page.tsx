@@ -5,10 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ImportExportClientPage } from './import-export-client-page';
 import { WorkspaceProfileSettings } from './workspace-profile-settings';
 import { StudentTagSettings } from './student-tag-settings';
-import { Bell, CalendarDays, Database, Settings2 } from 'lucide-react';
+import { Bell, CalendarDays, Database, HardDrive, Settings2 } from 'lucide-react';
 import { NotificationSettings } from './notification-settings';
 import { useSession } from '@/firebase';
 import { GoogleCalendarSettings } from './google-calendar-settings';
+import { OfflineStorageSettings } from './offline-storage-settings';
 
 export function SettingsClientPage() {
   const { role } = useSession();
@@ -19,6 +20,7 @@ export function SettingsClientPage() {
     { value: 'workspace', label: 'Workspace', icon: Settings2, visible: canManageWorkspace },
     { value: 'integrations', label: 'Integrations', icon: CalendarDays, visible: true },
     { value: 'notifications', label: 'Notifications', icon: Bell, visible: true },
+    { value: 'storage', label: 'Offline & Storage', icon: HardDrive, visible: true },
     { value: 'import-export', label: 'Import / Export', icon: Database, visible: canImportExport },
   ].filter(item => item.visible), [canImportExport, canManageWorkspace]);
 
@@ -61,6 +63,7 @@ export function SettingsClientPage() {
         </TabsList>
         <div className="mt-6">
             <TabsContent value="notifications"><NotificationSettings /></TabsContent>
+            <TabsContent value="storage"><OfflineStorageSettings /></TabsContent>
             <TabsContent value="workspace">
                 {canManageWorkspace ? <div className="space-y-5"><WorkspaceProfileSettings /><StudentTagSettings /></div> : null}
             </TabsContent>

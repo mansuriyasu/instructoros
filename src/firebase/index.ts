@@ -11,12 +11,18 @@ import {
   persistentMultipleTabManager,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { isTrustedDeviceCacheEnabled } from '@/lib/trusted-device-cache';
 
 let browserFirestore: Firestore | null = null;
 
 function getClientFirestore(firebaseApp: FirebaseApp) {
   if (typeof window === 'undefined') return getFirestore(firebaseApp);
   if (browserFirestore) return browserFirestore;
+
+  if (!isTrustedDeviceCacheEnabled()) {
+    browserFirestore = getFirestore(firebaseApp);
+    return browserFirestore;
+  }
 
   try {
     browserFirestore = initializeFirestore(firebaseApp, {

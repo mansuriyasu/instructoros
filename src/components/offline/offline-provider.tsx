@@ -7,13 +7,45 @@ import { activateOffline, claimNextDraft, clearOffline, enableOffline, readOffli
 import type { OfflineSnapshot } from '@/lib/offline-types';
 import Link from 'next/link';
 import { shouldRefreshOffline } from '@/lib/offline-refresh';
+import { useFirestore } from '@/firebase';
+import {
+  clearFirestoreDeviceCache,
+  declineTrustedDeviceCache,
+  enableTrustedDeviceCache,
+  forgetTrustedDeviceCache,
+  getTrustedDeviceCacheOwner,
+  getTrustedDeviceChoice,
+  isTrustedDeviceCacheEnabled,
+} from '@/lib/trusted-device-cache';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-type OfflineContext = { state: OfflineState | null; enabled: boolean; online: boolean; busy: boolean; message: string; download: () => Promise<void>; enable: () => Promise<void> };
+type OfflineContext = {
+  state: OfflineState | null;
+  enabled: boolean;
+  cacheEnabled: boolean;
+  online: boolean;
+  busy: boolean;
+  message: string;
+  storageUsage: number | null;
+  download: () => Promise<void>;
+  enable: () => Promise<void>;
+  remove: () => Promise<void>;
+};
 const Context = createContext<OfflineContext | null>(null);
 export const useOffline = () => useContext(Context);
 
 export function OfflineIdentityGuard() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, activeTenantId, tenant, member, isSessionLoading } = useSession();
   useEffect(() => {
     if (!user || !activeTenantId || isSessionLoading || !navigator.onLine) return;
@@ -24,27 +56,53 @@ export function OfflineIdentityGuard() {
   useEffect(() => onAuthStateChanged(auth, user => {
     void readOfflineState().then(state => {
       if (auth.currentUser?.uid !== user?.uid) return;
-      if (state.config && (!user || !state.config.scope.startsWith(`${user.uid}:`))) return clearOffline();
+      const cacheOwner = getTrustedDeviceCacheOwner();
+      const identityChanged = Boolean(cacheOwner && (!user || cacheOwner !== user.uid));
+      if (state.config && (!user || !state.config.scope.startsWith(`${user.uid}:`))) void clearOffline();
+      if (identityChanged) {
+        forgetTrustedDeviceCache(cacheOwner || undefined);
+        void clearFirestoreDeviceCache(firestore).finally(() => window.location.reload());
+      }
     }).catch(() => {});
-  }), [auth]);
+  }), [auth, firestore]);
   return null;
 }
 
 export function OfflineProvider({ children }: { children: ReactNode }) {
   const { user, activeTenantId, isSessionLoading } = useSession();
   const auth = useAuth();
+  const firestore = useFirestore();
   const scope = user && activeTenantId ? `${user.uid}:${activeTenantId}` : '';
   const scopeRef = useRef(scope); scopeRef.current = scope;
   const [state, setState] = useState<OfflineState | null>(null);
   const [online, setOnline] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [cacheEnabled, setCacheEnabled] = useState(false);
+  const [storageUsage, setStorageUsage] = useState<number | null>(null);
+  const [showTrustedDevicePrompt, setShowTrustedDevicePrompt] = useState(false);
   const running = useRef(false);
   const nextAttempt = useRef(0);
   const enabled = !!scope && state?.config?.scope === scope && state.config.active;
   const refresh = useCallback(async () => {
-    try { setState(await readOfflineState()); } catch (error) { setMessage(error instanceof Error ? error.message : 'Offline storage is unavailable.'); }
+    try {
+      setState(await readOfflineState());
+      setCacheEnabled(isTrustedDeviceCacheEnabled());
+      const estimate = await navigator.storage?.estimate?.();
+      setStorageUsage(typeof estimate?.usage === 'number' ? estimate.usage : null);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Offline storage is unavailable.'); }
   }, []);
+
+  useEffect(() => {
+    if (!user || !scope || isSessionLoading || !state) return;
+    const choice = getTrustedDeviceChoice(user.uid);
+    if (enabled && choice !== 'enabled') {
+      enableTrustedDeviceCache(user.uid, scope);
+      window.location.reload();
+      return;
+    }
+    setShowTrustedDevicePrompt(!enabled && choice === null);
+  }, [enabled, isSessionLoading, scope, state, user]);
 
   const request = useCallback(async (path: string, body: unknown) => {
     if (!user || auth.currentUser?.uid !== user.uid || scopeRef.current !== scope) throw new Error('Your workspace changed. Please try again.');
@@ -126,7 +184,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   const enable = async () => {
     setBusy(true);
     try {
-      if (!scope || !navigator.onLine) throw new Error('Sign in with internet before enabling offline access.');
+      if (!user || !scope || !navigator.onLine) throw new Error('Sign in with internet before enabling offline access.');
       const registration = await serviceWorker();
       const installing = registration.installing || registration.waiting;
       if (installing && installing.state !== 'activated') await new Promise<void>((resolve, reject) => {
@@ -140,12 +198,67 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       if (!(await cache.match('/offline.html'))) throw new Error('Offline screens are not ready. Reload InstructorOS and try again.');
       await enableOffline(scope);
       await download();
+      enableTrustedDeviceCache(user.uid, scope);
       // Ask iOS for durable storage when supported; availability remains browser-controlled.
       void navigator.storage?.persist?.().catch(() => false);
+      window.location.reload();
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not enable offline access.'); }
     finally { setBusy(false); await refresh(); }
   };
-  return <Context.Provider value={{ state, enabled, online, busy, message, download: async () => { nextAttempt.current = 0; await sync(true); }, enable }}>{children}</Context.Provider>;
+
+  const remove = async () => {
+    const current = await readOfflineState().catch(() => null);
+    const pending = current?.drafts.filter(draft => draft.status !== 'synced').length || 0;
+    const warning = pending
+      ? `${pending} entries have not been confirmed as synced. Removing saved data will discard them. Continue?`
+      : 'Remove all InstructorOS data saved on this device? Your online workspace will not be deleted.';
+    if (!window.confirm(warning)) return;
+    setBusy(true);
+    try {
+      await clearOffline();
+      if (user) declineTrustedDeviceCache(user.uid);
+      else forgetTrustedDeviceCache();
+      await clearFirestoreDeviceCache(firestore);
+      window.location.reload();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not remove saved data. Close other InstructorOS tabs and try again.');
+      window.location.reload();
+    }
+  };
+
+  const decline = async () => {
+    if (!user) return;
+    setShowTrustedDevicePrompt(false);
+    setBusy(true);
+    try {
+      declineTrustedDeviceCache(user.uid);
+      await clearFirestoreDeviceCache(firestore);
+      window.location.reload();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not update device storage. Close other InstructorOS tabs and try again.');
+      window.location.reload();
+    }
+  };
+
+  return <Context.Provider value={{ state, enabled, cacheEnabled, online, busy, message, storageUsage, download: async () => { nextAttempt.current = 0; await sync(true); }, enable, remove }}>
+    {children}
+    <AlertDialog open={showTrustedDevicePrompt} onOpenChange={() => {}}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Keep app data on this device?</AlertDialogTitle>
+          <AlertDialogDescription>
+            On a personal, trusted phone, InstructorOS can open faster and work with limited connectivity by storing student and schedule data on this device. Do not enable this on a shared or public device.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy} onClick={() => void decline()}>Not now</AlertDialogCancel>
+          <AlertDialogAction disabled={busy || !online} onClick={(event) => { event.preventDefault(); void enable(); }}>
+            {busy ? 'Preparing…' : 'Enable on this device'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </Context.Provider>;
 }
 
 export function OfflineBanner() {
