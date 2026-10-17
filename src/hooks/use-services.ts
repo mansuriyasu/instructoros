@@ -6,13 +6,18 @@ import { useFirestore, useCollection, useMemoFirebase, useTenantCollectionPath, 
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { useMemo } from 'react';
 
-export function useServices() {
+type UseServicesOptions = {
+  load?: boolean;
+};
+
+export function useServices(options: UseServicesOptions = {}) {
+  const shouldLoadServices = options.load !== false;
   const firestore = useFirestore();
   const servicesPath = useTenantCollectionPath('services');
   
   const servicesCollectionRef = useMemoFirebase(
-    () => (firestore && servicesPath ? collection(firestore, servicesPath) : null),
-    [firestore, servicesPath]
+    () => (shouldLoadServices && firestore && servicesPath ? collection(firestore, servicesPath) : null),
+    [firestore, servicesPath, shouldLoadServices]
   );
   
   const { data, isLoading } = useCollection<Service>(servicesCollectionRef);

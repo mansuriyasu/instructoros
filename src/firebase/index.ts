@@ -3,8 +3,32 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  Firestore,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+
+let browserFirestore: Firestore | null = null;
+
+function getClientFirestore(firebaseApp: FirebaseApp) {
+  if (typeof window === 'undefined') return getFirestore(firebaseApp);
+  if (browserFirestore) return browserFirestore;
+
+  try {
+    browserFirestore = initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    // Firestore may already be initialized by another Firebase entry point.
+    browserFirestore = getFirestore(firebaseApp);
+  }
+
+  return browserFirestore;
+}
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -37,7 +61,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp),
+    firestore: getClientFirestore(firebaseApp),
     storage: getStorage(firebaseApp)
   };
 }

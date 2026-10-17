@@ -182,7 +182,7 @@ export function StudentDetailsDialog({
   const { payments, updatePayment } = usePayments({ load: isOpen && !!student });
   const { events, updateEvent } = useEvents(undefined, undefined, { load: isOpen && !!student });
   const { evaluations } = useEvaluations(student?.id);
-  const { students, updateStudent, deleteStudent } = useStudents();
+  const { students, updateStudent, deleteStudent } = useStudents({ load: isOpen && !!student });
   const { tenant, activeTenantId } = useSession();
   const router = useRouter();
   const { toast } = useToast();

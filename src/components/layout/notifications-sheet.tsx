@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Bell, CalendarClock, Car, Check, CheckCheck, Clock3, Copy, CreditCard, MessageCircle, UserPlus } from 'lucide-react';
 import { addDays, formatDistanceToNow, isSameDay, isWithinInterval, parse, startOfDay } from 'date-fns';
 import Link from 'next/link';
@@ -28,7 +28,8 @@ interface NotificationsSheetProps {
 }
 
 export function NotificationsSheet({ className, triggerType = 'button' }: NotificationsSheetProps) {
-  const { students } = useStudents();
+  const [hasOpened, setHasOpened] = useState(false);
+  const { students } = useStudents({ load: hasOpened });
   const { toast } = useToast();
   const { tenant } = useSession();
   const inbox = useNotifications();
@@ -135,7 +136,12 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
   };
 
   return (
-    <Sheet onOpenChange={open => { if (open) void inbox.refresh(); }}>
+    <Sheet onOpenChange={open => {
+      if (open) {
+        setHasOpened(true);
+        void inbox.refresh();
+      }
+    }}>
       <SheetTrigger asChild>
         {triggerType === 'icon' ? (
           <button

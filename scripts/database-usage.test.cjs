@@ -51,3 +51,30 @@ test('closed payment consumers do not subscribe; open consumers retain full fina
   usePayments();
   assert.equal(observed, base);
 });
+test('schedule views reuse the parent event subscription', () => {
+  const schedule = fs.readFileSync('src/app/app/schedule/_components/schedule-view.tsx', 'utf8');
+  for (const view of ['day-view', 'week-view', 'month-view', 'list-view']) {
+    const source = fs.readFileSync(`src/app/app/schedule/_components/${view}.tsx`, 'utf8');
+    assert.equal(source.includes("from '@/hooks/use-events'"), false, `${view} should not open its own event subscription`);
+  }
+  assert.match(schedule, /<DayView[^>]+events=\{allEvents\}[^>]+loading=\{isEventsLoading\}/);
+  assert.match(schedule, /<WeekView[^>]+events=\{allEvents\}[^>]+loading=\{isEventsLoading\}/);
+  assert.match(schedule, /<MonthView[^>]+events=\{allEvents\}[^>]+loading=\{isEventsLoading\}/);
+  assert.match(schedule, /<ListView[^>]+events=\{allEvents\}[^>]+loading=\{isEventsLoading\}/);
+});
+test('background UI waits until its data is needed', () => {
+  const eventDialog = fs.readFileSync('src/app/app/schedule/_components/event-dialog.tsx', 'utf8');
+  const examDialog = fs.readFileSync('src/app/app/schedule/_components/exam-scheduler-dialog.tsx', 'utf8');
+  const missingPhone = fs.readFileSync('src/app/app/_components/missing-phone-dialog.tsx', 'utf8');
+  const notifications = fs.readFileSync('src/components/layout/notifications-sheet.tsx', 'utf8');
+  assert.match(eventDialog, /useStudents\(\{ load: isOpen \}\)/);
+  assert.match(eventDialog, /useServices\(\{ load: isOpen \}\)/);
+  assert.match(examDialog, /useStudents\(\{ load: isOpen \}\)/);
+  assert.match(examDialog, /useServices\(\{ load: isOpen \}\)/);
+  assert.match(missingPhone, /useStudents\(\{ load: false \}\)/);
+  assert.match(notifications, /useStudents\(\{ load: hasOpened \}\)/);
+});
+test('Firestore keeps a persistent cache shared across browser tabs', () => {
+  const source = fs.readFileSync('src/firebase/index.ts', 'utf8');
+  assert.match(source, /persistentLocalCache\(\{ tabManager: persistentMultipleTabManager\(\) \}\)/);
+});

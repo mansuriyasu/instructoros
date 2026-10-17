@@ -98,8 +98,8 @@ export function EventDialog({
   canManageInstructorSchedules = false,
   initialStudentId,
 }: EventDialogProps) {
-  const { students, updateStudent } = useStudents();
-  const { services: allServices } = useServices();
+  const { students, updateStudent } = useStudents({ load: isOpen });
+  const { services: allServices } = useServices({ load: isOpen });
   const { user, role } = useSession();
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);

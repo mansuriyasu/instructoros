@@ -11,6 +11,13 @@ type UseStudentsOptions = {
   load?: boolean;
 };
 
+type StudentListItem = Student & { id: string };
+
+// Several screens use student data at once. Share the request while it is in
+// flight so one page render does not make the server read the same collection
+// multiple times.
+const pendingStudentLoads = new Map<string, Promise<StudentListItem[]>>();
+
 export function useStudents(options: UseStudentsOptions = {}) {
   const shouldLoadStudents = options.load !== false;
   const firestore = useFirestore();
@@ -34,7 +41,7 @@ export function useStudents(options: UseStudentsOptions = {}) {
     [activeTenantId, firestore, isSessionLoading, member, role, studentsPath, tenant, user]
   );
 
-  const [students, setStudents] = useState<Array<Student & { id: string }> | null>(null);
+  const [students, setStudents] = useState<StudentListItem[] | null>(null);
   const [studentsLoading, setStudentsLoading] = useState(false);
 
   const refreshStudents = useCallback(async (isCancelled?: () => boolean) => {
@@ -52,15 +59,29 @@ export function useStudents(options: UseStudentsOptions = {}) {
 
     setStudentsLoading(true);
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/students/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tenantId: activeTenantId }),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Could not load students.');
-      if (!isCancelled?.()) setStudents(result.students || []);
+      const requestKey = `${activeTenantId}:${user.uid}`;
+      let request = pendingStudentLoads.get(requestKey);
+      if (!request) {
+        request = (async () => {
+          const token = await user.getIdToken();
+          const response = await fetch('/api/students/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ tenantId: activeTenantId }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || 'Could not load students.');
+          return (result.students || []) as StudentListItem[];
+        })();
+        pendingStudentLoads.set(requestKey, request);
+      }
+
+      try {
+        const loadedStudents = await request;
+        if (!isCancelled?.()) setStudents(loadedStudents);
+      } finally {
+        if (pendingStudentLoads.get(requestKey) === request) pendingStudentLoads.delete(requestKey);
+      }
     } catch {
       if (!isCancelled?.()) setStudents([]);
     } finally {

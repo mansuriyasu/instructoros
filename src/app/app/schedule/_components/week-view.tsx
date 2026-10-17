@@ -11,11 +11,12 @@ import {
 } from 'date-fns';
 import { cn, getServiceColorName } from '@/lib/utils';
 import { CalendarEvent } from '@/lib/types';
-import { useEvents } from '@/hooks/use-events';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface WeekViewProps {
   currentDate: Date;
+  events: CalendarEvent[];
+  loading: boolean;
   onEventClick: (event: CalendarEvent) => void;
   onSlotClick: (date: Date) => void;
   onEventDrop: (eventId: string, newStart: Date, newEnd: Date) => void;
@@ -25,13 +26,11 @@ interface WeekViewProps {
 
 const HOUR_HEIGHT_IN_PIXELS = 80;
 
-export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, selectedInstructorId = 'all', instructorNameById = {} }: WeekViewProps) {
+export function WeekView({ currentDate, events, loading, onEventClick, onSlotClick, onEventDrop, selectedInstructorId = 'all', instructorNameById = {} }: WeekViewProps) {
   const weekStart = useMemo(() => startOfWeek(currentDate), [currentDate]);
   const weekEnd = useMemo(() => endOfWeek(currentDate), [currentDate]);
   const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
 
-  const { events, loading } = useEvents(weekStart, weekEnd);
-  
   const [dragOverSlot, setDragOverSlot] = useState<Date | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -43,7 +42,11 @@ export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     
-    let filteredEvents = events;
+    let filteredEvents = events.filter(event => {
+      const eventStart = new Date(event.start);
+      const eventEnd = new Date(event.end);
+      return eventStart <= weekEnd && eventEnd >= weekStart;
+    });
     if (selectedInstructorId !== 'all') {
       filteredEvents = filteredEvents.filter(event => event.instructorId === selectedInstructorId);
     }
@@ -54,7 +57,7 @@ export function WeekView({ currentDate, onEventClick, onSlotClick, onEventDrop, 
     });
     map.forEach(dayEvents => dayEvents.sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime()));
     return map;
-  }, [events, selectedInstructorId]);
+  }, [events, selectedInstructorId, weekEnd, weekStart]);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, event: CalendarEvent) => {
     e.dataTransfer.setData('application/json', JSON.stringify(event));

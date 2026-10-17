@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { CalendarEvent } from '@/lib/types';
-import { useEvents } from '@/hooks/use-events';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,25 +12,22 @@ import Link from 'next/link';
 
 interface ListViewProps {
   currentDate: Date;
+  events: CalendarEvent[];
+  loading: boolean;
   onEventClick: (event: CalendarEvent) => void;
   onEvaluate: (event: CalendarEvent) => void;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
-export function ListView({ currentDate, onEventClick, onEvaluate, selectedInstructorId = 'all', instructorNameById = {} }: ListViewProps) {
-  const dayStart = useMemo(() => startOfDay(currentDate), [currentDate]);
-  const dayEnd = useMemo(() => endOfDay(currentDate), [currentDate]);
-
-  const { events, loading } = useEvents(dayStart, dayEnd);
-
+export function ListView({ currentDate, events, loading, onEventClick, onEvaluate, selectedInstructorId = 'all', instructorNameById = {} }: ListViewProps) {
   const dayEvents = useMemo(() => {
-    let filteredEvents = events;
+    let filteredEvents = events.filter(event => isSameDay(new Date(event.start), currentDate));
     if (selectedInstructorId !== 'all') {
       filteredEvents = filteredEvents.filter(event => event.instructorId === selectedInstructorId);
     }
     return filteredEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-  }, [events, selectedInstructorId]);
+  }, [currentDate, events, selectedInstructorId]);
 
   const dayRouteUrl = useMemo(() => {
     const stops = dayEvents

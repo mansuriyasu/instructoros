@@ -865,13 +865,13 @@ export function ScheduleView() {
   const renderView = () => {
     switch (view) {
       case 'month':
-        return <MonthView currentDate={currentDate} onEventClick={handleEventClick} onDayClick={handleSlotClick} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <MonthView currentDate={currentDate} events={allEvents} loading={isEventsLoading} onEventClick={handleEventClick} onDayClick={handleSlotClick} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'week':
-        return <WeekView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <WeekView currentDate={currentDate} events={allEvents} loading={isEventsLoading} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'day':
-        return <DayView currentDate={currentDate} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} onRescheduleEvents={handleRescheduleEvents} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <DayView currentDate={currentDate} events={allEvents} loading={isEventsLoading} onEventClick={handleEventClick} onSlotClick={handleSlotClick} onEventDrop={handleEventDrop} onRescheduleEvents={handleRescheduleEvents} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       case 'list':
-        return <ListView currentDate={currentDate} onEventClick={handleEventClick} onEvaluate={handleEvaluate} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
+        return <ListView currentDate={currentDate} events={allEvents} loading={isEventsLoading} onEventClick={handleEventClick} onEvaluate={handleEvaluate} selectedInstructorId={selectedInstructorId} instructorNameById={instructorNameById} />;
       default:
         return null;
     }

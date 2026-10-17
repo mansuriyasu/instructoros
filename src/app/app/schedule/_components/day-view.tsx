@@ -4,15 +4,12 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   format,
   setHours,
-  startOfDay,
-  endOfDay,
   isSameDay,
   addMinutes,
   differenceInMinutes
 } from 'date-fns';
 import { cn, getServiceColorName } from '@/lib/utils';
 import { CalendarEvent } from '@/lib/types';
-import { useEvents } from '@/hooks/use-events';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Clock, MapPin, Navigation, Package, UserRound, AlertTriangle, CheckCircle2, Car, Route } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,6 +27,8 @@ import {
 
 interface DayViewProps {
   currentDate: Date;
+  events: CalendarEvent[];
+  loading: boolean;
   onEventClick: (event: CalendarEvent) => void;
   onSlotClick: (date: Date) => void;
   onEventDrop: (eventId: string, newStart: Date, newEnd: Date) => void;
@@ -65,12 +64,7 @@ type ReschedulePreview = {
   updates: RescheduleUpdate[];
 } | null;
 
-export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, onRescheduleEvents, selectedInstructorId = 'all', instructorNameById = {} }: DayViewProps) {
-  const dayStart = useMemo(() => startOfDay(currentDate), [currentDate]);
-  const dayEnd = useMemo(() => endOfDay(currentDate), [currentDate]);
-
-  const { events, loading } = useEvents(dayStart, dayEnd);
-
+export function DayView({ currentDate, events, loading, onEventClick, onSlotClick, onEventDrop, onRescheduleEvents, selectedInstructorId = 'all', instructorNameById = {} }: DayViewProps) {
   const [dragOverSlot, setDragOverSlot] = useState<Date | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [travelSegments, setTravelSegments] = useState<TravelSegment[]>([]);
@@ -85,12 +79,12 @@ export function DayView({ currentDate, onEventClick, onSlotClick, onEventDrop, o
   }, []);
 
   const dayEvents = useMemo(() => {
-    let filteredEvents = events;
+    let filteredEvents = events.filter(event => isSameDay(new Date(event.start), currentDate));
     if (selectedInstructorId !== 'all') {
       filteredEvents = filteredEvents.filter(event => event.instructorId === selectedInstructorId);
     }
     return filteredEvents.sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-  }, [events, selectedInstructorId]);
+  }, [currentDate, events, selectedInstructorId]);
 
   const routeEvents = useMemo(() => {
     return dayEvents.filter(event => event.studentId && (event.lessonStatus || 'scheduled') !== 'cancelled');

@@ -16,7 +16,7 @@ interface MissingPhoneDialogProps {
 export function MissingPhoneDialog({ isOpen, student, onCancel, onSuccess }: MissingPhoneDialogProps) {
   const [phone, setPhone] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const { updateStudent } = useStudents();
+  const { updateStudent } = useStudents({ load: false });
 
   const handleSave = async () => {
     if (!student || !phone.trim()) return;

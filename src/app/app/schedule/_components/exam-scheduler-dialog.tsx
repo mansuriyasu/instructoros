@@ -62,8 +62,8 @@ export function ExamSchedulerDialog({
   canManageInstructorSchedules = false,
   initialDate,
 }: ExamSchedulerDialogProps) {
-  const { students, addStudent, updateStudent } = useStudents();
-  const { services } = useServices();
+  const { students, addStudent, updateStudent } = useStudents({ load: isOpen });
+  const { services } = useServices({ load: isOpen });
   const { toast } = useToast();
 
   const isExamCenterService = (category?: string) => {

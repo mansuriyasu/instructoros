@@ -13,18 +13,19 @@ import {
 } from 'date-fns';
 import { cn, getServiceColorName } from '@/lib/utils';
 import { CalendarEvent } from '@/lib/types';
-import { useEvents } from '@/hooks/use-events';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface MonthViewProps {
   currentDate: Date;
+  events: CalendarEvent[];
+  loading: boolean;
   onEventClick: (event: CalendarEvent) => void;
   onDayClick: (date: Date) => void;
   selectedInstructorId?: string;
   instructorNameById?: Record<string, string>;
 }
 
-export function MonthView({ currentDate, onEventClick, onDayClick, selectedInstructorId = 'all', instructorNameById = {} }: MonthViewProps) {
+export function MonthView({ currentDate, events, loading, onEventClick, onDayClick, selectedInstructorId = 'all', instructorNameById = {} }: MonthViewProps) {
   const firstDayOfMonth = startOfMonth(currentDate);
   const lastDayOfMonth = endOfMonth(currentDate);
   
@@ -32,11 +33,6 @@ export function MonthView({ currentDate, onEventClick, onDayClick, selectedInstr
     start: startOfWeek(firstDayOfMonth),
     end: endOfWeek(lastDayOfMonth),
   }), [firstDayOfMonth, lastDayOfMonth]);
-
-  const { events, loading } = useEvents(
-    startOfWeek(firstDayOfMonth),
-    endOfWeek(lastDayOfMonth)
-  );
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
