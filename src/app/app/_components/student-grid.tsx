@@ -281,7 +281,7 @@ export function StudentGrid() {
           </div>
           <Button
             onClick={handleAddNew}
-            className="h-11 w-11 shrink-0 rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-700 md:hidden"
+            className="h-11 w-11 shrink-0 rounded-full shadow-sm md:hidden"
             size="icon"
             aria-label="Add Student"
           >

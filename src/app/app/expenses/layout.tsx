@@ -61,7 +61,7 @@ export default function ExpensesLayout({
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 whitespace-nowrap",
+                "flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition duration-200 ease-out whitespace-nowrap",
                 isActive
                   ? "bg-[#0D1B2A] text-[#F0D080] dark:bg-[#C9A84C] dark:text-[#0D1B2A] shadow-md scale-105"
                   : "bg-white/50 dark:bg-muted/50 text-muted-foreground hover:bg-white dark:hover:bg-muted hover:shadow-sm hover:text-foreground"

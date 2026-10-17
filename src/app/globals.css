@@ -3,7 +3,20 @@
 @tailwind utilities;
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Motion can cause discomfort: keep fades, drop movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer base {

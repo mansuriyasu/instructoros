@@ -11,7 +11,7 @@ import {
 import { cn, getServiceColorName } from '@/lib/utils';
 import { CalendarEvent } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Clock, MapPin, Navigation, Package, UserRound, AlertTriangle, CheckCircle2, Car, Route } from 'lucide-react';
+import { Clock, MapPin, Navigation, Package, UserRound, AlertTriangle, CheckCircle2, Car, Route, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 import {
@@ -398,8 +398,26 @@ export function DayView({ currentDate, events, loading, onEventClick, onSlotClic
           </div>
         )}
 
-        <details className="rounded-xl border bg-card px-3">
-          <summary className="cursor-pointer py-2 text-xs font-medium">Day summary · {routeEvents.length} lessons{!isCheckingTravel && conflictSegments.length > 0 ? ` · ${conflictSegments.length} conflicts` : ''}</summary>
+        <details className="group rounded-2xl border bg-card px-4 shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3 [&::-webkit-details-marker]:hidden">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {format(currentDate, 'EEEE')}
+              </p>
+              <h2 className="text-lg font-bold">{format(currentDate, 'MMMM d')}</h2>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {!isCheckingTravel && conflictSegments.length > 0 && (
+                <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">
+                  {conflictSegments.length} {conflictSegments.length === 1 ? 'conflict' : 'conflicts'}
+                </span>
+              )}
+              <span className="rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground">
+                {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180" aria-hidden />
+            </div>
+          </summary>
           <div className="grid grid-cols-4 gap-2 pb-3 pt-1">
           <div className="min-w-0 text-center">
             <Clock className="mx-auto mb-1 h-5 w-5 text-blue-600" />
@@ -423,22 +441,6 @@ export function DayView({ currentDate, events, loading, onEventClick, onSlotClic
           </div>
           </div>
         </details>
-
-        <div className="rounded-2xl border bg-card px-4 py-3 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {format(currentDate, 'EEEE')}
-              </p>
-              <h2 className="text-lg font-bold">{format(currentDate, 'MMMM d')}</h2>
-            </div>
-            <div className="flex gap-2">
-              <div className="rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground flex items-center">
-                {dayEvents.length} {dayEvents.length === 1 ? 'event' : 'events'}
-              </div>
-            </div>
-          </div>
-        </div>
 
         {dayEvents.length === 0 ? (
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
@@ -593,7 +595,7 @@ export function DayView({ currentDate, events, loading, onEventClick, onSlotClic
                 draggable
                 onDragStart={(e) => handleDragStart(e, event)}
                 className={cn(
-                  "absolute left-3 min-w-0 w-[calc(100%-1.5rem)] cursor-pointer overflow-hidden rounded-lg border-l-4 p-2.5 shadow-sm transition-all hover:z-20 hover:shadow-md",
+                  "absolute left-3 min-w-0 w-[calc(100%-1.5rem)] cursor-pointer overflow-hidden rounded-lg border-l-4 p-2.5 shadow-sm transition duration-200 ease-out hover:z-20 hover:shadow-md",
                   eventColorClass(event)
                 )}
                 style={{ top: `${top}px`, height: `${height}px` }}

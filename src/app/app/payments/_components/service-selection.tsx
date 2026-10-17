@@ -108,7 +108,7 @@ export function ServiceSelection({ onSelectService }: ServiceSelectionProps) {
                     <Card
                         key={service.id}
                         onClick={() => onSelectService(service)}
-                        className="group relative cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#C9A84C] hover:shadow-md active:scale-[0.98]"
+                        className="group relative cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#C9A84C] hover:shadow-md active:scale-[0.98]"
                     >
                         <CardContent className="flex h-28 flex-col justify-between p-3">
                         {isPackageService(service) && (

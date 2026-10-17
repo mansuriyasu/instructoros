@@ -54,7 +54,7 @@ export function SidebarNav() {
             key={label}
             href={href}
             className={cn(
-              "relative flex items-center gap-3 h-[44px] px-3 rounded-2xl text-[14px] transition-all",
+              "relative flex items-center gap-3 h-[44px] px-3 rounded-2xl text-[14px] transition duration-200 ease-out",
               isActive
                 ? "bg-card text-foreground font-bold shadow-elevated"
                 : "text-muted-foreground font-normal hover:bg-secondary/70 hover:text-foreground"

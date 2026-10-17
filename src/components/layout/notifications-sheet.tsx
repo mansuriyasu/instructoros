@@ -180,7 +180,7 @@ export function NotificationsSheet({ className, triggerType = 'button' }: Notifi
           <Button
             variant="ghost"
             className={cn(
-              'relative flex w-full justify-start gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+              'relative flex w-full justify-start gap-3 rounded-lg px-3 py-2 text-muted-foreground transition duration-200 ease-out hover:text-primary',
               className
             )}
           >
