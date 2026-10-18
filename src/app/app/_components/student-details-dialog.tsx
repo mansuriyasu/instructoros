@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, cn } from "@/lib/utils";
 import { getStudentPackageData } from "@/lib/package-utils";
+import { getLessonPaymentRecordState } from "@/lib/payment-utils";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -239,6 +240,16 @@ export function StudentDetailsDialog({
     [payments, events, student?.id],
   );
 
+  const lessonPaymentStates = useMemo(
+    () => new Map(
+      studentLessons.map((lesson) => [
+        lesson.id,
+        getLessonPaymentRecordState(lesson, studentPayments),
+      ]),
+    ),
+    [studentLessons, studentPayments],
+  );
+
   const billableTakenLessons = useMemo(() => {
     const now = Date.now();
     return studentLessons.filter((lesson) => {
@@ -248,12 +259,12 @@ export function StudentDetailsDialog({
         lessonTime <= now &&
         lessonStatus !== "cancelled" &&
         lessonStatus !== "no-show" &&
-        lesson.paymentStatus !== "paid" &&
+        lessonPaymentStates.get(lesson.id) !== "paid" &&
         !packageData.coveredEventIds.has(lesson.id) &&
         (lesson.services || []).length > 0
       );
     });
-  }, [studentLessons, packageData]);
+  }, [studentLessons, packageData, lessonPaymentStates]);
 
   const mergeCandidates = useMemo(() => {
     if (!student || !students) return [];
@@ -1320,11 +1331,13 @@ export function StudentDetailsDialog({
                             lesson.lessonStatus || "scheduled";
                           const isPackageCovered =
                             packageData.coveredEventIds.has(lesson.id);
+                          const paymentRecordState =
+                            lessonPaymentStates.get(lesson.id) || "none";
                           const canBillLesson =
                             isPastLesson &&
                             lessonStatus !== "cancelled" &&
                             lessonStatus !== "no-show" &&
-                            lesson.paymentStatus !== "paid" &&
+                            paymentRecordState !== "paid" &&
                             !isPackageCovered &&
                             (lesson.services || []).length > 0;
                           return (
@@ -1367,15 +1380,22 @@ export function StudentDetailsDialog({
                                   ) : (
                                     <Badge
                                       variant={
-                                        lesson.paymentStatus === "paid"
+                                        paymentRecordState === "paid"
                                           ? "default"
                                           : "outline"
                                       }
-                                      className="shadow-none"
+                                      className={cn(
+                                        "shadow-none",
+                                        paymentRecordState === "missing-record" &&
+                                          "border-amber-400 bg-amber-50 text-amber-800",
+                                      )}
                                     >
-                                      {lesson.paymentStatus === "paid"
+                                      {paymentRecordState === "paid"
                                         ? "Paid"
-                                        : lesson.paymentStatus === "unpaid"
+                                        : paymentRecordState === "missing-record"
+                                          ? "Payment missing"
+                                          : paymentRecordState === "unpaid" ||
+                                              lesson.paymentStatus === "unpaid"
                                           ? "Unpaid"
                                           : isPastLesson
                                             ? "Taken"

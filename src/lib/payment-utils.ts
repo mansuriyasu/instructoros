@@ -1,4 +1,6 @@
-import { Payment, PaymentMethod, PaymentStatus, PaymentTransaction } from './types';
+import { CalendarEvent, Payment, PaymentMethod, PaymentStatus, PaymentTransaction } from './types';
+
+export type LessonPaymentRecordState = PaymentStatus | 'missing-record' | 'none';
 
 export function createPaymentTransaction(
   type: PaymentTransaction['type'],
@@ -32,6 +34,32 @@ export function calculateAmountDue(total: number, paidAmount: number): number {
 export function getEffectivePaymentStatus(payment: Pick<Payment, 'total' | 'paidAmount' | 'paymentMethod' | 'items'>): PaymentStatus {
   if (isAdvanceCreditPayment(payment)) return 'paid';
   return calculatePaymentStatus(payment.total, payment.paidAmount || 0);
+}
+
+/**
+ * A lesson's payment badge must be backed by Payment History. Event fields are
+ * only a denormalized shortcut and can become stale after an interrupted write
+ * or a legacy payment deletion. Item links also cover older bills whose event
+ * was never given a paymentId.
+ */
+export function getLessonPaymentRecordState(
+  event: Pick<CalendarEvent, 'id' | 'studentId' | 'paymentId' | 'paymentStatus'>,
+  payments: Payment[] | null | undefined
+): LessonPaymentRecordState {
+  const availablePayments = payments || [];
+  const belongsToStudent = (payment: Payment) => (
+    !event.studentId || payment.studentId === event.studentId
+  );
+  const paymentIdMatch = event.paymentId
+    ? availablePayments.find(payment => payment.id === event.paymentId && belongsToStudent(payment))
+    : null;
+  const linkedPayment = paymentIdMatch || availablePayments.find(payment => (
+    belongsToStudent(payment) && payment.items?.some(item => item.eventId === event.id)
+  ));
+
+  if (linkedPayment) return getEffectivePaymentStatus(linkedPayment);
+  if (event.paymentStatus === 'paid') return 'missing-record';
+  return 'none';
 }
 
 // Single source of truth for the two money numbers shown across screens.
