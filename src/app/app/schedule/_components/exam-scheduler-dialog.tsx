@@ -193,7 +193,7 @@ export function ExamSchedulerDialog({
 
         setStep(2);
       } catch (error) {
-        toast({ title: 'Extraction Failed', description: String(error), variant: 'destructive' });
+        toast({ title: 'Extraction Failed', description: error instanceof Error ? error.message : String(error), variant: 'destructive' });
       } finally {
         setIsProcessing(false);
       }

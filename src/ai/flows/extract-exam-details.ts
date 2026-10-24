@@ -1,7 +1,6 @@
 'use server';
 
-import { googleAI } from '@genkit-ai/google-genai';
-import { ai } from '@/ai/genkit';
+import { generateWithGemini } from '@/ai/genkit';
 import { ExamDetailsSchema, type ExamDetails } from './types';
 
 export type ExtractExamDetailsResult =
@@ -13,6 +12,9 @@ function getAiExtractionErrorMessage(error: unknown): string {
 
   if (/unsupported mime|unsupported.*file|image format|invalid image|media/i.test(message)) {
     return 'That file format is not supported. Please try a clear JPG, PNG, or PDF copy of the exam confirmation.';
+  }
+  if (/not found|404|no longer available|is not available|unknown model/i.test(message)) {
+    return 'The AI model is not available for this Gemini API key. Please set GEMINI_MODEL in Hostinger to a current Gemini Flash model.';
   }
   if (/api key|permission|unauthorized|forbidden|401|403/i.test(message)) {
     return 'The AI service is not authorized. Please check the Gemini API key in Hostinger.';
@@ -30,8 +32,7 @@ function getAiExtractionErrorMessage(error: unknown): string {
 export async function extractExamDetails(
   photoDataUri: string
 ): Promise<ExamDetails> {
-  const llmResponse = await ai.generate({
-    model: googleAI.model('gemini-2.5-flash'),
+  const llmResponse = await generateWithGemini({
     output: { schema: ExamDetailsSchema },
     prompt: [
       {

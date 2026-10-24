@@ -3,8 +3,7 @@
  * @fileOverview Extracts business expense details from a receipt image.
  */
 
-import { googleAI } from '@genkit-ai/google-genai';
-import { ai } from '@/ai/genkit';
+import { generateWithGemini } from '@/ai/genkit';
 import {
   ReceiptExpenseDetailsSchema,
   type ReceiptExpenseDetails,
@@ -19,6 +18,9 @@ function getReceiptExtractionErrorMessage(error: unknown): string {
 
   if (/unsupported mime|unsupported.*file|image format|invalid image|media/i.test(message)) {
     return 'That receipt file is not supported. Please try a clear JPG or PNG photo.';
+  }
+  if (/not found|404|no longer available|is not available|unknown model/i.test(message)) {
+    return 'The AI model is not available for this Gemini API key. Please set GEMINI_MODEL in Hostinger to a current Gemini Flash model.';
   }
   if (/api key|permission|unauthorized|forbidden|401|403/i.test(message)) {
     return 'The AI service is not authorized. Please check the Gemini API key in Hostinger.';
@@ -36,8 +38,7 @@ function getReceiptExtractionErrorMessage(error: unknown): string {
 export async function extractReceiptExpense(
   receiptDataUri: string
 ): Promise<ReceiptExpenseDetails> {
-  const llmResponse = await ai.generate({
-    model: googleAI.model('gemini-2.5-flash'),
+  const llmResponse = await generateWithGemini({
     output: { schema: ReceiptExpenseDetailsSchema },
     prompt: [
       {
