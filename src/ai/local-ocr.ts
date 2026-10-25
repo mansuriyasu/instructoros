@@ -23,6 +23,11 @@ function isSupportedImageDataUri(value: string): boolean {
 
 export async function recognizeDocumentText(dataUri: string): Promise<OcrResult | null> {
   if (!isSupportedImageDataUri(dataUri)) return null;
+  // Some managed Node hosts block worker-thread initialization. Keep local OCR
+  // available for development and for production hosts that explicitly enable it.
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_LOCAL_OCR !== 'true') {
+    return null;
+  }
 
   return withOcrLock(async () => {
     const { mkdir } = await import('node:fs/promises');
