@@ -3,7 +3,7 @@
  * @fileOverview Extracts business expense details from a receipt image.
  */
 
-import { generateWithGemini } from '@/ai/genkit';
+import { generateWithAiFallback } from '@/ai/genkit';
 import {
   ReceiptExpenseDetailsSchema,
   type ReceiptExpenseDetails,
@@ -20,10 +20,10 @@ function getReceiptExtractionErrorMessage(error: unknown): string {
     return 'That receipt file is not supported. Please try a clear JPG or PNG photo.';
   }
   if (/not found|404|no longer available|is not available|unknown model/i.test(message)) {
-    return 'The AI model is not available for this Gemini API key. Please set GEMINI_MODEL in Hostinger to a current Gemini Flash model.';
+    return 'The configured AI model is unavailable. Please check the AI model settings in Hostinger.';
   }
   if (/api key|permission|unauthorized|forbidden|401|403/i.test(message)) {
-    return 'The AI service is not authorized. Please check the Gemini API key in Hostinger.';
+    return 'The AI service is not authorized. Please check the AI credentials in Hostinger.';
   }
   if (/quota|rate limit|resource exhausted|429/i.test(message)) {
     return 'The AI service is temporarily rate limited. Please try again shortly.';
@@ -38,7 +38,7 @@ function getReceiptExtractionErrorMessage(error: unknown): string {
 export async function extractReceiptExpense(
   receiptDataUri: string
 ): Promise<ReceiptExpenseDetails> {
-  const llmResponse = await generateWithGemini({
+  const llmResponse = await generateWithAiFallback({
     output: { schema: ReceiptExpenseDetailsSchema },
     prompt: [
       {

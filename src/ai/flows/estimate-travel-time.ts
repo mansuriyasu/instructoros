@@ -1,6 +1,6 @@
 'use server';
 
-import { generateWithGemini } from '@/ai/genkit';
+import { generateWithAiFallback } from '@/ai/genkit';
 import { TravelTimeEstimationSchema, type TravelTimeEstimation } from './types';
 
 export type EstimateTravelTimeResult =
@@ -11,7 +11,7 @@ export async function estimateTravelTime(
   origin: string,
   destination: string
 ): Promise<TravelTimeEstimation> {
-  const llmResponse = await generateWithGemini({
+  const llmResponse = await generateWithAiFallback({
     output: { schema: TravelTimeEstimationSchema },
     prompt: `You are an expert mapping and logistics assistant. Estimate the typical driving time (in minutes) between the following two addresses:
 Origin: ${origin}

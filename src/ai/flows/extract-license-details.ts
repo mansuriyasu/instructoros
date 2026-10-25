@@ -5,7 +5,7 @@
  * - extractLicenseDetails - A function that extracts details from a license image.
  */
 
-import { generateWithGemini } from '@/ai/genkit';
+import { generateWithAiFallback } from '@/ai/genkit';
 import { LicenseDetailsSchema, type LicenseDetails } from './types';
 
 export type ExtractLicenseDetailsResult =
@@ -19,10 +19,10 @@ function getAiExtractionErrorMessage(error: unknown): string {
     return 'That file format is not supported. Please try a clear JPG, PNG, or PDF copy of the license.';
   }
   if (/not found|404|no longer available|is not available|unknown model/i.test(message)) {
-    return 'The AI model is not available for this Gemini API key. Please set GEMINI_MODEL in Hostinger to a current Gemini Flash model.';
+    return 'The configured AI model is unavailable. Please check the AI model settings in Hostinger.';
   }
   if (/api key|permission|unauthorized|forbidden|401|403/i.test(message)) {
-    return 'The AI service is not authorized. Please check the Gemini API key in Hostinger.';
+    return 'The AI service is not authorized. Please check the AI credentials in Hostinger.';
   }
   if (/quota|rate limit|resource exhausted|429/i.test(message)) {
     return 'The AI service is temporarily rate limited. Please try again shortly.';
@@ -37,7 +37,7 @@ function getAiExtractionErrorMessage(error: unknown): string {
 export async function extractLicenseDetails(
   photoDataUri: string
 ): Promise<LicenseDetails> {
-  const llmResponse = await generateWithGemini({
+  const llmResponse = await generateWithAiFallback({
     output: { schema: LicenseDetailsSchema },
     prompt: [
       {
