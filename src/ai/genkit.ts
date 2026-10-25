@@ -23,9 +23,16 @@ function isModelUnavailableError(error: unknown): boolean {
   return /not found|404|not supported for generatecontent|no longer available|is not available|deprecated|unknown model|model .* (does not exist|unavailable)/i.test(message);
 }
 
+function isDailyModelQuotaExhaustedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /generate content requests per day limit exceeded|GenerateRequestsPerDayPerProjectPerModel/i.test(message);
+}
+
 /**
- * Runs ai.generate against GEMINI_MODELS, moving to the next model only when
- * the current one is unavailable to this API key. Other errors are rethrown.
+ * Runs ai.generate against GEMINI_MODELS, moving to the next model when the
+ * current one is unavailable or its model-specific daily quota is exhausted.
+ * Short-lived rate limits are rethrown so one request cannot consume quota
+ * across every model during a temporary traffic spike.
  */
 export async function generateWithGemini<O extends z.ZodTypeAny = z.ZodTypeAny>(
   options: Omit<GenerateOptions<O>, 'model'>
@@ -36,8 +43,9 @@ export async function generateWithGemini<O extends z.ZodTypeAny = z.ZodTypeAny>(
       return await ai.generate<O>({ ...options, model: `googleai/${modelName}` });
     } catch (error) {
       lastError = error;
-      if (!isModelUnavailableError(error)) throw error;
-      console.warn(`Gemini model ${modelName} unavailable, trying next model:`, error instanceof Error ? error.message : error);
+      const canTryNextModel = isModelUnavailableError(error) || isDailyModelQuotaExhaustedError(error);
+      if (!canTryNextModel) throw error;
+      console.warn(`Gemini model ${modelName} unavailable or out of daily quota, trying next model:`, error instanceof Error ? error.message : error);
     }
   }
   throw lastError;
