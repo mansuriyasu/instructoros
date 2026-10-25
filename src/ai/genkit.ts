@@ -85,6 +85,21 @@ function toClaudeContent(prompt: GenerateOptions['prompt']): ContentBlockParam[]
   });
 }
 
+function toClaudeJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
+  const normalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(normalize);
+    if (!value || typeof value !== 'object') return value;
+
+    const result = Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, normalize(child)])
+    ) as Record<string, unknown>;
+    if (result.type === 'object') result.additionalProperties = false;
+    return result;
+  };
+
+  return normalize(toJsonSchema({ schema }) ?? {}) as Record<string, unknown>;
+}
+
 async function generateWithClaude<O extends z.ZodTypeAny>(
   options: Omit<GenerateOptions<O>, 'model'>
 ): Promise<z.infer<O>> {
@@ -102,7 +117,7 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
     output_config: {
       format: {
         type: 'json_schema',
-        schema: toJsonSchema({ schema }) ?? {},
+        schema: toClaudeJsonSchema(schema),
       },
     },
   });
