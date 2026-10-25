@@ -23,6 +23,65 @@ import { useServices } from '@/hooks/use-services';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 
 const CUSTOM_EXAM_CENTER_VALUE = '__custom_exam_center__';
+const EXAM_SCAN_TIMEOUT_MS = 28_000;
+
+type ExamScanResult = {
+  ok: boolean;
+  error?: string;
+  details?: {
+    studentName?: string;
+    examCenter?: string;
+    examDate?: string;
+    examTime?: string;
+  };
+};
+
+async function scanExamPhoto(photoDataUri: string): Promise<ExamScanResult> {
+  const authenticatedHeaders = await getAuthenticatedHeaders();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), EXAM_SCAN_TIMEOUT_MS);
+
+    try {
+      const response = await fetch('/api/exam-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authenticatedHeaders },
+        body: JSON.stringify({ photoDataUri }),
+        signal: controller.signal,
+      });
+      const responseText = await response.text();
+      const canRetryServerFailure = attempt === 0 && [502, 503, 504].includes(response.status);
+      if (canRetryServerFailure) continue;
+      if (!responseText) {
+        throw new Error('The scan service did not return a response. Please try again.');
+      }
+      let result: ExamScanResult;
+
+      try {
+        result = JSON.parse(responseText) as ExamScanResult;
+      } catch {
+        throw new Error('The scan service returned an invalid response. Please try again.');
+      }
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'Could not extract the exam details.');
+      }
+      return result;
+    } catch (error) {
+      const isNetworkFailure = error instanceof TypeError || (error instanceof Error && error.name === 'AbortError');
+      if (attempt === 0 && isNetworkFailure) continue;
+      if (isNetworkFailure) {
+        throw new Error('The scan connection was interrupted. Please check your connection and try again.');
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  throw new Error('Could not connect to the scan service. Please try again.');
+}
 
 function getStudentFirstName(fullName: string) {
   const normalizedName = fullName.trim();
@@ -157,22 +216,17 @@ export function ExamSchedulerDialog({
         const savedImage = await compressImage(e.target.files[0], 700, 0.45);
         setExamImageDataUri(savedImage);
         
-        const res = await fetch('/api/exam-scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(await getAuthenticatedHeaders()) },
-          body: JSON.stringify({ photoDataUri: base64 }),
-        });
-        const result = await res.json();
+        const result = await scanExamPhoto(base64);
+        if (!result.details) throw new Error('The scan completed without exam details. Please try again.');
+        const details = result.details;
         
-        if (!result.ok) throw new Error(result.error);
-        
-        setStudentName(result.details.studentName || '');
-        const extractedCenter = result.details.examCenter || '';
+        setStudentName(details.studentName || '');
+        const extractedCenter = details.examCenter || '';
         const matchedExamCenter = findExamCenterService(extractedCenter);
         setSelectedExamCenterServiceId(matchedExamCenter?.id || (extractedCenter ? CUSTOM_EXAM_CENTER_VALUE : ''));
         setExamCenter(matchedExamCenter?.name || extractedCenter);
-        setExamDate(result.details.examDate || '');
-        setExamTime(result.details.examTime || '');
+        setExamDate(details.examDate || '');
+        setExamTime(details.examTime || '');
         
         const examServiceMatch = billableServices?.find(service => {
           const name = service.name.toLowerCase();
@@ -183,10 +237,11 @@ export function ExamSchedulerDialog({
         if (initialStudentId) {
             const initialStudent = students?.find(s => s.id === initialStudentId);
             setSelectedStudentId(initialStudentId);
-            setStudentName(initialStudent?.name || result.details.studentName || '');
+            setStudentName(initialStudent?.name || details.studentName || '');
             setIsCreatingStudent(false);
-        } else if (result.details.studentName) {
-            const match = students?.find(s => s.name.toLowerCase() === result.details.studentName.toLowerCase());
+        } else if (details.studentName) {
+            const extractedStudentName = details.studentName.toLowerCase();
+            const match = students?.find(s => s.name.toLowerCase() === extractedStudentName);
             if (match) setSelectedStudentId(match.id);
             else setIsCreatingStudent(true);
         }

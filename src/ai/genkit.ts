@@ -16,8 +16,8 @@ export const ai = genkit({
 // without a code change. gemini-2.5-flash stays last as a fallback: Google only
 // serves 2.5 models to API keys that already used them, so fresh keys get 404s.
 const DEFAULT_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
-const GEMINI_REQUEST_TIMEOUT_MS = 12_000;
-const CLAUDE_REQUEST_TIMEOUT_MS = 30_000;
+const GEMINI_REQUEST_TIMEOUT_MS = 7_000;
+const CLAUDE_REQUEST_TIMEOUT_MS = 17_000;
 
 export const GEMINI_MODELS = Array.from(
   new Set([process.env.GEMINI_MODEL?.trim(), ...DEFAULT_GEMINI_MODELS].filter(Boolean) as string[])
@@ -113,7 +113,7 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
 
   const client = new Anthropic({
     apiKey,
-    maxRetries: 1,
+    maxRetries: 0,
     timeout: CLAUDE_REQUEST_TIMEOUT_MS,
   });
   const response = await client.messages.create({
