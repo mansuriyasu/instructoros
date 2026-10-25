@@ -16,6 +16,7 @@ export const ai = genkit({
 // without a code change. gemini-2.5-flash stays last as a fallback: Google only
 // serves 2.5 models to API keys that already used them, so fresh keys get 404s.
 const DEFAULT_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
+const GROQ_REQUEST_TIMEOUT_MS = 12_000;
 const GEMINI_REQUEST_TIMEOUT_MS = 7_000;
 const CLAUDE_REQUEST_TIMEOUT_MS = 17_000;
 
@@ -87,7 +88,7 @@ function toClaudeContent(prompt: GenerateOptions['prompt']): ContentBlockParam[]
   });
 }
 
-function toClaudeJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
+function toOutputJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   const normalize = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(normalize);
     if (!value || typeof value !== 'object') return value;
@@ -100,6 +101,75 @@ function toClaudeJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   };
 
   return normalize(toJsonSchema({ schema }) ?? {}) as Record<string, unknown>;
+}
+
+type GroqContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+function toGroqContent(prompt: GenerateOptions['prompt']): GroqContentPart[] {
+  if (typeof prompt === 'string') return [{ type: 'text', text: prompt }];
+  if (!Array.isArray(prompt)) throw new Error('Groq received an unsupported prompt format.');
+
+  return prompt.map((part) => {
+    if ('text' in part && typeof part.text === 'string') {
+      return { type: 'text', text: part.text };
+    }
+    if ('media' in part && part.media && typeof part.media.url === 'string') {
+      if (!part.media.url.startsWith('data:image/')) {
+        throw new Error('Groq vision only accepts image media.');
+      }
+      return { type: 'image_url', image_url: { url: part.media.url } };
+    }
+    throw new Error('Groq received an unsupported prompt part.');
+  });
+}
+
+async function generateWithGroq<O extends z.ZodTypeAny>(
+  options: Omit<GenerateOptions<O>, 'model'>
+): Promise<z.infer<O>> {
+  const apiKey = process.env.GROQ_API_KEY?.trim();
+  const schema = options.output?.schema;
+  if (!apiKey || !schema) throw new Error('Groq fallback is not configured.');
+
+  const content = toGroqContent(options.prompt);
+  const schemaJson = JSON.stringify(toOutputJsonSchema(schema));
+  content.unshift({
+    type: 'text',
+    text: `Return only one valid JSON object matching this JSON Schema. Do not use markdown fences. Schema: ${schemaJson}`,
+  });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GROQ_REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL?.trim() || 'qwen/qwen3.8-27b',
+        messages: [{ role: 'user', content }],
+        response_format: { type: 'json_object' },
+        temperature: 0,
+        max_completion_tokens: 2048,
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Groq ${response.status}: ${body.slice(0, 500)}`);
+    }
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const text = payload.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error('Groq did not return structured output.');
+    return schema.parse(JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')));
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function generateWithClaude<O extends z.ZodTypeAny>(
@@ -123,7 +193,7 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
     output_config: {
       format: {
         type: 'json_schema',
-        schema: toClaudeJsonSchema(schema),
+        schema: toOutputJsonSchema(schema),
       },
     },
   });
@@ -139,13 +209,23 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
 }
 
 /**
- * Tries Gemini first, moving across model-specific daily quotas, then uses
- * Claude for provider outages, rate limits, or authorization failures.
+ * Uses Groq's free vision/text tier first, then Gemini model quotas, and
+ * finally Claude for provider outages, rate limits, or authorization failures.
  */
 export async function generateWithAiFallback<O extends z.ZodTypeAny = z.ZodTypeAny>(
   options: Omit<GenerateOptions<O>, 'model'>
 ): Promise<{ output: z.infer<O> }> {
   let lastError: unknown;
+
+  if (process.env.GROQ_API_KEY?.trim()) {
+    try {
+      return { output: await generateWithGroq(options) };
+    } catch (error) {
+      lastError = error;
+      console.warn('Groq provider unavailable, using Gemini fallback:', error instanceof Error ? error.message : error);
+    }
+  }
+
   for (const modelName of GEMINI_MODELS) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
@@ -158,7 +238,7 @@ export async function generateWithAiFallback<O extends z.ZodTypeAny = z.ZodTypeA
       return { output: response.output };
     } catch (error) {
       lastError = error;
-      const canTryNextModel = isModelUnavailableError(error);
+      const canTryNextModel = isModelUnavailableError(error) || isDailyModelQuotaExhaustedError(error);
       if (!canTryNextModel) break;
       console.warn(`Gemini model ${modelName} unavailable, trying next model:`, error instanceof Error ? error.message : error);
     } finally {

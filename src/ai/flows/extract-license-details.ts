@@ -6,6 +6,7 @@
  */
 
 import { generateWithAiFallback } from '@/ai/genkit';
+import { parseLicenseOcr, recognizeDocumentText } from '@/ai/local-ocr';
 import { LicenseDetailsSchema, type LicenseDetails } from './types';
 
 export type ExtractLicenseDetailsResult =
@@ -37,6 +38,19 @@ function getAiExtractionErrorMessage(error: unknown): string {
 export async function extractLicenseDetails(
   photoDataUri: string
 ): Promise<LicenseDetails> {
+  try {
+    const local = await recognizeDocumentText(photoDataUri);
+    if (local) {
+      const details = parseLicenseOcr(local.text, local.confidence);
+      if (details) {
+        console.info('Licence details extracted with local OCR.');
+        return details;
+      }
+    }
+  } catch (error) {
+    console.warn('Local licence OCR unavailable, using AI provider:', error instanceof Error ? error.message : error);
+  }
+
   const llmResponse = await generateWithAiFallback({
     output: { schema: LicenseDetailsSchema },
     prompt: [

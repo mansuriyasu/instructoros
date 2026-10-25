@@ -1,6 +1,7 @@
 'use server';
 
 import { generateWithAiFallback } from '@/ai/genkit';
+import { parseExamOcr, recognizeDocumentText } from '@/ai/local-ocr';
 import { ExamDetailsSchema, type ExamDetails } from './types';
 
 export type ExtractExamDetailsResult =
@@ -32,6 +33,19 @@ function getAiExtractionErrorMessage(error: unknown): string {
 export async function extractExamDetails(
   photoDataUri: string
 ): Promise<ExamDetails> {
+  try {
+    const local = await recognizeDocumentText(photoDataUri);
+    if (local) {
+      const details = parseExamOcr(local.text, local.confidence);
+      if (details) {
+        console.info('Exam details extracted with local OCR.');
+        return details;
+      }
+    }
+  } catch (error) {
+    console.warn('Local exam OCR unavailable, using AI provider:', error instanceof Error ? error.message : error);
+  }
+
   const llmResponse = await generateWithAiFallback({
     output: { schema: ExamDetailsSchema },
     prompt: [

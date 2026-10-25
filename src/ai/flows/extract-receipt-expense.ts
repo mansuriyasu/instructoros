@@ -4,6 +4,7 @@
  */
 
 import { generateWithAiFallback } from '@/ai/genkit';
+import { parseReceiptOcr, recognizeDocumentText } from '@/ai/local-ocr';
 import {
   ReceiptExpenseDetailsSchema,
   type ReceiptExpenseDetails,
@@ -38,6 +39,19 @@ function getReceiptExtractionErrorMessage(error: unknown): string {
 export async function extractReceiptExpense(
   receiptDataUri: string
 ): Promise<ReceiptExpenseDetails> {
+  try {
+    const local = await recognizeDocumentText(receiptDataUri);
+    if (local) {
+      const details = parseReceiptOcr(local.text, local.confidence);
+      if (details) {
+        console.info('Receipt details extracted with local OCR.');
+        return details;
+      }
+    }
+  } catch (error) {
+    console.warn('Local receipt OCR unavailable, using AI provider:', error instanceof Error ? error.message : error);
+  }
+
   const llmResponse = await generateWithAiFallback({
     output: { schema: ReceiptExpenseDetailsSchema },
     prompt: [
