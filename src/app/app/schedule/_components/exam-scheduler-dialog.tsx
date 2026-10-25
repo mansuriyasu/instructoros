@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Car, MapPin, Upload, Plus } from 'lucide-react';
+import { Loader2, Car, MapPin, Upload, Plus, Trash2 } from 'lucide-react';
 import { useStudents } from '@/hooks/use-students';
 import { CalendarEvent, InstructorOption } from '@/lib/types';
 import { compressImage } from '@/lib/image-utils';
@@ -161,7 +161,7 @@ export function ExamSchedulerDialog({
   const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [newStudentAddress, setNewStudentAddress] = useState('');
   const [isCreatingStudent, setIsCreatingStudent] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(['']);
   const [selectedExamCenterServiceId, setSelectedExamCenterServiceId] = useState('');
 
   // Time calculations
@@ -175,9 +175,13 @@ export function ExamSchedulerDialog({
     return examCenterServices.find(service => service.id === selectedExamCenterServiceId) || null;
   }, [examCenterServices, selectedExamCenterServiceId]);
 
-  const selectedBillableService = useMemo(() => {
-    return billableServices.find(service => service.id === selectedServiceId) || null;
-  }, [billableServices, selectedServiceId]);
+  const selectedBillableServices = useMemo(() => {
+    return [...new Set(selectedServiceIds.filter(Boolean))]
+      .map(serviceId => billableServices.find(service => service.id === serviceId))
+      .filter((service): service is NonNullable<typeof service> => Boolean(service));
+  }, [billableServices, selectedServiceIds]);
+
+  const primaryBillableService = selectedBillableServices[0] || null;
 
   useEffect(() => {
     if (!isOpen || !canManageInstructorSchedules || selectedInstructorId || instructors.length === 0) return;
@@ -232,7 +236,7 @@ export function ExamSchedulerDialog({
           const name = service.name.toLowerCase();
           return name.includes('exam') || name.includes('road test') || name.includes('test');
         });
-        if (examServiceMatch) setSelectedServiceId(examServiceMatch.id);
+        if (examServiceMatch) setSelectedServiceIds([examServiceMatch.id]);
         
         if (initialStudentId) {
             const initialStudent = students?.find(s => s.id === initialStudentId);
@@ -262,7 +266,7 @@ export function ExamSchedulerDialog({
         let originAddress = '';
         const finalExamCenter = resolvedExamCenter;
 
-        if (!selectedBillableService) {
+        if (!primaryBillableService) {
             showServiceRequiredToast();
             setIsProcessing(false);
             return;
@@ -366,7 +370,7 @@ export function ExamSchedulerDialog({
             return;
         }
         
-        const examService = selectedBillableService;
+        const examService = primaryBillableService;
         if (!examService) {
             showServiceRequiredToast();
             setIsProcessing(false);
@@ -375,9 +379,10 @@ export function ExamSchedulerDialog({
 
         // Keep both billable choices on the event so POS can import the exam
         // service and the selected exam-centre/location charge together.
-        const eventServices = selectedExamCenterService && selectedExamCenterService.id !== examService.id
-          ? [examService, selectedExamCenterService]
-          : [examService];
+        const eventServices = [...selectedBillableServices];
+        if (selectedExamCenterService && !eventServices.some(service => service.id === selectedExamCenterService.id)) {
+          eventServices.push(selectedExamCenterService);
+        }
 
         if (canManageInstructorSchedules && instructors.length > 0 && !selectedInstructorId) {
             toast({ title: "Validation Error", description: "Please select the instructor for this exam schedule." });
@@ -432,7 +437,7 @@ export function ExamSchedulerDialog({
     setExamImageDataUri('');
     setSelectedStudentId('');
     setSelectedInstructorId('');
-    setSelectedServiceId('');
+    setSelectedServiceIds(['']);
     setSelectedExamCenterServiceId('');
     setNewStudentAddress('');
     setIsCreatingStudent(false);
@@ -532,24 +537,63 @@ export function ExamSchedulerDialog({
                     )}
                 </div>
                 <div className="col-span-2 space-y-2">
-                    <Label>Service</Label>
+                    <div>
+                        <Label>Services</Label>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Add everything included in this booking.</p>
+                    </div>
                     {billableServices.length === 0 && (
                         <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                             Add a service in Services before scheduling exams.
                         </p>
                     )}
-                    <select
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={selectedServiceId}
-                        onChange={e => {
-                            setSelectedServiceId(e.target.value);
-                        }}
-                    >
-                        <option value="">Select a service...</option>
-                        {billableServices.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
+                    <div className="space-y-2">
+                        {selectedServiceIds.map((selectedServiceId, index) => (
+                            <div key={`${index}-${selectedServiceId}`} className="flex items-center gap-2">
+                                <select
+                                    aria-label={`Service ${index + 1}`}
+                                    className="flex h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={selectedServiceId}
+                                    onChange={e => {
+                                        const nextServiceIds = [...selectedServiceIds];
+                                        nextServiceIds[index] = e.target.value;
+                                        setSelectedServiceIds(nextServiceIds);
+                                    }}
+                                >
+                                    <option value="">Select a service...</option>
+                                    {billableServices.map(service => (
+                                        <option
+                                            key={service.id}
+                                            value={service.id}
+                                            disabled={service.id !== selectedServiceId && selectedServiceIds.includes(service.id)}
+                                        >
+                                            {service.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {selectedServiceIds.length > 1 && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label={`Remove service ${index + 1}`}
+                                        onClick={() => setSelectedServiceIds(current => current.filter((_, serviceIndex) => serviceIndex !== index))}
+                                    >
+                                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
+                                )}
+                            </div>
                         ))}
-                    </select>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={billableServices.length === 0 || selectedServiceIds.includes('') || selectedServiceIds.filter(Boolean).length >= billableServices.length}
+                        onClick={() => setSelectedServiceIds(current => [...current, ''])}
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Service
+                    </Button>
                 </div>
                 {canManageInstructorSchedules && instructors.length > 0 && (
                     <div className="col-span-2 space-y-2">
