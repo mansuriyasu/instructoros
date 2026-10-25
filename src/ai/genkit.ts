@@ -16,6 +16,8 @@ export const ai = genkit({
 // without a code change. gemini-2.5-flash stays last as a fallback: Google only
 // serves 2.5 models to API keys that already used them, so fresh keys get 404s.
 const DEFAULT_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
+const GEMINI_REQUEST_TIMEOUT_MS = 12_000;
+const CLAUDE_REQUEST_TIMEOUT_MS = 30_000;
 
 export const GEMINI_MODELS = Array.from(
   new Set([process.env.GEMINI_MODEL?.trim(), ...DEFAULT_GEMINI_MODELS].filter(Boolean) as string[])
@@ -36,7 +38,7 @@ function isProviderFailoverError(error: unknown): boolean {
   return (
     isModelUnavailableError(error) ||
     isDailyModelQuotaExhaustedError(error) ||
-    /quota|rate limit|resource exhausted|429|api key|permission|unauthorized|forbidden|401|403|service unavailable|5\d\d|fetch failed|network/i.test(message)
+    /quota|rate limit|resource exhausted|429|api key|permission|unauthorized|forbidden|401|403|service unavailable|5\d\d|fetch failed|network|abort|timeout|timed out/i.test(message)
   );
 }
 
@@ -109,7 +111,11 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
     throw new Error('Claude fallback is not configured.');
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({
+    apiKey,
+    maxRetries: 1,
+    timeout: CLAUDE_REQUEST_TIMEOUT_MS,
+  });
   const response = await client.messages.create({
     model: process.env.ANTHROPIC_MODEL?.trim() || 'claude-haiku-4-5',
     max_tokens: 2048,
@@ -141,14 +147,22 @@ export async function generateWithAiFallback<O extends z.ZodTypeAny = z.ZodTypeA
 ): Promise<{ output: z.infer<O> }> {
   let lastError: unknown;
   for (const modelName of GEMINI_MODELS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
     try {
-      const response = await ai.generate<O>({ ...options, model: `googleai/${modelName}` });
+      const response = await ai.generate<O>({
+        ...options,
+        model: `googleai/${modelName}`,
+        abortSignal: controller.signal,
+      });
       return { output: response.output };
     } catch (error) {
       lastError = error;
-      const canTryNextModel = isModelUnavailableError(error) || isDailyModelQuotaExhaustedError(error);
+      const canTryNextModel = isModelUnavailableError(error);
       if (!canTryNextModel) break;
-      console.warn(`Gemini model ${modelName} unavailable or out of daily quota, trying next model:`, error instanceof Error ? error.message : error);
+      console.warn(`Gemini model ${modelName} unavailable, trying next model:`, error instanceof Error ? error.message : error);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
