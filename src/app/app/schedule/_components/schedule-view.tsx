@@ -27,8 +27,7 @@ import { useEvents } from '@/hooks/use-events';
 import { usePayments } from '@/hooks/use-payments';
 import { useServices } from '@/hooks/use-services';
 import { useStudents } from '@/hooks/use-students';
-import { useWhatsAppLogs } from '@/hooks/use-whatsapp-logs';
-import { useTwilioSms } from '@/hooks/use-twilio-sms';
+import { StudentEmailError, useStudentEmail } from '@/hooks/use-student-email';
 import { MonthView } from './month-view';
 import { WeekView } from './week-view';
 import { DayView } from './day-view';
@@ -44,7 +43,7 @@ import { cn } from '@/lib/utils';
 import { getAuthenticatedHeaders } from '@/lib/authenticated-fetch';
 import { createPaymentTransaction, getStudentAdvanceCredit } from '@/lib/payment-utils';
 import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, calculateTaxAmount, roundCurrency } from '@/lib/tax';
-import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
+import { MissingEmailDialog } from '@/app/app/_components/missing-email-dialog';
 import { Student } from '@/lib/types';
 import {
   AlertDialog,
@@ -93,7 +92,7 @@ export function ScheduleView() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [conflictData, setConflictData] = useState<{
     eventData: Omit<CalendarEvent, 'id'> | CalendarEvent;
-    sendSms: boolean;
+    sendEmail: boolean;
     overlapList: string[];
     travelWarnings: string[];
   } | null>(null);
@@ -112,8 +111,8 @@ export function ScheduleView() {
   }, [notificationDate]);
   const [examStudentIdForDialog, setExamStudentIdForDialog] = useState<string | undefined>(undefined);
   const [studentIdForDialog, setStudentIdForDialog] = useState<string | undefined>(undefined);
-  const [missingPhoneStudent, setMissingPhoneStudent] = useState<Student | null>(null);
-  const [pendingSmsData, setPendingSmsData] = useState<{ finalData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean } | null>(null);
+  const [missingEmailStudent, setMissingEmailStudent] = useState<Student | null>(null);
+  const [pendingEmailData, setPendingEmailData] = useState<{ finalData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean } | null>(null);
 
   const [isOptimizerDialogOpen, setIsOptimizerDialogOpen] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -137,8 +136,7 @@ export function ScheduleView() {
   const calendarSync = useCalendarReconciliation(allEvents, isConnected, isEventsLoading);
   const { enqueue: enqueueGoogleSync } = calendarSync;
   const { toast } = useToast();
-  const { sendAndLogWhatsApp } = useWhatsAppLogs();
-  const { sendSms: sendTwilioSms } = useTwilioSms();
+  const { sendStudentEmail } = useStudentEmail();
 
   const membersQuery = useMemoFirebase(
     () => (firestore && activeTenantId && canManageTenant
@@ -223,7 +221,7 @@ export function ScheduleView() {
     || isDetailsDialogOpen
     || isExamDialogOpen
     || Boolean(conflictData)
-    || Boolean(missingPhoneStudent);
+    || Boolean(missingEmailStudent);
 
   useEffect(() => {
     if (!isScheduleOverlayOpen) {
@@ -670,7 +668,7 @@ export function ScheduleView() {
     return { overlapList, travelWarnings };
   };
 
-  const buildScheduleSmsMessage = (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean) => {
+  const buildScheduleMessage = (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean) => {
     const services = eventData.services?.map(service => service.name).filter(Boolean).join(', ');
     const start = new Date(eventData.start);
     const end = new Date(eventData.end);
@@ -686,21 +684,6 @@ export function ScheduleView() {
     ].filter(Boolean).join('\n\n');
   };
 
-  const buildScheduleWhatsappVariables = (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean) => {
-    const services = eventData.services?.map(service => service.name).filter(Boolean).join(', ') || 'Driving lesson';
-    const start = new Date(eventData.start);
-    const end = new Date(eventData.end);
-
-    return {
-      1: eventData.studentName,
-      2: isUpdate ? 'updated' : 'scheduled',
-      3: format(start, 'EEE, MMM d'),
-      4: `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`,
-      5: services,
-      6: eventData.studentAddress || 'your pickup address on file',
-    };
-  };
-
   const handleSendWhatsAppEvent = (eventData: CalendarEvent) => {
     if (!eventData.studentId || eventData.studentName === 'N/A') return;
     const student = allStudents?.find(item => item.id === eventData.studentId);
@@ -708,38 +691,43 @@ export function ScheduleView() {
       toast({ variant: 'destructive', title: 'Error', description: 'Student missing mobile number.' });
       return;
     }
-    const message = buildScheduleSmsMessage(eventData, false);
+    const message = buildScheduleMessage(eventData, false);
     const cleanedNumber = student.mobileNumber.replace(/\D/g, '');
     const url = `https://api.whatsapp.com/send?phone=1${cleanedNumber}&text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
 
-  const sendScheduleSms = async (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean) => {
+  const sendLessonEmail = async (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, isUpdate: boolean) => {
     if (!eventData.studentId || eventData.studentName === 'N/A') return;
-
-    const student = allStudents?.find(item => item.id === eventData.studentId);
-    const mobileNumber = student?.mobileNumber?.trim();
-    if (!mobileNumber) return;
-
-    const body = buildScheduleSmsMessage(eventData, isUpdate);
     try {
-      await sendTwilioSms(mobileNumber, body);
+      const { to } = await sendStudentEmail(eventData.studentId, 'lesson', {
+        isUpdate,
+        start: new Date(eventData.start).toISOString(),
+        end: new Date(eventData.end).toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        services: eventData.services?.map(service => service.name).filter(Boolean).join(', ') || 'Driving lesson',
+        address: eventData.studentAddress || '',
+        eventId: 'id' in eventData ? eventData.id : undefined,
+      });
+      toast({ title: 'Lesson emailed', description: `Lesson details sent to ${to}.` });
     } catch (error) {
+      if (error instanceof StudentEmailError && error.code === 'missing_email') {
+        const student = allStudents?.find(item => item.id === eventData.studentId);
+        if (student) {
+          setMissingEmailStudent(student);
+          setPendingEmailData({ finalData: eventData, isUpdate });
+          return;
+        }
+      }
       toast({
         variant: 'destructive',
-        title: 'SMS not sent',
-        description: error instanceof Error ? error.message : 'Could not send the schedule message.',
+        title: 'Lesson email not sent',
+        description: error instanceof Error ? error.message : 'Could not send the lesson email.',
       });
-      return;
     }
-
-    toast({
-      title: 'SMS sent',
-      description: `Schedule message sent to ${eventData.studentName}.`,
-    });
   };
 
-  const handleSaveEvent = async (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, sendSms: boolean = true) => {
+  const handleSaveEvent = async (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, sendEmail: boolean = true) => {
     const eventWithInstructor = {
       ...eventData,
       instructorId: eventData.instructorId || user?.uid || null,
@@ -747,14 +735,14 @@ export function ScheduleView() {
     const { overlapList, travelWarnings } = await checkScheduleConflicts(eventWithInstructor);
     
     if (overlapList.length > 0 || travelWarnings.length > 0) {
-      setConflictData({ eventData: eventWithInstructor, sendSms, overlapList, travelWarnings });
+      setConflictData({ eventData: eventWithInstructor, sendEmail, overlapList, travelWarnings });
       return;
     }
 
-    await performSaveEvent(eventWithInstructor, sendSms);
+    await performSaveEvent(eventWithInstructor, sendEmail);
   };
 
-  const performSaveEvent = async (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, sendSms: boolean) => {
+  const performSaveEvent = async (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, sendEmail: boolean) => {
     setConflictData(null);
     const finalData = { ...eventData };
     const isUpdate = 'id' in finalData;
@@ -776,13 +764,13 @@ export function ScheduleView() {
     void ensureStudentAssignedToInstructor(finalData.studentId, finalData.instructorId);
     await syncGoogleEventAfterLocalSave(savedEventId, savedEventData);
 
-    if (sendSms) {
+    if (sendEmail) {
       const student = allStudents?.find(item => item.id === finalData.studentId);
-      if (student && !student.mobileNumber?.trim()) {
-        setMissingPhoneStudent(student);
-        setPendingSmsData({ finalData: savedEventData, isUpdate });
+      if (student && !student.email?.trim()) {
+        setMissingEmailStudent(student);
+        setPendingEmailData({ finalData: savedEventData, isUpdate });
       } else {
-        void sendScheduleSms(savedEventData, isUpdate);
+        void sendLessonEmail(savedEventData, isUpdate);
       }
     }
   };
@@ -1087,37 +1075,19 @@ export function ScheduleView() {
         canManageInstructorSchedules={isSchoolTenant && canManageTenant}
       />
 
-      <MissingPhoneDialog
-        isOpen={!!missingPhoneStudent}
-        student={missingPhoneStudent}
+      <MissingEmailDialog
+        isOpen={!!missingEmailStudent}
+        student={missingEmailStudent}
+        purpose="lesson details"
         onCancel={() => {
-          setMissingPhoneStudent(null);
-          setPendingSmsData(null);
+          setMissingEmailStudent(null);
+          setPendingEmailData(null);
         }}
-        onSuccess={async (updatedStudent) => {
-          setMissingPhoneStudent(null);
-          if (pendingSmsData) {
-            // Use the updated mobileNumber because the students list might not be updated yet.
-            const body = buildScheduleSmsMessage(pendingSmsData.finalData, pendingSmsData.isUpdate);
-            const result = await sendAndLogWhatsApp(updatedStudent.mobileNumber, body, {
-              templateKey: 'schedule',
-              variables: buildScheduleWhatsappVariables(pendingSmsData.finalData, pendingSmsData.isUpdate),
-            });
-
-            if (!result.ok) {
-              toast({
-                variant: 'destructive',
-                title: 'WhatsApp not opened',
-                description: result.error || 'Could not open the schedule message.',
-              });
-            } else {
-              toast({
-                title: 'WhatsApp message opened',
-                description: `Schedule message is ready for ${pendingSmsData.finalData.studentName}.`,
-              });
-            }
-
-            setPendingSmsData(null);
+        onSuccess={async () => {
+          setMissingEmailStudent(null);
+          if (pendingEmailData) {
+            await sendLessonEmail(pendingEmailData.finalData, pendingEmailData.isUpdate);
+            setPendingEmailData(null);
           }
         }}
       />
@@ -1166,7 +1136,7 @@ export function ScheduleView() {
               const pendingConflict = conflictData;
               setConflictData(null);
               if (pendingConflict) {
-                performSaveEvent(pendingConflict.eventData, pendingConflict.sendSms);
+                performSaveEvent(pendingConflict.eventData, pendingConflict.sendEmail);
               }
             }}>
               Save anyway

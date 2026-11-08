@@ -80,7 +80,7 @@ interface EventDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   event: CalendarEvent | null;
   selectedDate: Date | null;
-  onSave: (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, sendSms: boolean) => Promise<void> | void;
+  onSave: (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent, sendEmail: boolean) => Promise<void> | void;
   onDelete: (eventId: string) => void;
   instructors?: InstructorOption[];
   canManageInstructorSchedules?: boolean;
@@ -591,9 +591,9 @@ export function EventDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel className="font-semibold">Send message after saving</FormLabel>
+                    <FormLabel className="font-semibold">Email the student after saving</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Saves the schedule, then sends the appointment message to the student.
+                      Saves the schedule, then emails the lesson details and a calendar invite to the student.
                     </p>
                   </div>
                 </FormItem>

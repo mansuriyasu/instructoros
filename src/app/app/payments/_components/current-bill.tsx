@@ -14,7 +14,7 @@ import { formatPackageContents } from '@/lib/package-utils';
 import { useToast } from '@/hooks/use-toast';
 import { usePayments } from '@/hooks/use-payments';
 import { useEvents } from '@/hooks/use-events';
-import { useTwilioSms } from '@/hooks/use-twilio-sms';
+import { StudentEmailError, useStudentEmail } from '@/hooks/use-student-email';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { calculateAmountDue, calculatePaymentStatus, createPaymentTransaction, getStudentAdvanceCredit } from '@/lib/payment-utils';
-import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
+import { MissingEmailDialog } from '@/app/app/_components/missing-email-dialog';
 import { useSession } from '@/firebase';
 import { DEFAULT_TAX_LABEL, ONTARIO_HST_RATE, calculateTaxAmount, formatTaxLabel, roundCurrency } from '@/lib/tax';
 import { getWorkspaceAccess } from '@/lib/workspace-access';
@@ -69,7 +69,7 @@ export function CurrentBill({
 }: CurrentBillProps) {
   const { payments, addPayment, updatePayment } = usePayments();
   const { updateEvent } = useEvents(undefined, undefined, { load: false });
-  const { sendSms: sendTwilioSms } = useTwilioSms();
+  const { sendStudentEmail } = useStudentEmail();
   const { tenant } = useSession();
   const { toast } = useToast();
   const router = useRouter();
@@ -80,8 +80,8 @@ export function CurrentBill({
   const [amountPaidNow, setAmountPaidNow] = useState(0);
   const [applyTax, setApplyTax] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
-  const [sendSms, setSendSms] = useState(false);
-  const [missingPhoneStudent, setMissingPhoneStudent] = useState<Student | null>(null);
+  const [sendReceiptEmail, setSendReceiptEmail] = useState(false);
+  const [missingEmailStudent, setMissingEmailStudent] = useState<Student | null>(null);
   const [paymentDateIso, setPaymentDateIso] = useState(new Date().toISOString());
   const taxManuallySetRef = useRef(false);
   const taxRate = tenant?.taxRate ?? ONTARIO_HST_RATE;
@@ -262,14 +262,16 @@ export function CurrentBill({
           router.push('/app/payments/history');
         };
 
-        if (sendSms && selectedStudent && amountPaidNow > 0) {
-          if (!selectedStudent.mobileNumber?.trim()) {
-            setMissingPhoneStudent(selectedStudent);
-            // The MissingPhoneDialog saves the phone number before the SMS is sent.
-            // Wait, if it pops up, `handleFinalize` finishes and user is still on the page. We shouldn't route away immediately!
+        if (sendReceiptEmail && selectedStudent && amountPaidNow > 0) {
+          if (!selectedStudent.email?.trim()) {
+            // Stay on this page: the dialog saves the email, sends the receipt, then navigates.
+            setMissingEmailStudent(selectedStudent);
             return;
-          } else {
-            await sendPaymentSms(selectedStudent.mobileNumber, amountPaidNow, servicesDesc, selectedStudent.name);
+          }
+          const missingEmail = await sendPaymentEmail(selectedStudent.id, amountPaidNow, servicesDesc);
+          if (missingEmail) {
+            setMissingEmailStudent(selectedStudent);
+            return;
           }
         }
 
@@ -283,23 +285,20 @@ export function CurrentBill({
     }
   };
 
-  const sendPaymentSms = async (mobileNumber: string, amount: number, servicesDesc: string, studentName: string) => {
-    const senderName = tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor';
-    const body = `${senderName}: Received payment of $${amount} for ${servicesDesc}. Thank you!`;
+  /** Returns true when the student has no email saved, so the caller can ask for one. */
+  const sendPaymentEmail = async (studentId: string, amount: number, servicesDesc: string) => {
     try {
-      await sendTwilioSms(mobileNumber, body);
+      const { to } = await sendStudentEmail(studentId, 'payment', { amount, servicesDesc });
+      toast({ title: 'Receipt emailed', description: `Payment receipt sent to ${to}.` });
     } catch (error) {
+      if (error instanceof StudentEmailError && error.code === 'missing_email') return true;
       toast({
         variant: 'destructive',
-        title: 'SMS not sent',
-        description: error instanceof Error ? error.message : 'Could not send the payment message.',
+        title: 'Receipt email not sent',
+        description: error instanceof Error ? error.message : 'Could not send the payment receipt.',
       });
-      return;
     }
-    toast({
-      title: 'SMS sent',
-      description: `Payment receipt sent to ${studentName}.`,
-    });
+    return false;
   };
 
   const handleUpdateBill = async () => {
@@ -567,9 +566,9 @@ export function CurrentBill({
 
         {isFinalizing && selectedStudent && amountPaidNow > 0 && (
           <div className="flex items-center space-x-2 rounded-lg border bg-background px-3 py-3 shadow-sm">
-            <Checkbox id="sendSms" checked={sendSms} onCheckedChange={(checked) => setSendSms(checked as boolean)} />
-            <label htmlFor="sendSms" className="text-sm font-medium leading-none cursor-pointer">
-              Send SMS receipt
+            <Checkbox id="sendReceiptEmail" checked={sendReceiptEmail} onCheckedChange={(checked) => setSendReceiptEmail(checked as boolean)} />
+            <label htmlFor="sendReceiptEmail" className="text-sm font-medium leading-none cursor-pointer">
+              Email receipt to student
             </label>
           </div>
         )}
@@ -657,21 +656,21 @@ export function CurrentBill({
         </div>
       </CardFooter>
 
-      <MissingPhoneDialog
-        isOpen={!!missingPhoneStudent}
-        student={missingPhoneStudent}
+      <MissingEmailDialog
+        isOpen={!!missingEmailStudent}
+        student={missingEmailStudent}
+        purpose="payment receipt"
         onCancel={() => {
-          setMissingPhoneStudent(null);
-          // Navigate since they opted to skip the SMS.
+          setMissingEmailStudent(null);
+          // The payment is already saved; skipping only skips the receipt email.
           onReset();
           router.push('/app/payments/history');
         }}
         onSuccess={async (updatedStudent) => {
-          setMissingPhoneStudent(null);
-          // Send the SMS now that we have the number.
+          setMissingEmailStudent(null);
           const advanceOnly = isAdvancePayment && billItems.length === 0;
           const servicesDesc = advanceOnly ? 'Advance Payment' : billItems.map(item => item.name).join(', ');
-          await sendPaymentSms(updatedStudent.mobileNumber, amountPaidNow, servicesDesc, updatedStudent.name);
+          await sendPaymentEmail(updatedStudent.id, amountPaidNow, servicesDesc);
           onReset();
           router.push('/app/payments/history');
         }}

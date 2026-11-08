@@ -29,13 +29,13 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Camera, Download, Eye, FileImage, Loader2 } from 'lucide-react';
-import { useSession, useUser } from '@/firebase';
+import { useUser } from '@/firebase';
 import { getScanErrorMessage, prepareLicenseFileForAi, scanLicenseFile } from '@/lib/license-scan-client';
 import { useStorage } from '@/hooks/use-storage';
-import { MissingPhoneDialog } from '@/app/app/_components/missing-phone-dialog';
+import { MissingEmailDialog } from '@/app/app/_components/missing-email-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LicenseImagePreviewDialog } from '@/app/app/_components/license-image-preview-dialog';
-import { useTwilioSms } from '@/hooks/use-twilio-sms';
+import { useStudentEmail } from '@/hooks/use-student-email';
 import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 
 const studentSchema = z.object({
@@ -72,12 +72,11 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
   const router = useRouter();
   const { addStudent, updateStudent } = useStudents({ load: false });
   const { user, isUserLoading } = useUser();
-  const { tenant } = useSession();
-  const { sendSms: sendTwilioSms } = useTwilioSms();
+  const { sendStudentEmail } = useStudentEmail();
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [sendWelcomeSms, setSendWelcomeSms] = useState(false);
-  const [missingPhoneStudent, setMissingPhoneStudent] = useState<Student | null>(null);
+  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(false);
+  const [missingEmailStudent, setMissingEmailStudent] = useState<Student | null>(null);
   const [scannedAvatarUrl, setScannedAvatarUrl] = useState('');
   const [scannedLicenseUrl, setScannedLicenseUrl] = useState('');
   const [isLicensePreviewOpen, setIsLicensePreviewOpen] = useState(false);
@@ -134,33 +133,15 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     }
   }, [student, form]);
   
-  const sendWelcomeSmsMessage = async (mobileNumber: string, studentName: string) => {
-    const body = `Hello ${studentName}! Thank you for registering with your driving instructor. 🚗
-
-Before your driving lesson, please make sure you:
-
-✅ Bring your valid driver’s licence with you.
-✅ Wear comfortable, closed-toe shoes suitable for driving.
-❌ Do not wear slippers, flip-flops, high heels, or loose footwear, as they can affect your control of the vehicle.
-✅ Arrive 5–10 minutes before your scheduled lesson time.
-✅ Bring your glasses or contact lenses if your licence requires them.
-✅ Make sure you are well-rested and ready to focus on driving.
-✅ If you need to cancel or reschedule, please provide as much notice as possible.
-
-If you have any questions before your lesson, feel free to contact us.
-
-We look forward to helping you become a safe and confident driver!
-Thank you!
-${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Your driving instructor'}${tenant?.receiptWebsite ? `\n🌐 ${tenant.receiptWebsite}` : ''}`;
-
+  const sendWelcomeEmailMessage = async (studentId: string) => {
     try {
-      await sendTwilioSms(mobileNumber, body);
-      toast({ title: 'Welcome SMS sent', description: `Welcome message sent to ${studentName}.` });
+      const { to } = await sendStudentEmail(studentId, 'welcome');
+      toast({ title: 'Welcome email sent', description: `Welcome message sent to ${to}.` });
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Welcome SMS not sent',
-        description: error instanceof Error ? error.message : 'Could not send the welcome message.',
+        title: 'Welcome email not sent',
+        description: error instanceof Error ? error.message : 'Could not send the welcome email.',
       });
     }
   };
@@ -211,12 +192,12 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
         const newRef = await addStudent(studentData);
         toast({ title: 'Student added successfully' });
         
-        if (sendWelcomeSms) {
-          if (!studentData.mobileNumber?.trim()) {
-            setMissingPhoneStudent({ id: newRef.id, ...studentData } as Student);
+        if (sendWelcomeEmail) {
+          if (!studentData.email?.trim()) {
+            setMissingEmailStudent({ id: newRef.id, ...studentData } as Student);
             return;
           } else {
-            sendWelcomeSmsMessage(studentData.mobileNumber, studentData.name);
+            void sendWelcomeEmailMessage(newRef.id);
           }
         }
         if (onSuccess) onSuccess({ id: newRef.id, ...studentData } as Student);
@@ -537,13 +518,13 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
                         {!isEditing && (
                           <div className="flex items-center space-x-2 rounded-lg border bg-blue-50/50 dark:bg-blue-900/10 px-4 py-3 shadow-sm">
                             <Checkbox 
-                                id="sendWelcomeSms" 
-                                checked={sendWelcomeSms} 
-                                onCheckedChange={(checked) => setSendWelcomeSms(checked as boolean)} 
+                                id="sendWelcomeEmail" 
+                                checked={sendWelcomeEmail} 
+                                onCheckedChange={(checked) => setSendWelcomeEmail(checked as boolean)} 
                             />
                             <div className="space-y-1 leading-none">
-                              <label htmlFor="sendWelcomeSms" className="text-sm font-medium leading-none cursor-pointer">
-                                Send SMS welcome message
+                              <label htmlFor="sendWelcomeEmail" className="text-sm font-medium leading-none cursor-pointer">
+                                Email a welcome message
                               </label>
                               <p className="text-sm text-muted-foreground">
                                 Sends a ready welcome message after saving.
@@ -563,16 +544,17 @@ ${tenant?.messageSenderName || tenant?.receiptBusinessName || tenant?.name || 'Y
             </form>
         </Form>
 
-        <MissingPhoneDialog
-          isOpen={!!missingPhoneStudent}
-          student={missingPhoneStudent}
+        <MissingEmailDialog
+          isOpen={!!missingEmailStudent}
+          student={missingEmailStudent}
+          purpose="welcome email"
           onCancel={() => {
-            setMissingPhoneStudent(null);
+            setMissingEmailStudent(null);
             router.push('/app/students');
           }}
           onSuccess={async (updatedStudent) => {
-            setMissingPhoneStudent(null);
-            await sendWelcomeSmsMessage(updatedStudent.mobileNumber, updatedStudent.name);
+            setMissingEmailStudent(null);
+            await sendWelcomeEmailMessage(updatedStudent.id);
             if (onSuccess) onSuccess(updatedStudent);
             else router.push('/app/students');
           }}
