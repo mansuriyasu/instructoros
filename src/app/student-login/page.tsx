@@ -8,7 +8,7 @@ import {
   signInWithCustomToken,
   signOut,
 } from "firebase/auth";
-import { Loader2, LogIn, MessageSquareText, ShieldCheck } from "lucide-react";
+import { Loader2, LogIn, Mail, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,7 +103,7 @@ export default function StudentLoginPage() {
         throw new Error(data.error || "Could not send the verification code.");
       }
       setOtpSent(true);
-      setNotice(data.message || "A verification code was sent by text message.");
+      setNotice(data.message || "A verification code was sent to your email.");
     } catch (cause) {
       setError(authMessage(cause));
     } finally {
@@ -156,7 +156,7 @@ export default function StudentLoginPage() {
             </p>
             <h1 className="mt-2 text-3xl font-black">Welcome back</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Use your mobile number and PIN, or verify by text message if you need to set or reset your PIN.
+              Use your mobile number and PIN, or get a code by email if you need to set or reset your PIN.
             </p>
           </div>
           {error && (
@@ -190,7 +190,7 @@ export default function StudentLoginPage() {
                 setNotice("");
               }}
             >
-              OTP / set PIN
+              Email code / set PIN
             </button>
           </div>
 
@@ -227,7 +227,7 @@ export default function StudentLoginPage() {
                 <div>
                   <p className="text-sm font-semibold text-slate-900">No PIN yet?</p>
                   <p className="mt-1 text-xs text-slate-600">
-                    We will text a code to the mobile number on your student record. After verification, create a 6-digit PIN for next time.
+                    Enter the mobile number on your student record and we will email a code to the address your instructor has on file. After verification, create a 6-digit PIN for next time.
                   </p>
                 </div>
                 {!otpSent ? (
@@ -240,9 +240,9 @@ export default function StudentLoginPage() {
                     {busy ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <MessageSquareText className="mr-2 h-4 w-4" />
+                      <Mail className="mr-2 h-4 w-4" />
                     )}
-                    Send OTP
+                    Email me a code
                   </Button>
                 ) : (
                   <>
@@ -304,7 +304,7 @@ export default function StudentLoginPage() {
               ) : (
                 <LogIn className="mr-2 h-4 w-4" />
               )}
-              {mode === "pin" ? "Sign in to Student Portal" : "Verify OTP and open portal"}
+              {mode === "pin" ? "Sign in to Student Portal" : "Verify code and open portal"}
             </Button>
           </form>
           <div className="mt-6 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">

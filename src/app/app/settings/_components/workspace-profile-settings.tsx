@@ -167,7 +167,7 @@ export function WorkspaceProfileSettings() {
               className="rounded-lg"
             />
             <p className="text-xs text-muted-foreground">
-              This name is used in WhatsApp payment, schedule, and welcome messages.
+              This name is used as the sender on payment, lesson and welcome emails, and in WhatsApp messages.
             </p>
           </div>
           <div className="space-y-2 lg:col-span-2">

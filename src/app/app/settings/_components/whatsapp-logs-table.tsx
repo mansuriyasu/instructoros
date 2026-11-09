@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, CheckCircle2, XCircle, MessageCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, MessageCircle, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -32,7 +32,7 @@ export function WhatsAppLogsTable() {
         <CardContent className="flex flex-col items-center justify-center p-12 text-center">
           <p className="text-lg font-medium text-muted-foreground">No message activity found</p>
           <p className="text-sm text-muted-foreground mt-1">
-            WhatsApp and SMS messages sent from InstructorOS will appear here.
+            Emails and WhatsApp messages sent from InstructorOS will appear here.
           </p>
         </CardContent>
       </Card>
@@ -43,7 +43,7 @@ export function WhatsAppLogsTable() {
     <Card>
       <CardHeader>
         <CardTitle>Message Activity</CardTitle>
-        <CardDescription>A log of WhatsApp messages opened and SMS messages sent from the app.</CardDescription>
+        <CardDescription>A log of emails sent and WhatsApp messages opened from the app.</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[600px] rounded-md border">
@@ -79,7 +79,12 @@ export function WhatsAppLogsTable() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1.5 items-start">
-                      {log.channel === 'sms' ? (
+                      {log.channel === 'email' ? (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-200">
+                          <Mail className="h-3 w-3 mr-1" />
+                          Email
+                        </Badge>
+                      ) : log.channel === 'sms' ? (
                         <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-200">
                           <MessageCircle className="h-3 w-3 mr-1" />
                           SMS
@@ -96,7 +101,7 @@ export function WhatsAppLogsTable() {
                     {log.status === 'sent' ? (
                       <div className="flex items-center justify-end text-green-600 gap-1.5">
                         <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-sm font-medium">Opened</span>
+                        <span className="text-sm font-medium">{log.channel === 'whatsapp' || !log.channel ? 'Opened' : 'Sent'}</span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-end text-red-500 gap-1.5">

@@ -299,7 +299,7 @@ export interface WhatsAppLog {
   to: string;
   body: string;
   status: 'sent' | 'error';
-  channel?: 'whatsapp' | 'sms';
+  channel?: 'whatsapp' | 'sms' | 'email';
   errorMessage?: string;
 }
 

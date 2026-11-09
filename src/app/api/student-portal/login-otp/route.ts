@@ -9,7 +9,7 @@ import {
   hashStudentPin,
   normalizeStudentMobile,
 } from "@/lib/server/student-portal";
-import { sendTwilioSms } from "@/lib/server/twilio";
+import { sendStudentPortalCode } from "@/lib/server/student-portal-email";
 
 export const runtime = "nodejs";
 
@@ -172,10 +172,7 @@ export async function POST(request: NextRequest) {
       }
 
       const otp = String(crypto.randomInt(100000, 1000000));
-      await sendTwilioSms(
-        student.mobileNumber,
-        `InstructorOS student portal code: ${otp}. It expires in 10 minutes. Do not share this code.`,
-      );
+      const sentTo = await sendStudentPortalCode(db, resolved.tenantId, student, otp);
       await challengeRef.set({
         tenantId: resolved.tenantId,
         studentId: resolved.studentId,
@@ -188,13 +185,13 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json({
         ok: true,
-        message: "A verification code was sent by text message.",
+        message: `A verification code was sent to ${sentTo}.`,
       });
     }
 
     if (!/^\d{6}$/.test(code)) {
       return NextResponse.json(
-        { error: "Enter the 6-digit code sent by text message." },
+        { error: "Enter the 6-digit code from the email we sent you." },
         { status: 400 },
       );
     }

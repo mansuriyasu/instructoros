@@ -105,7 +105,7 @@ function getExamClass(serviceName: string, student?: { licenseType?: string; roa
 interface ExamSchedulerDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<CalendarEvent, 'id'>, sendSms?: boolean) => Promise<void> | void;
+  onSave: (event: Omit<CalendarEvent, 'id'>, sendEmail?: boolean) => Promise<void> | void;
   initialStudentId?: string;
   instructors?: InstructorOption[];
   canManageInstructorSchedules?: boolean;
@@ -169,7 +169,7 @@ export function ExamSchedulerDialog({
   const [lessonMins, setLessonMins] = useState<number>(50); // Default 50 mins
   const [earlyMins, setEarlyMins] = useState<number>(30); // Default 30 mins early arrival
   const [examMins, setExamMins] = useState<number>(30); // Default 30 mins
-  const [sendSms, setSendSms] = useState(false);
+  const [sendEmail, setSendEmail] = useState(false);
 
   const selectedExamCenterService = useMemo(() => {
     return examCenterServices.find(service => service.id === selectedExamCenterServiceId) || null;
@@ -412,7 +412,7 @@ export function ExamSchedulerDialog({
             examCenter: finalExamCenter,
             examDateTime: examDateTime.toISOString(),
             examImageDataUri,
-        }, sendSms);
+        }, sendEmail);
 
         if (selectedStudentId) {
             // Update the student's status to 'booked' since they now have an exam scheduled
@@ -443,7 +443,7 @@ export function ExamSchedulerDialog({
     setIsCreatingStudent(false);
     setTravelMins(30);
     setEarlyMins(30);
-    setSendSms(false);
+    setSendEmail(false);
     onOpenChange(false);
   };
 
@@ -704,8 +704,8 @@ export function ExamSchedulerDialog({
                 </div>
 
                 <label className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-3 text-sm">
-                    <Checkbox checked={sendSms} onCheckedChange={checked => setSendSms(Boolean(checked))} />
-                    <span className="font-medium">Send SMS schedule message after saving</span>
+                    <Checkbox checked={sendEmail} onCheckedChange={checked => setSendEmail(Boolean(checked))} />
+                    <span className="font-medium">Email the schedule to the student after saving</span>
                 </label>
 
                 <div className="flex justify-end gap-2 pt-2">
