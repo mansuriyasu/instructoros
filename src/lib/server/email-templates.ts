@@ -202,3 +202,19 @@ export function welcomeEmail(branding: EmailBranding, input: { studentName: stri
   );
   return { ...base(branding), subject: `Welcome to ${name}`, text, html };
 }
+
+export function verificationCodeEmail(branding: EmailBranding, input: { studentName: string; code: string }): Branded {
+  const name = senderName(branding);
+  const heading = "Your verification code";
+  const text = `Hi ${input.studentName},\n\nYour ${name} student portal code is ${input.code}. It expires in 10 minutes.\n\nDo not share this code. If you didn't ask for it, you can ignore this email.${textFooter(branding)}`;
+  const html = layout(
+    branding,
+    heading,
+    `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">Hi ${escapeHtml(input.studentName)},</p>
+     <p style="margin:0 0 16px;font-size:15px;line-height:1.6">Use this code to continue to your student portal. It expires in 10 minutes.</p>
+     <p style="margin:0 0 16px;font-size:32px;font-weight:700;letter-spacing:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${escapeHtml(input.code)}</p>
+     <p style="margin:0;font-size:13px;color:#5b6b80">Do not share this code. If you didn't ask for it, you can ignore this email.</p>`,
+  );
+  // The code goes in the subject too, so it shows in phone notifications.
+  return { ...base(branding), subject: `${input.code} is your ${name} verification code`, text, html };
+}

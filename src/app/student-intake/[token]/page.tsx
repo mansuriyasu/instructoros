@@ -108,7 +108,7 @@ export default function StudentIntakePage({
     });
     const data = await response.json();
     if (!response.ok)
-      throw new Error(data.error || "Could not send the SMS code.");
+      throw new Error(data.error || "Could not send the verification code.");
     return data;
   };
   const sendOtp = async () => {
@@ -120,7 +120,7 @@ export default function StudentIntakePage({
       setOtpSent(true);
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "Could not send the SMS code.",
+        error instanceof Error ? error.message : "Could not send the verification code.",
       );
     } finally {
       setOtpSending(false);
@@ -150,7 +150,7 @@ export default function StudentIntakePage({
       } catch (otpError) {
         setError(
           `Your registration is saved, but the text code could not be sent. ${
-            otpError instanceof Error ? otpError.message : "Please use Send SMS code to try again."
+            otpError instanceof Error ? otpError.message : "Please use Email me a code to try again."
           }`,
         );
       }
@@ -171,7 +171,7 @@ export default function StudentIntakePage({
       setError(
         error instanceof Error
           ? error.message
-          : "Could not send the SMS code.",
+          : "Could not send the verification code.",
       );
     } finally {
       setCreating(false);
@@ -196,7 +196,7 @@ export default function StudentIntakePage({
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.error || "Could not verify the SMS code.");
+        throw new Error(data.error || "Could not verify the code.");
       if (typeof data.customToken !== "string") {
         throw new Error("Could not open the student portal.");
       }
@@ -206,7 +206,7 @@ export default function StudentIntakePage({
       setError(
         error instanceof Error
           ? error.message
-          : "Could not verify the SMS code.",
+          : "Could not verify the code.",
       );
     } finally {
       setCreating(false);
@@ -509,8 +509,9 @@ export default function StudentIntakePage({
               </p>
               {otpSent && (
                 <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                  We sent a 6-digit verification code by text message to your
-                  registered mobile number. The code expires in 10 minutes.
+                  We emailed a 6-digit verification code to{" "}
+                  <strong>{fields.email}</strong>. It expires in 10 minutes. Check
+                  your spam folder if you don&apos;t see it.
                 </p>
               )}
               {!otpSent ? (
@@ -519,11 +520,11 @@ export default function StudentIntakePage({
                   onClick={createAccount}
                   className="h-12 w-full bg-amber-400 text-slate-950 hover:bg-amber-500"
                 >
-                  {creating || otpSending ? "Sending code..." : "Send SMS code"}
+                  {creating || otpSending ? "Sending code..." : "Email me a code"}
                 </Button>
               ) : (
                 <>
-                  <Field label="SMS verification code" required>
+                  <Field label="Verification code" required>
                     <Input
                       inputMode="numeric"
                       autoComplete="one-time-code"

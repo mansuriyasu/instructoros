@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       Date.parse(String(claim.otpVerifiedAt)) < Date.now() - 15 * 60 * 1000
     ) {
       return NextResponse.json(
-        { error: "Verify the SMS code before activating your student portal." },
+        { error: "Verify the emailed code before activating your student portal." },
         { status: 403 },
       );
     }
