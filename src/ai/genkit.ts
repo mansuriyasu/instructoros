@@ -13,12 +13,24 @@ export const ai = genkit({
 });
 
 // Gemini models to try, in order. GEMINI_MODEL lets the host pin a model
-// without a code change. gemini-2.5-flash stays last as a fallback: Google only
-// serves 2.5 models to API keys that already used them, so fresh keys get 404s.
-const DEFAULT_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
-const GROQ_REQUEST_TIMEOUT_MS = 12_000;
-const GEMINI_REQUEST_TIMEOUT_MS = 7_000;
-const CLAUDE_REQUEST_TIMEOUT_MS = 17_000;
+// without a code change. gemini-3.6-flash is Google's current Flash model;
+// gemini-2.5-flash stays last as a fallback: Google only serves 2.5 models to
+// API keys that already used them, so fresh keys get 404s.
+const DEFAULT_GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'];
+// Kept short so a scan that falls all the way through to Claude still answers
+// before mobile browsers and the host give up (~35s worst case).
+const GROQ_REQUEST_TIMEOUT_MS = 8_000;
+const GEMINI_REQUEST_TIMEOUT_MS = 12_000;
+const CLAUDE_REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
+
+// Reading a document is simple extraction: little thinking keeps it fast.
+// Gemini 3 takes a thinking level; 2.5 takes a token budget (0 = off).
+function geminiSpeedConfig(modelName: string) {
+  return /^gemini-2\./.test(modelName)
+    ? { thinkingConfig: { thinkingBudget: 0 } }
+    : { thinkingConfig: { thinkingLevel: 'LOW' as const } };
+}
 
 export const GEMINI_MODELS = Array.from(
   new Set([process.env.GEMINI_MODEL?.trim(), ...DEFAULT_GEMINI_MODELS].filter(Boolean) as string[])
@@ -32,15 +44,6 @@ function isModelUnavailableError(error: unknown): boolean {
 function isDailyModelQuotaExhaustedError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /generate content requests per day limit exceeded|GenerateRequestsPerDayPerProjectPerModel/i.test(message);
-}
-
-function isProviderFailoverError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    isModelUnavailableError(error) ||
-    isDailyModelQuotaExhaustedError(error) ||
-    /quota|rate limit|resource exhausted|429|api key|permission|unauthorized|forbidden|401|403|service unavailable|5\d\d|fetch failed|network|abort|timeout|timed out/i.test(message)
-  );
 }
 
 function mediaBlockFromDataUri(url: string): ContentBlockParam {
@@ -88,19 +91,45 @@ function toClaudeContent(prompt: GenerateOptions['prompt']): ContentBlockParam[]
   });
 }
 
+// Claude's structured output rejects numeric and length limits (e.g. the
+// licence face box's "exactly 4 numbers", which made every Claude scan fail).
+// The Zod schema still enforces them when the answer is parsed.
+const UNSUPPORTED_SCHEMA_KEYS = new Set([
+  '$schema', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum',
+  'multipleOf', 'minLength', 'maxLength', 'maxItems',
+]);
+
 function toOutputJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   const normalize = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(normalize);
     if (!value || typeof value !== 'object') return value;
 
     const result = Object.fromEntries(
-      Object.entries(value).map(([key, child]) => [key, normalize(child)])
+      Object.entries(value)
+        .filter(([key]) => !UNSUPPORTED_SCHEMA_KEYS.has(key))
+        .map(([key, child]) => [key, normalize(child)])
     ) as Record<string, unknown>;
+    if (typeof result.minItems === 'number' && result.minItems > 1) delete result.minItems;
     if (result.type === 'object') result.additionalProperties = false;
     return result;
   };
 
   return normalize(toJsonSchema({ schema }) ?? {}) as Record<string, unknown>;
+}
+
+// Parses a model's JSON answer. An optional field the model got wrong (say a
+// face box with 3 numbers) is dropped instead of failing the whole scan.
+function parseStructuredOutput<O extends z.ZodTypeAny>(schema: O, text: string): z.infer<O> {
+  const value = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, ''));
+  const first = schema.safeParse(value);
+  if (first.success) return first.data;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const badKeys = new Set(first.error.issues.map((issue) => issue.path[0]).filter((key) => key !== undefined));
+    const trimmed = Object.fromEntries(Object.entries(value).filter(([key]) => !badKeys.has(key)));
+    const second = schema.safeParse(trimmed);
+    if (second.success) return second.data;
+  }
+  throw first.error;
 }
 
 type GroqContentPart =
@@ -166,7 +195,7 @@ async function generateWithGroq<O extends z.ZodTypeAny>(
     };
     const text = payload.choices?.[0]?.message?.content?.trim();
     if (!text) throw new Error('Groq did not return structured output.');
-    return schema.parse(JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '')));
+    return parseStructuredOutput(schema, text);
   } finally {
     clearTimeout(timeout);
   }
@@ -187,10 +216,11 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
     timeout: CLAUDE_REQUEST_TIMEOUT_MS,
   });
   const response = await client.messages.create({
-    model: process.env.ANTHROPIC_MODEL?.trim() || 'claude-haiku-4-5',
-    max_tokens: 2048,
+    model: process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_CLAUDE_MODEL,
+    max_tokens: 4096,
     messages: [{ role: 'user', content: toClaudeContent(options.prompt) }],
     output_config: {
+      effort: 'low',
       format: {
         type: 'json_schema',
         schema: toOutputJsonSchema(schema),
@@ -198,6 +228,9 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
     },
   });
 
+  if (response.stop_reason === 'refusal') {
+    throw new Error('Claude declined to read this document.');
+  }
   const text = response.content
     .filter((block) => block.type === 'text')
     .map((block) => block.text)
@@ -205,7 +238,7 @@ async function generateWithClaude<O extends z.ZodTypeAny>(
   if (!text) {
     throw new Error('Claude did not return structured output.');
   }
-  return schema.parse(JSON.parse(text));
+  return parseStructuredOutput(schema, text);
 }
 
 /**
@@ -232,6 +265,7 @@ export async function generateWithAiFallback<O extends z.ZodTypeAny = z.ZodTypeA
     try {
       const response = await ai.generate<O>({
         ...options,
+        config: { ...geminiSpeedConfig(modelName), ...(options.config as Record<string, unknown> | undefined) },
         model: `googleai/${modelName}`,
         abortSignal: controller.signal,
       });
@@ -246,8 +280,10 @@ export async function generateWithAiFallback<O extends z.ZodTypeAny = z.ZodTypeA
     }
   }
 
-  if (lastError && isProviderFailoverError(lastError) && process.env.ANTHROPIC_API_KEY?.trim()) {
-    console.warn('Gemini provider unavailable, using Claude fallback.');
+  // Any Gemini failure (outage, timeout, or an answer that didn't fit the
+  // schema) gets one more try on Claude when it is configured.
+  if (lastError && process.env.ANTHROPIC_API_KEY?.trim()) {
+    console.warn('Gemini could not complete the request, using Claude fallback:', lastError instanceof Error ? lastError.message : lastError);
     return { output: await generateWithClaude(options) };
   }
   throw lastError;
