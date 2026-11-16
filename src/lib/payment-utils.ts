@@ -62,6 +62,14 @@ export function getLessonPaymentRecordState(
   return 'none';
 }
 
+/**
+ * True when a lesson is not on any bill yet. A lesson on a partly paid bill is
+ * already billed; billing it again would charge the student twice.
+ */
+export function isLessonUnbilled(state: LessonPaymentRecordState | undefined): boolean {
+  return !state || state === 'none' || state === 'missing-record';
+}
+
 // Single source of truth for the two money numbers shown across screens.
 // "Collected" is what actually came in (partial payments count; advance-credit
 // deposits don't, to avoid counting the same dollars twice), and "outstanding"

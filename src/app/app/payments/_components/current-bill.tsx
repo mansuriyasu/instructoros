@@ -91,7 +91,9 @@ export function CurrentBill({
 
   useEffect(() => {
     if (activeBill) {
-        setPaymentMethod(activeBill.paymentMethod);
+        // Editing a bill (e.g. adding lessons) must not record a new payment.
+        // The instructor picks a method only when money is received today.
+        setPaymentMethod('Unpaid');
         setNotes(activeBill.notes || '');
         setDiscount(activeBill.discount || 0);
         setApplyTax(activeBill.tax > 0);
@@ -146,14 +148,19 @@ export function CurrentBill({
 
   useEffect(() => {
     if (isFinalizing && !isAdvancePayment) {
-        const amountDue = activeBill ? activeBill.amountDue : total;
-        setAmountPaidNow(Math.max(0, amountDue - availableCredit));
+        // Prefill only the balance still owed on the current total; money
+        // already recorded on this bill is never entered again.
+        const alreadyPaidCash = activeBill
+          ? Math.max(0, (activeBill.paidAmount || 0) - (activeBill.creditApplied || 0))
+          : 0;
+        const creditToApply = selectedStudent ? Math.min(availableCredit, total) : 0;
+        setAmountPaidNow(roundCurrency(Math.max(0, total - alreadyPaidCash - creditToApply)));
     } else if (isAdvancePayment && billItems.length > 0) {
         setAmountPaidNow(0);
     } else if (!isFinalizing) {
         setAmountPaidNow(0);
     }
-  }, [isFinalizing, isAdvancePayment, billItems.length, total, activeBill, availableCredit]);
+  }, [isFinalizing, isAdvancePayment, billItems.length, total, activeBill, availableCredit, selectedStudent]);
 
   const handleFinalize = async () => {
     if (workspaceReadOnly) {
@@ -335,7 +342,7 @@ export function CurrentBill({
       totalCost: totalCost || 0,
       paidAmount,
       amountDue,
-      paymentMethod: 'Unpaid',
+      paymentMethod: paidAmount > 0 && activeBill ? activeBill.paymentMethod : 'Unpaid',
       paymentDate: paymentDateIso,
       status,
       notes,
@@ -546,7 +553,7 @@ export function CurrentBill({
 
         {isFinalizing && !(isAdvancePayment && billItems.length > 0) && (
             <div className="space-y-2">
-                <Label htmlFor='amountPaid'>{isCreatingAdvanceCredit ? 'Advance Amount' : 'Amount Paid'}</Label>
+                <Label htmlFor='amountPaid'>{isCreatingAdvanceCredit ? 'Advance Amount' : activeBill && activeBill.paidAmount > 0 ? 'New Payment Received Now' : 'Amount Paid'}</Label>
                 <Input
                     id="amountPaid"
                     type="number"
@@ -555,6 +562,11 @@ export function CurrentBill({
                     placeholder="0.00"
                     className="h-9 rounded-xl bg-card text-right"
                 />
+                {activeBill && activeBill.paidAmount > 0 && !isCreatingAdvanceCredit && (
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(activeBill.paidAmount)} is already recorded on this bill. Enter only new money received today.
+                  </p>
+                )}
             </div>
         )}
 
@@ -628,7 +640,7 @@ export function CurrentBill({
                 </div>
                 <div className="flex justify-between items-center font-semibold">
                     <span className="text-muted-foreground">Amount Due:</span>
-                    <span className={cn(activeBill.amountDue <= 0 ? 'text-green-600' : 'text-destructive')}>{formatCurrency(activeBill.amountDue)}</span>
+                    <span className={cn(calculateAmountDue(total, activeBill.paidAmount || 0) <= 0 ? 'text-green-600' : 'text-destructive')}>{formatCurrency(calculateAmountDue(total, activeBill.paidAmount || 0))}</span>
                 </div>
             </div>
         )}
