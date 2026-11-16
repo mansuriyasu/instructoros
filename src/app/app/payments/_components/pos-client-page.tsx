@@ -15,6 +15,8 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/co
 import { BadgeDollarSign, ShoppingCart } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { getEffectivePaymentStatus, isAdvanceCreditPayment } from '@/lib/payment-utils';
 
 export function PosClientPage() {
   const [items, setItems] = useState<BillItem[]>([]);
@@ -30,6 +32,7 @@ export function PosClientPage() {
   const { services, loading: servicesLoading } = useServices();
   const { events, loading: eventsLoading } = useEvents();
   const importedUrlItemsRef = useRef<string | null>(null);
+  const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(true);
   
@@ -136,7 +139,11 @@ export function PosClientPage() {
     setSelectedStudent(student);
 
     if (student) {
-      const existingUnpaidBill = payments.find(p => p.studentId === student.id && p.status !== 'paid');
+      const existingUnpaidBill = payments.find(p => (
+        p.studentId === student.id &&
+        !isAdvanceCreditPayment(p) &&
+        getEffectivePaymentStatus(p) !== 'paid'
+      ));
       if (existingUnpaidBill) {
         setActiveBill(existingUnpaidBill);
         
@@ -187,21 +194,41 @@ export function PosClientPage() {
         }
 
         if (eventIdsToAdd.length > 0 && events && services) {
-          const selectedEvents = eventIdsToAdd.flatMap(eventId => {
+          // A lesson already on any of this student's bills (including the
+          // open bill just loaded) must not be added again.
+          const alreadyBilledEventIds = new Set(
+            (payments || [])
+              .filter(payment => payment.studentId === studentIdFromUrl)
+              .flatMap(payment => payment.items || [])
+              .map(item => item.eventId)
+              .filter((id): id is string => Boolean(id))
+          );
+          const newEventIds = Array.from(new Set(eventIdsToAdd)).filter(eventId => !alreadyBilledEventIds.has(eventId));
+          const skippedCount = new Set(eventIdsToAdd).size - newEventIds.length;
+          const selectedEvents = newEventIds.flatMap(eventId => {
             const event = events.find(item => item.id === eventId);
             return event ? [event] : [];
           });
           const eventBillItems = createBillItemsFromEvents(selectedEvents);
 
           if (eventBillItems.length > 0) {
-            setItems(prev => [...prev, ...eventBillItems]);
-            importedUrlItemsRef.current = importKey;
-            router.replace('/app/payments', { scroll: false });
+            setItems(prev => {
+              const eventIdsInBill = new Set(prev.map(item => item.eventId).filter(Boolean));
+              return [...prev, ...eventBillItems.filter(item => !eventIdsInBill.has(item.eventId))];
+            });
           }
+          if (skippedCount > 0) {
+            toast({
+              title: `${skippedCount} lesson${skippedCount === 1 ? ' was' : 's were'} already billed`,
+              description: 'Lessons already on a bill were skipped so they are not charged twice.',
+            });
+          }
+          importedUrlItemsRef.current = importKey;
+          router.replace('/app/payments', { scroll: false });
         }
       });
     }
-  }, [isLoading, studentIdFromUrl, serviceIdFromUrl, serviceIdsFromUrl, eventIdsFromUrl, services, events, loadBillForStudent, addServiceToBill, createBillItemsFromEvents, paymentIdForEdit, router]);
+  }, [isLoading, studentIdFromUrl, serviceIdFromUrl, serviceIdsFromUrl, eventIdsFromUrl, services, events, loadBillForStudent, addServiceToBill, createBillItemsFromEvents, paymentIdForEdit, router, payments, toast]);
 
   const handleSelectStudent = (student: Student | null) => {
     if (paymentIdForEdit) return;
