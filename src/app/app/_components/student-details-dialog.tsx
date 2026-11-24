@@ -60,7 +60,7 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, cn } from "@/lib/utils";
 import { getStudentPackageData } from "@/lib/package-utils";
-import { getLessonPaymentRecordState } from "@/lib/payment-utils";
+import { getLessonPaymentRecordState, isLessonUnbilled } from "@/lib/payment-utils";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -259,7 +259,7 @@ export function StudentDetailsDialog({
         lessonTime <= now &&
         lessonStatus !== "cancelled" &&
         lessonStatus !== "no-show" &&
-        lessonPaymentStates.get(lesson.id) !== "paid" &&
+        isLessonUnbilled(lessonPaymentStates.get(lesson.id)) &&
         !packageData.coveredEventIds.has(lesson.id) &&
         (lesson.services || []).length > 0
       );
@@ -1337,7 +1337,7 @@ export function StudentDetailsDialog({
                             isPastLesson &&
                             lessonStatus !== "cancelled" &&
                             lessonStatus !== "no-show" &&
-                            paymentRecordState !== "paid" &&
+                            isLessonUnbilled(paymentRecordState) &&
                             !isPackageCovered &&
                             (lesson.services || []).length > 0;
                           return (
