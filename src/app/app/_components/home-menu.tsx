@@ -27,7 +27,7 @@ import { useStudents } from '@/hooks/use-students';
 import { useSession } from '@/firebase';
 import { formatCurrency } from '@/lib/utils';
 import { getCollectedAmount, getOutstandingAmount } from '@/lib/payment-utils';
-import { countUpcomingExams, getExamMonthStats } from '@/lib/exam-stats';
+import { countUpcomingExams, getExamMonthStats, getPassRate } from '@/lib/exam-stats';
 import type { CalendarEvent } from '@/lib/types';
 
 function isToday(dateString: string | Date) {
@@ -259,6 +259,7 @@ function ExamSummary({ events }: { events: CalendarEvent[] }) {
   const [monthOffset, setMonthOffset] = useState<number>(0);
   const stats = useMemo(() => getExamMonthStats(events, monthOffset), [events, monthOffset]);
   const upcomingTotal = useMemo(() => countUpcomingExams(events), [events]);
+  const passRate = getPassRate(stats);
 
   return (
     <section className="min-w-0 overflow-hidden rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
@@ -300,6 +301,21 @@ function ExamSummary({ events }: { events: CalendarEvent[] }) {
         <ExamStat label="Done" value={stats.done} />
         <ExamStat label="Upcoming" value={stats.upcoming} />
       </div>
+
+      {passRate !== null && (
+        <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs">
+          <span className="font-semibold text-emerald-900">Pass rate {passRate}%</span>
+          <span className="text-emerald-800">
+            {stats.passed} passed · {stats.failed} failed
+          </span>
+        </div>
+      )}
+
+      {stats.awaitingResult > 0 && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {stats.awaitingResult} done {stats.awaitingResult === 1 ? 'exam needs' : 'exams need'} a result. Open the booking in Schedule and tap Passed or Failed.
+        </p>
+      )}
 
       {(stats.noShow > 0 || stats.cancelled > 0) && (
         <p className="mt-2 text-[11px] text-muted-foreground">

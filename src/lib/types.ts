@@ -4,6 +4,7 @@ export type LicenseType = 'G1' | 'G2' | 'G' | 'Other';
 export type PaymentMethod = 'Cash' | 'E-Transfer' | 'Other' | 'Unpaid' | 'Advance';
 export type PaymentStatus = 'paid' | 'unpaid';
 export type LessonStatus = 'scheduled' | 'no-show' | 'cancelled';
+export type ExamResult = 'passed' | 'failed';
 export type PaymentTransactionType = 'payment' | 'adjustment' | 'credit-created' | 'credit-applied';
 
 export interface Student {
@@ -144,6 +145,8 @@ export interface CalendarEvent {
   examCenter?: string;
   examDateTime?: string;
   examImageDataUri?: string;
+  /** Road test outcome, set by the instructor after the exam. null clears it. */
+  examResult?: ExamResult | null;
 }
 
 export type EvaluationTestType = 'G2' | 'G';

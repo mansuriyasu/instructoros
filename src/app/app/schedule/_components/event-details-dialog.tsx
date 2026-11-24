@@ -10,7 +10,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CalendarEvent, LessonStatus } from '@/lib/types';
+import { CalendarEvent, ExamResult, LessonStatus } from '@/lib/types';
+import { getExamTime, isExamEvent as isExamBooking } from '@/lib/exam-stats';
 import { format } from 'date-fns';
 import { CalendarPlus, CheckCircle2, Edit, Trash2, Navigation, Clock, Image as ImageIcon, Info, User, Package, Receipt, UserX, XCircle, MessageCircle, ClipboardCheck, CalendarDays, MapPin, CarFront } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -43,6 +44,7 @@ interface EventDetailsDialogProps {
     options?: { paymentMethod?: CalendarEvent['paymentMethod']; applyTax?: boolean }
   ) => void;
   onMarkLessonStatus: (event: CalendarEvent, status: LessonStatus) => void;
+  onMarkExamResult?: (event: CalendarEvent, result: ExamResult | null) => void;
   onSendWhatsApp?: (event: CalendarEvent) => void;
   onEvaluate: (event: CalendarEvent) => void;
 }
@@ -57,6 +59,7 @@ export function EventDetailsDialog({
   onBookNext,
   onMarkPayment,
   onMarkLessonStatus,
+  onMarkExamResult,
   onSendWhatsApp,
   onEvaluate,
 }: EventDetailsDialogProps) {
@@ -121,7 +124,13 @@ export function EventDetailsDialog({
   const isBlockedSlot = event.studentId === null;
   const canAddToBill = !isBlockedSlot && event.services && event.services.length > 0;
   const lessonStatus = event.lessonStatus || 'scheduled';
-  const isExamEvent = Boolean(event.examCenter || event.examDateTime || event.examImageDataUri || event.title?.toLowerCase().includes('exam'));
+  const isExamEvent = isExamBooking(event);
+  // Results can be recorded once the exam time has passed, unless it was cancelled or a no-show.
+  const canRecordExamResult = Boolean(onMarkExamResult) && isExamEvent && lessonStatus === 'scheduled' && getExamTime(event).getTime() <= Date.now();
+  const handleExamResult = (result: ExamResult) => {
+    // Tapping the selected result again clears it.
+    onMarkExamResult?.(event, event.examResult === result ? null : result);
+  };
   const eventLabel = isExamEvent ? 'Road test' : event.services?.[0]?.name || 'Driving lesson';
   const paymentLabel = event.paymentStatus === 'paid' ? 'Cash Paid' : event.paymentStatus === 'unpaid' ? 'Unpaid' : 'Payment pending';
   
@@ -169,6 +178,35 @@ export function EventDetailsDialog({
                   <div className="mb-2 flex items-center gap-2 font-semibold"><MapPin className="h-5 w-5 text-indigo-600" /> Exam details</div>
                   <p className="text-sm font-medium">{event.examCenter || 'Exam centre not added'}</p>
                   {event.examDateTime && <p className="mt-1 text-sm text-muted-foreground">Exam time: {format(new Date(event.examDateTime), 'EEE, MMM d, yyyy · h:mm a')}</p>}
+                  {canRecordExamResult && (
+                    <div className="mt-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Result</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-pressed={event.examResult === 'passed'}
+                          onClick={() => handleExamResult('passed')}
+                          className={cn('h-9 rounded-xl', event.examResult === 'passed' && 'border-emerald-500 bg-emerald-100 text-emerald-800 hover:bg-emerald-100')}
+                        >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                          Passed
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-pressed={event.examResult === 'failed'}
+                          onClick={() => handleExamResult('failed')}
+                          className={cn('h-9 rounded-xl', event.examResult === 'failed' && 'border-rose-400 bg-rose-100 text-rose-800 hover:bg-rose-100')}
+                        >
+                          <XCircle className="mr-1.5 h-4 w-4" />
+                          Failed
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-2xl border bg-[#f7fbff] p-4">

@@ -21,7 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CalendarEvent, InstructorOption, LessonStatus, PaymentMethod } from '@/lib/types';
+import { CalendarEvent, ExamResult, InstructorOption, LessonStatus, PaymentMethod } from '@/lib/types';
 import { EventDialog } from './event-dialog';
 import { useEvents } from '@/hooks/use-events';
 import { usePayments } from '@/hooks/use-payments';
@@ -583,6 +583,16 @@ export function ScheduleView() {
     });
   };
 
+  const handleMarkExamResult = async (event: CalendarEvent, result: ExamResult | null) => {
+    const updates = { id: event.id, examResult: result };
+    await updateEventFirestore(updates);
+    setSelectedEvent({ ...event, ...updates });
+    toast({
+      title: result === 'passed' ? 'Marked passed' : result === 'failed' ? 'Marked failed' : 'Result cleared',
+      description: 'The road test result has been saved.',
+    });
+  };
+
   const getActiveComparableEvents = (eventData: Omit<CalendarEvent, 'id'> | CalendarEvent) => {
     const eventId = 'id' in eventData ? eventData.id : null;
     const instructorId = eventData.instructorId || null;
@@ -1046,6 +1056,7 @@ export function ScheduleView() {
         onBookNext={handleBookNext}
         onMarkPayment={handleMarkPayment}
         onMarkLessonStatus={handleMarkLessonStatus}
+        onMarkExamResult={handleMarkExamResult}
         onSendWhatsApp={handleSendWhatsAppEvent}
         onEvaluate={handleEvaluate}
       />

@@ -1,7 +1,7 @@
 import { addMonths, endOfMonth, startOfMonth } from 'date-fns';
 import type { CalendarEvent } from './types';
 
-type ExamLike = Pick<CalendarEvent, 'start' | 'title' | 'services' | 'lessonStatus' | 'examCenter' | 'examDateTime' | 'examImageDataUri'>;
+type ExamLike = Pick<CalendarEvent, 'start' | 'title' | 'services' | 'lessonStatus' | 'examCenter' | 'examDateTime' | 'examImageDataUri' | 'examResult'>;
 
 /** Road tests are booked through the exam scheduler (exam fields) or as a lesson with an exam/road test service. */
 export function isExamEvent(event: ExamLike): boolean {
@@ -30,12 +30,18 @@ export type ExamMonthStats = {
   upcoming: number;
   noShow: number;
   cancelled: number;
+  passed: number;
+  failed: number;
+  /** Done exams with no pass/fail recorded yet. */
+  awaitingResult: number;
 };
 
 export function getExamMonthStats(events: ExamLike[], monthOffset: number, now = new Date()): ExamMonthStats {
   const monthStart = startOfMonth(addMonths(now, monthOffset));
   const monthEnd = endOfMonth(monthStart);
-  const stats: ExamMonthStats = { monthStart, scheduled: 0, done: 0, upcoming: 0, noShow: 0, cancelled: 0 };
+  const stats: ExamMonthStats = {
+    monthStart, scheduled: 0, done: 0, upcoming: 0, noShow: 0, cancelled: 0, passed: 0, failed: 0, awaitingResult: 0,
+  };
 
   for (const event of events) {
     if (!isExamEvent(event)) continue;
@@ -49,11 +55,21 @@ export function getExamMonthStats(events: ExamLike[], monthOffset: number, now =
     }
     stats.scheduled += 1;
     if (status === 'no-show') stats.noShow += 1;
-    else if (examTime.getTime() <= now.getTime()) stats.done += 1;
-    else stats.upcoming += 1;
+    else if (examTime.getTime() <= now.getTime()) {
+      stats.done += 1;
+      if (event.examResult === 'passed') stats.passed += 1;
+      else if (event.examResult === 'failed') stats.failed += 1;
+      else stats.awaitingResult += 1;
+    } else stats.upcoming += 1;
   }
 
   return stats;
+}
+
+/** Share of exams with a recorded result that passed, as a whole percent; null when none are recorded. */
+export function getPassRate(stats: Pick<ExamMonthStats, 'passed' | 'failed'>): number | null {
+  const recorded = stats.passed + stats.failed;
+  return recorded > 0 ? Math.round((stats.passed / recorded) * 100) : null;
 }
 
 /** All exams still ahead, across every month. */
