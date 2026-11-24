@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {
   ArrowRight,
   BriefcaseBusiness,
+  CarFront,
   CalendarDays,
   Clock3,
   CreditCard,
@@ -17,7 +18,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import type { ElementType } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { NotificationsSheet } from '@/components/layout/notifications-sheet';
 import { useEvents } from '@/hooks/use-events';
@@ -26,6 +27,8 @@ import { useStudents } from '@/hooks/use-students';
 import { useSession } from '@/firebase';
 import { formatCurrency } from '@/lib/utils';
 import { getCollectedAmount, getOutstandingAmount } from '@/lib/payment-utils';
+import { countUpcomingExams, getExamMonthStats } from '@/lib/exam-stats';
+import type { CalendarEvent } from '@/lib/types';
 
 function isToday(dateString: string | Date) {
   const date = new Date(dateString);
@@ -164,6 +167,8 @@ export function HomeMenu() {
         </section>
       )}
 
+      <ExamSummary events={events || []} />
+
       <section className="grid min-w-0 gap-3 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="min-w-0 overflow-hidden rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -240,6 +245,79 @@ export function HomeMenu() {
         </div>
       </section>
 
+    </div>
+  );
+}
+
+const EXAM_MONTHS = [
+  { offset: -1, label: 'Last month' },
+  { offset: 0, label: 'This month' },
+  { offset: 1, label: 'Next month' },
+] as const;
+
+function ExamSummary({ events }: { events: CalendarEvent[] }) {
+  const [monthOffset, setMonthOffset] = useState<number>(0);
+  const stats = useMemo(() => getExamMonthStats(events, monthOffset), [events, monthOffset]);
+  const upcomingTotal = useMemo(() => countUpcomingExams(events), [events]);
+
+  return (
+    <section className="min-w-0 overflow-hidden rounded-[22px] border border-white/75 bg-card p-4 shadow-elevated">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#7C3AED] text-white">
+            <CarFront className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold">Road tests</h2>
+            <p className="truncate text-xs text-muted-foreground">
+              {upcomingTotal} upcoming in total · {format(stats.monthStart, 'MMMM yyyy')}
+            </p>
+          </div>
+        </div>
+        <Link href="/app/schedule" className="shrink-0 text-xs font-semibold text-amber-700 dark:text-primary">
+          Schedule
+        </Link>
+      </div>
+
+      <div className="mb-3 grid grid-cols-3 rounded-full bg-secondary p-1 text-xs font-semibold">
+        {EXAM_MONTHS.map(month => (
+          <button
+            key={month.offset}
+            type="button"
+            onClick={() => setMonthOffset(month.offset)}
+            aria-pressed={monthOffset === month.offset}
+            className={`rounded-full px-2 py-1.5 transition-colors ${
+              monthOffset === month.offset ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+            }`}
+          >
+            {month.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <ExamStat label="Scheduled" value={stats.scheduled} />
+        <ExamStat label="Done" value={stats.done} />
+        <ExamStat label="Upcoming" value={stats.upcoming} />
+      </div>
+
+      {(stats.noShow > 0 || stats.cancelled > 0) && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {[
+            stats.noShow > 0 ? `${stats.noShow} no-show` : '',
+            stats.cancelled > 0 ? `${stats.cancelled} cancelled` : '',
+          ].filter(Boolean).join(' · ')}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ExamStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl bg-secondary/55 px-3 py-2.5 text-center">
+      <p className="text-2xl font-black tracking-tight text-foreground">{value}</p>
+      <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
     </div>
   );
 }
