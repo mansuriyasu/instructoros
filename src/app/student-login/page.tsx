@@ -247,7 +247,7 @@ export default function StudentLoginPage() {
                 ) : (
                   <>
                     <label className="block text-sm font-semibold">
-                      6-digit text code
+                      6-digit email code
                       <Input
                         className="mt-2 tracking-[0.35em]"
                         required
@@ -271,6 +271,11 @@ export default function StudentLoginPage() {
                         onChange={(event) => setOtpPin(event.target.value.replace(/\D/g, ""))}
                       />
                     </label>
+                    <p className="text-xs text-slate-600">
+                      Didn&apos;t get the code? Check your <strong>Spam</strong> or{" "}
+                      <strong>Junk</strong> folder (and <strong>Promotions</strong> in
+                      Gmail). Still nothing after a minute? Tap &quot;Send a new code&quot;.
+                    </p>
                     <Button
                       type="button"
                       variant="outline"

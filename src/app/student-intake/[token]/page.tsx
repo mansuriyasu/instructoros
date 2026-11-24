@@ -510,8 +510,7 @@ export default function StudentIntakePage({
               {otpSent && (
                 <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
                   We emailed a 6-digit verification code to{" "}
-                  <strong>{fields.email}</strong>. It expires in 10 minutes. Check
-                  your spam folder if you don&apos;t see it.
+                  <strong>{fields.email}</strong>. It expires in 10 minutes.
                 </p>
               )}
               {!otpSent ? (
@@ -556,6 +555,11 @@ export default function StudentIntakePage({
                       ? "Activating portal..."
                       : "Verify code and activate portal"}
                   </Button>
+                  <p className="text-xs text-slate-600">
+                    Didn&apos;t get the code? Check your <strong>Spam</strong> or{" "}
+                    <strong>Junk</strong> folder (and <strong>Promotions</strong> in
+                    Gmail). Still nothing after a minute? Tap &quot;Send a new code&quot;.
+                  </p>
                   <Button
                     variant="outline"
                     disabled={otpSending || creating}
