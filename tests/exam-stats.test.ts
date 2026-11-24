@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { countUpcomingExams, getExamMonthStats, isExamEvent } from '../src/lib/exam-stats';
+import { countUpcomingExams, getExamMonthStats, getPassRate, isExamEvent } from '../src/lib/exam-stats';
 
 const now = new Date('2026-11-24T12:00:00');
 const exam = (examDateTime: string, lessonStatus?: 'scheduled' | 'no-show' | 'cancelled') => ({
@@ -47,5 +47,21 @@ describe('exam stats', () => {
 
   test('upcoming total counts every future exam', () => {
     assert.strictEqual(countUpcomingExams(events, now), 3);
+  });
+
+  test('pass rate counts only recorded results', () => {
+    const withResults = [
+      { ...exam('2026-11-03T10:00:00'), examResult: 'passed' as const },
+      { ...exam('2026-11-04T10:00:00'), examResult: 'passed' as const },
+      { ...exam('2026-11-06T10:00:00'), examResult: 'failed' as const },
+      exam('2026-11-07T10:00:00'),
+    ];
+    const stats = getExamMonthStats(withResults, 0, now);
+    assert.deepStrictEqual(
+      { passed: stats.passed, failed: stats.failed, awaitingResult: stats.awaitingResult },
+      { passed: 2, failed: 1, awaitingResult: 1 }
+    );
+    assert.strictEqual(getPassRate(stats), 67);
+    assert.strictEqual(getPassRate({ passed: 0, failed: 0 }), null);
   });
 });
